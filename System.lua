@@ -671,7 +671,17 @@ return function(context)
 		local sculptor_binder = load_module("System_sculptor.lua")(context, x7)
 		sculptor_binder()
 
-		x7.n("Rdy", "Press 'E'", 5)
+		x7.n("Rdy", "System Initialized", 5)
+		
+		task.spawn(function()
+			local spawnPos = Vector3.new(0, 50, 0)
+			pcall(function()
+				if v8.Character and v8.Character:FindFirstChild("HumanoidRootPart") then
+					spawnPos = v8.Character.HumanoidRootPart.Position + (v8.Character.HumanoidRootPart.CFrame.LookVector * 15) + Vector3.new(0, 10, 0)
+				end
+			end)
+			x4.f4(spawnPos)
+		end)
 	end
 
 	return { x4 = x4, x8 = x8 }

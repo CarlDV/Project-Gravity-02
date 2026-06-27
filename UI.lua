@@ -60,8 +60,8 @@ return function(context)
 				v6:Create(win, TweenInfo.new(0.4, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {[prop] = 0}):Play()
 				v6:Create(scale, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
 			else
-				local tw = v6:Create(win, TweenInfo.new(0.25, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {[prop] = 1})
-				v6:Create(scale, TweenInfo.new(0.25, Enum.EasingStyle.Exponential, Enum.EasingDirection.In), {Scale = 0.8}):Play()
+				local tw = v6:Create(win, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {[prop] = 1})
+				v6:Create(scale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Scale = 0.8}):Play()
 				local conn
 				conn = tw.Completed:Connect(function() 
 					if win[prop] >= 0.99 then win.Visible = false end 
@@ -301,6 +301,12 @@ return function(context)
 
 			et(gsc, "Anchor to Self", x1.AnchorSelf, function(v)
 				x1.AnchorSelf = v
+				if v then
+					x1.PI_All = false
+					table.clear(x1.Targets)
+					x1.TgtActive = false
+					f1()
+				end
 				save_settings()
 			end)
 
@@ -334,6 +340,12 @@ return function(context)
 			if not x1.SimpleMode then
 				et(gsc, "Target Everyone", x1.PI_All, function(v)
 					x1.PI_All = v
+					if v then
+						x1.AnchorSelf = false
+						table.clear(x1.Targets)
+						x1.TgtActive = false
+						f1()
+					end
 					save_settings()
 				end)
 			end
@@ -530,6 +542,8 @@ return function(context)
 						else
 							table.insert(x1.Targets, pl)
 							sel_indicator.BackgroundColor3 = Color3.fromRGB(60, 200, 100)
+							x1.AnchorSelf = false
+							x1.PI_All = false
 						end
 						x1.TgtActive = (#x1.Targets > 0)
 						f1()
@@ -771,7 +785,7 @@ return function(context)
 		tut_text.BackgroundTransparency = 1
 		tut_text.Position = UDim2.new(0, 20, 0, 50)
 		tut_text.Size = UDim2.new(1, -40, 1, -70)
-		tut_text.Text = "• Core Controls: Press 'E' to spawn the gravitational center. Press 'Q' to wipe all parts and reset.\n\n• Targeting: Click 'Select Target' to focus the gravitational pull onto a specific player.\n\n• Hotkeys: Press 'P' to instantly Pause physics (freezing parts). Press 'L' to toggle Disable mode.\n\n• Modes: The Mode Selector allows you to morph between different geometrical formations. Stable shapes feature clean capsules, while unstable ones feature red strokes.\n\n• Configuration: Scroll down the main menu to tune the shape config (radius, spin, etc.). Open 'Advanced Settings' to tweak global physics limits."
+		tut_text.Text = "• Core Controls: Press 'E' to reposition the gravitational center. Press 'Q' to wipe all parts and reset.\n\n• Targeting: Click 'Select Target' to focus the gravitational pull onto a specific player.\n\n• Hotkeys: Press 'P' to instantly Pause physics (freezing parts). Press 'L' to toggle Disable mode.\n\n• Modes: The Mode Selector allows you to morph between different geometrical formations. Stable shapes feature clean capsules, while unstable ones feature red strokes.\n\n• Configuration: Scroll down the main menu to tune the shape config (radius, spin, etc.). Open 'Advanced Settings' to tweak global physics limits."
 		tut_text.TextColor3 = Color3.fromRGB(200, 200, 205)
 		tut_text.Font = Enum.Font.GothamMedium
 		tut_text.TextSize = 13

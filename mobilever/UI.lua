@@ -61,8 +61,8 @@ return function(context)
 				v6:Create(win, TweenInfo.new(0.4, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {[prop] = 0}):Play()
 				v6:Create(scale, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
 			else
-				local tw = v6:Create(win, TweenInfo.new(0.25, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {[prop] = 1})
-				v6:Create(scale, TweenInfo.new(0.25, Enum.EasingStyle.Exponential, Enum.EasingDirection.In), {Scale = 0.8}):Play()
+				local tw = v6:Create(win, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {[prop] = 1})
+				v6:Create(scale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Scale = 0.8}):Play()
 				local conn
 				conn = tw.Completed:Connect(function() 
 					if win[prop] >= 0.99 then win.Visible = false end 
@@ -315,6 +315,12 @@ return function(context)
 
 			et(gsc, "Anchor to Self", x1.AnchorSelf, function(v)
 				x1.AnchorSelf = v
+				if v then
+					x1.PI_All = false
+					table.clear(x1.Targets)
+					x1.TgtActive = false
+					if x5.up then x5.up() end
+				end
 				save_settings()
 			end)
 
@@ -348,6 +354,12 @@ return function(context)
 			if not x1.SimpleMode then
 				et(gsc, "Target Everyone", x1.PI_All, function(v)
 					x1.PI_All = v
+					if v then
+						x1.AnchorSelf = false
+						table.clear(x1.Targets)
+						x1.TgtActive = false
+						if x5.up then x5.up() end
+					end
 					save_settings()
 				end)
 			end
@@ -759,6 +771,8 @@ return function(context)
 					else
 						table.insert(x1.Targets, pl)
 						sel_indicator.BackgroundColor3 = Color3.fromRGB(60, 200, 100)
+						x1.AnchorSelf = false
+						x1.PI_All = false
 					end
 					x1.TgtActive = (#x1.Targets > 0)
 					if x5.up then x5.up() end
@@ -829,7 +843,7 @@ return function(context)
 		tut_text.BackgroundTransparency = 1
 		tut_text.Position = UDim2.new(0, 15, 0, 35)
 		tut_text.Size = UDim2.new(1, -30, 1, -45)
-		tut_text.Text = "• Core Controls: Tap 'PLC' to spawn the gravitational center. Tap 'CLN' to wipe active parts.\n\n• Targeting: Use 'Select Target' to focus gravity onto a specific player.\n\n• Elevation: Use 'UP' and 'DWN' buttons to manually adjust the vertical height of the formation.\n\n• System: Tap 'PAU' to instantly pause physics. Tap 'DIS' to disable the system.\n\n• Modes: Select modes to seamlessly morph between geometry.\n\n• Config: Scroll down the main menu to tune the shape config. Open 'Advanced Settings' for global physics."
+		tut_text.Text = "• Core Controls: Tap 'PLC' to reposition the gravitational center. Tap 'CLN' to wipe active parts.\n\n• Targeting: Use 'Select Target' to focus gravity onto a specific player.\n\n• Elevation: Use 'UP' and 'DWN' buttons to manually adjust the vertical height of the formation.\n\n• System: Tap 'PAU' to instantly pause physics. Tap 'DIS' to disable the system.\n\n• Modes: Select modes to seamlessly morph between geometry.\n\n• Config: Scroll down the main menu to tune the shape config. Open 'Advanced Settings' for global physics."
 		tut_text.TextColor3 = Color3.fromRGB(200, 200, 205)
 		tut_text.Font = Enum.Font.GothamMedium
 		tut_text.TextSize = 9
