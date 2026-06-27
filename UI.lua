@@ -15,6 +15,14 @@ return function(context)
 	x5.b = eb
 	x5.h = eh
 
+	local stable_shapes = {
+		["Galactic Web"] = true,
+		["Celestial Ribbon"] = true,
+		["Big Ring Things"] = true,
+		["Point Impact"] = true,
+		["Orbital Shell"] = true
+	}
+
 	function x5.st()
 		if x5.g and x5.up then
 			x5.up()
@@ -39,6 +47,29 @@ return function(context)
 	end
 
 	function x5.mw(sg)
+		local function toggle_window(win, state)
+			local scale = win:FindFirstChild("UIScale")
+			if not scale then
+				scale = Instance.new("UIScale", win)
+				scale.Scale = 0.8
+			end
+			local prop = win:IsA("CanvasGroup") and "GroupTransparency" or "BackgroundTransparency"
+			if state then
+				win.Visible = true
+				v6:Create(win, TweenInfo.new(0.4, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {[prop] = 0}):Play()
+				v6:Create(scale, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+			else
+				local tw = v6:Create(win, TweenInfo.new(0.25, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {[prop] = 1})
+				v6:Create(scale, TweenInfo.new(0.25, Enum.EasingStyle.Exponential, Enum.EasingDirection.In), {Scale = 0.8}):Play()
+				local conn
+				conn = tw.Completed:Connect(function() 
+					if win[prop] >= 0.99 then win.Visible = false end 
+					if conn then conn:Disconnect() end
+				end)
+				tw:Play()
+			end
+		end
+
 		local hud = Instance.new("Frame", sg)
 		hud.Name = "StatusHUD"
 		hud.BackgroundTransparency = 1
@@ -108,12 +139,13 @@ return function(context)
 		p.PaddingRight = UDim.new(0, 20)
 		p.PaddingBottom = UDim.new(0, 20)
 
-		local am = Instance.new("Frame", sg)
+		local am = Instance.new("CanvasGroup", sg)
 		am.Name = "Advanced"
 		am.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
 		am.Position = UDim2.new(0, 360, 0.5, -200)
 		am.Size = UDim2.new(0, 260, 0, 380)
 		am.Visible = false
+		am.GroupTransparency = 1
 		am.Active = true
 		am.Draggable = true
 		Instance.new("UICorner", am).CornerRadius = UDim.new(0, 10)
@@ -170,7 +202,7 @@ return function(context)
 		end)
 
 		local ab = eb(c, "Advanced Settings", function()
-			am.Visible = not am.Visible
+			toggle_window(am, not am.Visible)
 		end)
 		ab.Size = UDim2.new(1, 0, 0, 36)
 
@@ -199,8 +231,12 @@ return function(context)
 
 		db.MouseButton1Click:Connect(function()
 			if x6.dlst_container then
-				x6.dlst_container.Visible = not x6.dlst_container.Visible
-				if x6.dlst_container.Visible and x6.populate_modes then
+				local new_state = not x6.dlst_container.Visible
+				if m:FindFirstChild("TargetListContainer") and m.TargetListContainer.Visible then
+					toggle_window(m.TargetListContainer, false)
+				end
+				toggle_window(x6.dlst_container, new_state)
+				if new_state and x6.populate_modes then
 					x6.populate_modes("")
 				end
 			end
@@ -347,9 +383,10 @@ return function(context)
 			if m:FindFirstChild("TargetListContainer") then
 				m.TargetListContainer:Destroy()
 			end
-			local tdlst = Instance.new("Frame", m)
+			local tdlst = Instance.new("CanvasGroup", m)
 			tdlst.Name = "TargetListContainer"
 			tdlst.Visible = false
+			tdlst.GroupTransparency = 1
 			tdlst.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
 			tdlst.Position = UDim2.new(1, 15, 0, 0)
 			tdlst.Size = UDim2.new(0, 220, 1, 0)
@@ -433,7 +470,7 @@ return function(context)
 					ib.MouseButton1Click:Connect(function()
 						x1.Tgt = pl
 						x1.TgtActive = true
-						tdlst.Visible = false
+						toggle_window(tdlst, false)
 						f1()
 					end)
 				end
@@ -443,8 +480,12 @@ return function(context)
 				update_list(search_bar.Text)
 			end))
 			tdb.MouseButton1Click:Connect(function()
-				tdlst.Visible = not tdlst.Visible
-				if tdlst.Visible then
+				local new_state = not tdlst.Visible
+				if x6.dlst_container and x6.dlst_container.Visible then
+					toggle_window(x6.dlst_container, false)
+				end
+				toggle_window(tdlst, new_state)
+				if new_state then
 					update_list("")
 				end
 			end)
@@ -457,12 +498,21 @@ return function(context)
 						local current_val = s[ctrl.Key]
 						local p_frame = ctrl.Parent == "gsc" and gsc or sc
 						if ctrl.Type == "Slider" then
-							if current_val == nil then current_val = ctrl.Min end
+							if current_val == nil then
+								if ctrl.Default ~= nil then
+									current_val = ctrl.Default
+								else
+									current_val = ctrl.Min
+								end
+							end
 							if ctrl.Div then current_val = current_val * ctrl.Div end
 							es(p_frame, ctrl.Name, ctrl.Min, ctrl.Max, current_val, function(v)
 								if ctrl.Div then s[ctrl.Key] = v / ctrl.Div else s[ctrl.Key] = v end
 							end, ctrl.IntOnly)
 						elseif ctrl.Type == "Toggle" then
+							if current_val == nil then
+								current_val = ctrl.Default ~= nil and ctrl.Default or false
+							end
 							et(p_frame, ctrl.Name, current_val, function(v)
 								s[ctrl.Key] = v
 							end)
@@ -473,9 +523,10 @@ return function(context)
 		end
 		x5.up = f1
 
-		local dlst_container = Instance.new("Frame", m)
+		local dlst_container = Instance.new("CanvasGroup", m)
 		dlst_container.Name = "ModeSelector"
 		dlst_container.Visible = false
+		dlst_container.GroupTransparency = 1
 		dlst_container.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
 		dlst_container.Position = UDim2.new(1, 15, 0, 0)
 		dlst_container.Size = UDim2.new(0, 220, 1, 0)
@@ -520,6 +571,10 @@ return function(context)
 				if fa ~= fb then
 					return fa > fb
 				end
+				local sa, sb = stable_shapes[a] and 1 or 0, stable_shapes[b] and 1 or 0
+				if sa ~= sb then
+					return sa > sb
+				end
 				return a < b
 			end)
 
@@ -528,10 +583,18 @@ return function(context)
 					continue
 				end
 
+				local is_stable = stable_shapes[mn]
 				local f = Instance.new("Frame", dlst)
 				f.Size = UDim2.new(1, -16, 0, 40)
 				f.BackgroundColor3 = mn == x1.k6 and Color3.fromRGB(40, 40, 180) or Color3.fromRGB(25, 25, 30)
-				Instance.new("UICorner", f).CornerRadius = UDim.new(0, 6)
+				Instance.new("UICorner", f).CornerRadius = is_stable and UDim.new(1, 0) or UDim.new(0, 6)
+
+				if not is_stable then
+					local fs = Instance.new("UIStroke", f)
+					fs.Color = Color3.fromRGB(200, 80, 80)
+					fs.Thickness = 1
+					fs.Transparency = 0.5
+				end
 
 				local ib = Instance.new("TextButton", f)
 				ib.Size = UDim2.new(1, -40, 1, 0)
@@ -571,7 +634,7 @@ return function(context)
 						if db then
 							db.Text = "  " .. mn:upper()
 						end
-						dlst_container.Visible = false
+						toggle_window(dlst_container, false)
 						save_settings()
 						if x5.up then
 							x5.up()
@@ -607,15 +670,17 @@ return function(context)
 			im = not im
 			c.Visible = not im
 			if im then
-				am.Visible = false
-				if x6.dlst_container then
-					x6.dlst_container.Visible = false
+				if am.Visible then toggle_window(am, false) end
+				if x6.dlst_container and x6.dlst_container.Visible then
+					toggle_window(x6.dlst_container, false)
 				end
-				if m:FindFirstChild("TargetListContainer") then
-					m.TargetListContainer.Visible = false
+				if m:FindFirstChild("TargetListContainer") and m.TargetListContainer.Visible then
+					toggle_window(m.TargetListContainer, false)
 				end
 			end
-			m:TweenSize(im and UDim2.new(0, 320, 0, 50) or UDim2.new(0, 320, 0, 500), "Out", "Quart", 0.3, true)
+			v6:Create(m, TweenInfo.new(0.4, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {
+				Size = im and UDim2.new(0, 320, 0, 50) or UDim2.new(0, 320, 0, 500)
+			}):Play()
 		end)
 
 		closeb.MouseButton1Click:Connect(function()

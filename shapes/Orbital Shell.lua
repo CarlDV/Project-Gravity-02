@@ -47,7 +47,7 @@ M.Controls = {
 	{ Type = "Slider", Name = "Spin Speed", Min = 1, Max = 300, Key = "k13", Div = 10 },
 	{ Type = "Slider", Name = "Shell Radius", Min = 50, Max = 1000, Key = "k11" },
 	{ Type = "Slider", Name = "Move Area", Min = 50, Max = 1500, Key = "k17" },
-	{ Type = "Toggle", Name = "Cut in Half", Key = "k18" },
+	{ Type = "Toggle", Name = "Cut in Half", Key = "k18", Default = true },
 	{ Type = "Toggle", Name = "Stable Flow", Key = "k19" }
 }
 

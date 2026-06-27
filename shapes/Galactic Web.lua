@@ -65,10 +65,10 @@ end
 
 M.Controls = {
 	{ Type = "Slider", Name = "Radius Spread", Min = 50, Max = 1500, Key = "k11" },
-	{ Type = "Slider", Name = "Spin Speed", Min = 1, Max = 100, Key = "k12", Div = 10 },
-	{ Type = "Slider", Name = "Drift Speed", Min = 1, Max = 50, Key = "k13" },
+	{ Type = "Slider", Name = "Spin Speed", Min = 0, Max = 100, Key = "k12", Div = 10, Default = 0 },
+	{ Type = "Slider", Name = "Drift Speed", Min = 0, Max = 50, Key = "k13", Default = 0 },
 	{ Type = "Slider", Name = "Web Height Limit", Min = 0, Max = 1500, Key = "k24" },
-	{ Type = "Toggle", Name = "Cut In Half", Key = "k23" }
+	{ Type = "Toggle", Name = "Cut In Half", Key = "k23", Default = true }
 }
 
 return M

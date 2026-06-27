@@ -16,6 +16,14 @@ return function(context)
 	x5.b = eb
 	x5.h = eh
 
+	local stable_shapes = {
+		["Galactic Web"] = true,
+		["Celestial Ribbon"] = true,
+		["Big Ring Things"] = true,
+		["Point Impact"] = true,
+		["Orbital Shell"] = true
+	}
+
 	function x5.st()
 		if x5.g and x5.up then
 			x5.up()
@@ -41,14 +49,22 @@ return function(context)
 
 	function x5.mw(sg)
 		local function toggle_window(win, state)
+			local scale = win:FindFirstChild("UIScale")
+			if not scale then
+				scale = Instance.new("UIScale", win)
+				scale.Scale = 0.8
+			end
+			local prop = win:IsA("CanvasGroup") and "GroupTransparency" or "BackgroundTransparency"
 			if state then
 				win.Visible = true
-				v6:Create(win, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {GroupTransparency = 0}):Play()
+				v6:Create(win, TweenInfo.new(0.4, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {[prop] = 0}):Play()
+				v6:Create(scale, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
 			else
-				local tw = v6:Create(win, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {GroupTransparency = 1})
+				local tw = v6:Create(win, TweenInfo.new(0.25, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {[prop] = 1})
+				v6:Create(scale, TweenInfo.new(0.25, Enum.EasingStyle.Exponential, Enum.EasingDirection.In), {Scale = 0.8}):Play()
 				local conn
 				conn = tw.Completed:Connect(function() 
-					if win.GroupTransparency >= 0.99 then win.Visible = false end 
+					if win[prop] >= 0.99 then win.Visible = false end 
 					if conn then conn:Disconnect() end
 				end)
 				tw:Play()
@@ -399,12 +415,21 @@ return function(context)
 						local current_val = s[ctrl.Key]
 						local p_frame = ctrl.Parent == "gsc" and gsc or sc
 						if ctrl.Type == "Slider" then
-							if current_val == nil then current_val = ctrl.Min end
+							if current_val == nil then
+								if ctrl.Default ~= nil then
+									current_val = ctrl.Default
+								else
+									current_val = ctrl.Min
+								end
+							end
 							if ctrl.Div then current_val = current_val * ctrl.Div end
 							es(p_frame, ctrl.Name, ctrl.Min, ctrl.Max, current_val, function(v)
 								if ctrl.Div then s[ctrl.Key] = v / ctrl.Div else s[ctrl.Key] = v end
 							end, ctrl.IntOnly)
 						elseif ctrl.Type == "Toggle" then
+							if current_val == nil then
+								current_val = ctrl.Default ~= nil and ctrl.Default or false
+							end
 							et(p_frame, ctrl.Name, current_val, function(v)
 								s[ctrl.Key] = v
 							end)
@@ -485,6 +510,10 @@ return function(context)
 				if fa ~= fb then
 					return fa > fb
 				end
+				local sa, sb = stable_shapes[a] and 1 or 0, stable_shapes[b] and 1 or 0
+				if sa ~= sb then
+					return sa > sb
+				end
 				return a < b
 			end)
 
@@ -493,11 +522,19 @@ return function(context)
 					continue
 				end
 
+				local is_stable = stable_shapes[mn]
 				local f = Instance.new("Frame", dlst)
 				f.Size = UDim2.new(1, -16, 0, 24)
 				f.BackgroundColor3 = mn == x1.k6 and Color3.fromRGB(40, 40, 180) or Color3.fromRGB(25, 25, 30)
 				f.ZIndex = 12
-				Instance.new("UICorner", f).CornerRadius = UDim.new(0, 6)
+				Instance.new("UICorner", f).CornerRadius = is_stable and UDim.new(1, 0) or UDim.new(0, 4)
+				
+				if not is_stable then
+					local fs = Instance.new("UIStroke", f)
+					fs.Color = Color3.fromRGB(200, 80, 80)
+					fs.Thickness = 1
+					fs.Transparency = 0.5
+				end
 
 				local ib = Instance.new("TextButton", f)
 				ib.Size = UDim2.new(1, -40, 1, 0)
