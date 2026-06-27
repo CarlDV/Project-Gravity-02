@@ -192,6 +192,7 @@ return function(context)
 		ap.PaddingLeft = UDim.new(0, 15)
 		ap.PaddingRight = UDim.new(0, 15)
 
+
 		es(ac, "Damping", 0, 5, x1.Damping, function(v)
 			x1.Damping = v
 			save_settings()
@@ -210,11 +211,6 @@ return function(context)
 		end)
 		es(ac, "Vert Stiffness", 0.1, 5, x1.VerticalStiffness or 1.0, function(v)
 			x1.VerticalStiffness = v
-			save_settings()
-		end)
-		et(ac, "Show HUD", x1.ShowHUD ~= false, function(v)
-			x1.ShowHUD = v
-			if hud then hud.Visible = v end
 			save_settings()
 		end)
 		if setfpscap then
@@ -302,6 +298,12 @@ return function(context)
 
 			eh(gsc, "Control")
 
+
+			et(gsc, "Show HUD", x1.ShowHUD ~= false, function(v)
+				x1.ShowHUD = v
+				if hud then hud.Visible = v end
+				save_settings()
+			end)
 
 			et(gsc, "Anchor to Self", x1.AnchorSelf, function(v)
 				x1.AnchorSelf = v
@@ -771,7 +773,7 @@ return function(context)
 		tut_text.BackgroundTransparency = 1
 		tut_text.Position = UDim2.new(0, 15, 0, 35)
 		tut_text.Size = UDim2.new(1, -30, 1, -45)
-		tut_text.Text = "• Core Controls: Tap 'PLC' to spawn the gravitational center. Tap 'CLN' to wipe active parts.\n\n• Targeting: Use 'Select Target' to focus gravity onto a specific player.\n\n• Elevation: Use 'UP' and 'DWN' buttons to manually adjust the vertical height of the formation.\n\n• System: Tap 'PAU' to instantly pause physics. Tap 'DIS' to disable the system.\n\n• Modes: Select modes to seamlessly morph between geometry.\n\n• Config: Open 'Advanced Settings' to tune physics, rotation, and radius sliders per-shape."
+		tut_text.Text = "• Core Controls: Tap 'PLC' to spawn the gravitational center. Tap 'CLN' to wipe active parts.\n\n• Targeting: Use 'Select Target' to focus gravity onto a specific player.\n\n• Elevation: Use 'UP' and 'DWN' buttons to manually adjust the vertical height of the formation.\n\n• System: Tap 'PAU' to instantly pause physics. Tap 'DIS' to disable the system.\n\n• Modes: Select modes to seamlessly morph between geometry.\n\n• Config: Scroll down the main menu to tune the shape config. Open 'Advanced Settings' for global physics."
 		tut_text.TextColor3 = Color3.fromRGB(200, 200, 205)
 		tut_text.Font = Enum.Font.GothamMedium
 		tut_text.TextSize = 9

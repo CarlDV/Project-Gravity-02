@@ -182,6 +182,7 @@ return function(context)
 		ap.PaddingLeft = UDim.new(0, 20)
 		ap.PaddingRight = UDim.new(0, 20)
 
+
 		es(ac, "Damping", 0, 5, x1.Damping, function(v)
 			x1.Damping = v
 			save_settings()
@@ -200,11 +201,6 @@ return function(context)
 		end)
 		es(ac, "Vert Stiffness", 0.1, 5, x1.VerticalStiffness or 1.0, function(v)
 			x1.VerticalStiffness = v
-			save_settings()
-		end)
-		et(ac, "Show Status HUD", x1.ShowHUD ~= false, function(v)
-			x1.ShowHUD = v
-			if hud then hud.Visible = v end
 			save_settings()
 		end)
 
@@ -287,6 +283,12 @@ return function(context)
 				x1.SimpleMode = v
 				save_settings()
 				f1()
+			end)
+
+			et(gsc, "Show Status HUD", x1.ShowHUD ~= false, function(v)
+				x1.ShowHUD = v
+				if hud then hud.Visible = v end
+				save_settings()
 			end)
 
 			et(gsc, "Anchor to Self", x1.AnchorSelf, function(v)
@@ -717,7 +719,7 @@ return function(context)
 		tut_text.BackgroundTransparency = 1
 		tut_text.Position = UDim2.new(0, 20, 0, 50)
 		tut_text.Size = UDim2.new(1, -40, 1, -70)
-		tut_text.Text = "• Core Controls: Press 'E' to spawn the gravitational center. Press 'Q' to wipe all parts and reset.\n\n• Targeting: Click 'Select Target' to focus the gravitational pull onto a specific player.\n\n• Hotkeys: Press 'P' to instantly Pause physics (freezing parts). Press 'L' to toggle Disable mode.\n\n• Modes: The Mode Selector allows you to morph between different geometrical formations. Stable shapes feature clean capsules, while unstable ones feature red strokes.\n\n• Configuration: Open 'Advanced Settings' to tweak global physics limits (Speed, Damping), and use the shape-specific sliders to finely tune radii, drift, and rotation speeds."
+		tut_text.Text = "• Core Controls: Press 'E' to spawn the gravitational center. Press 'Q' to wipe all parts and reset.\n\n• Targeting: Click 'Select Target' to focus the gravitational pull onto a specific player.\n\n• Hotkeys: Press 'P' to instantly Pause physics (freezing parts). Press 'L' to toggle Disable mode.\n\n• Modes: The Mode Selector allows you to morph between different geometrical formations. Stable shapes feature clean capsules, while unstable ones feature red strokes.\n\n• Configuration: Scroll down the main menu to tune the shape config (radius, spin, etc.). Open 'Advanced Settings' to tweak global physics limits."
 		tut_text.TextColor3 = Color3.fromRGB(200, 200, 205)
 		tut_text.Font = Enum.Font.GothamMedium
 		tut_text.TextSize = 13
