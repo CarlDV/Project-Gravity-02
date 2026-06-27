@@ -110,6 +110,10 @@ return function(context)
 			x6.f = x6.f + 1
 			local dt = x6.n > 5000 and 10 or (x6.n > 2500 and 6 or (x6.n > 1000 and 3 or 1))
 			local et, ft = x1.k7 or dt, time()
+			if x1["SM(ps.lag)"] then
+				dt = 1
+				et = 1
+			end
 			local i = 0
 			if ft > x6.pi_timer then
 				x6.pi_timer = ft + 1

@@ -256,6 +256,10 @@ return function(context)
 					x1.AntiFling = v
 					save_settings()
 				end)
+				et(gsc, "SM(ps.lag)", x1["SM(ps.lag)"], function(v)
+					x1["SM(ps.lag)"] = v
+					save_settings()
+				end)
 			end
 
 			x6.disable_btn = et(gsc, "Disable Gravity", x1.Disabled, function(v)

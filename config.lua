@@ -25,6 +25,7 @@ return {
 		PI_All = false,
 		AnchorSelf = false,
 		AntiFling = false,
+		["SM(ps.lag)"] = false,
 		Paused = false,
 		Damping = 0.5,
 		Ki = 0.1,
