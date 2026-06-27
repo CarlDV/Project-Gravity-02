@@ -99,6 +99,8 @@ return function(context)
 			end)
 		)
 
+		hud.Visible = x1.ShowHUD ~= false
+
 		local m = Instance.new("Frame", sg)
 		m.Name = "Main"
 		m.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
@@ -208,6 +210,11 @@ return function(context)
 		end)
 		es(ac, "Vert Stiffness", 0.1, 5, x1.VerticalStiffness or 1.0, function(v)
 			x1.VerticalStiffness = v
+			save_settings()
+		end)
+		et(ac, "Show HUD", x1.ShowHUD ~= false, function(v)
+			x1.ShowHUD = v
+			if hud then hud.Visible = v end
 			save_settings()
 		end)
 		if setfpscap then
@@ -568,6 +575,7 @@ return function(context)
 					if shape then
 						x1.k6 = mn
 						x6.transition_time = time()
+						x6.transition_dur = 1.5
 						for _, d in pairs(x6.a) do
 							d.trans_vl = d.vl or Vector3.zero
 							d.v1, d.v2, d.v3, d.v4, d.v5, d.v6, d.v7, d.v8, d.v9 = nil, nil, nil, nil, nil, nil, nil, nil, nil
@@ -711,6 +719,69 @@ return function(context)
 		minb.Size = UDim2.new(0, 14, 0, 14)
 		minb.Text = ""
 		Instance.new("UICorner", minb).CornerRadius = UDim.new(1, 0)
+		
+		local tutb = Instance.new("TextButton", h)
+		tutb.BackgroundColor3 = Color3.fromRGB(50, 150, 200)
+		tutb.Position = UDim2.new(1, -66, 0.5, -7)
+		tutb.Size = UDim2.new(0, 14, 0, 14)
+		tutb.Text = "?"
+		tutb.TextColor3 = Color3.fromRGB(255, 255, 255)
+		tutb.Font = Enum.Font.GothamBold
+		tutb.TextSize = 10
+		Instance.new("UICorner", tutb).CornerRadius = UDim.new(1, 0)
+
+		local tut_container = Instance.new("CanvasGroup", sg)
+		tut_container.Name = "Tutorial"
+		tut_container.Visible = false
+		tut_container.GroupTransparency = 1
+		tut_container.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+		tut_container.Position = UDim2.new(0.5, -100, 0.5, -120)
+		tut_container.Size = UDim2.new(0, 200, 0, 240)
+		tut_container.Active = true
+		tut_container.Draggable = true
+		Instance.new("UICorner", tut_container).CornerRadius = UDim.new(0, 10)
+		local tuls = Instance.new("UIStroke", tut_container)
+		tuls.Color = Color3.fromRGB(40, 40, 45)
+
+		local tut_header = Instance.new("Frame", tut_container)
+		tut_header.BackgroundTransparency = 1
+		tut_header.Size = UDim2.new(1, 0, 0, 30)
+		
+		local tut_title = Instance.new("TextLabel", tut_header)
+		tut_title.BackgroundTransparency = 1
+		tut_title.Position = UDim2.new(0, 15, 0, 0)
+		tut_title.Size = UDim2.new(0.8, 0, 1, 0)
+		tut_title.Text = "HOW TO USE"
+		tut_title.TextColor3 = Color3.fromRGB(255, 255, 255)
+		tut_title.Font = Enum.Font.GothamBlack
+		tut_title.TextSize = 10
+		tut_title.TextXAlignment = 0
+
+		local tut_close = Instance.new("TextButton", tut_header)
+		tut_close.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+		tut_close.Position = UDim2.new(1, -22, 0.5, -7)
+		tut_close.Size = UDim2.new(0, 14, 0, 14)
+		tut_close.Text = ""
+		Instance.new("UICorner", tut_close).CornerRadius = UDim.new(1, 0)
+		tut_close.MouseButton1Click:Connect(function()
+			toggle_window(tut_container, false)
+		end)
+
+		local tut_text = Instance.new("TextLabel", tut_container)
+		tut_text.BackgroundTransparency = 1
+		tut_text.Position = UDim2.new(0, 15, 0, 35)
+		tut_text.Size = UDim2.new(1, -30, 1, -45)
+		tut_text.Text = "• Core Controls: Tap 'PLC' to spawn the gravitational center. Tap 'CLN' to wipe active parts.\n\n• Targeting: Use 'Select Target' to focus gravity onto a specific player.\n\n• Elevation: Use 'UP' and 'DWN' buttons to manually adjust the vertical height of the formation.\n\n• System: Tap 'PAU' to instantly pause physics. Tap 'DIS' to disable the system.\n\n• Modes: Select modes to seamlessly morph between geometry.\n\n• Config: Open 'Advanced Settings' to tune physics, rotation, and radius sliders per-shape."
+		tut_text.TextColor3 = Color3.fromRGB(200, 200, 205)
+		tut_text.Font = Enum.Font.GothamMedium
+		tut_text.TextSize = 9
+		tut_text.TextXAlignment = 0
+		tut_text.TextYAlignment = 0
+		tut_text.TextWrapped = true
+
+		tutb.MouseButton1Click:Connect(function()
+			toggle_window(tut_container, not tut_container.Visible)
+		end)
 
 		local closeb = Instance.new("TextButton", h)
 		closeb.BackgroundColor3 = Color3.fromRGB(200, 60, 60)

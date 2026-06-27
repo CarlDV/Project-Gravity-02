@@ -97,6 +97,8 @@ return function(context)
 				hud_l.TextColor3 = col
 			end)
 		)
+		
+		hud.Visible = x1.ShowHUD ~= false
 
 		local m = Instance.new("Frame", sg)
 		m.Name = "Main"
@@ -198,6 +200,11 @@ return function(context)
 		end)
 		es(ac, "Vert Stiffness", 0.1, 5, x1.VerticalStiffness or 1.0, function(v)
 			x1.VerticalStiffness = v
+			save_settings()
+		end)
+		et(ac, "Show Status HUD", x1.ShowHUD ~= false, function(v)
+			x1.ShowHUD = v
+			if hud then hud.Visible = v end
 			save_settings()
 		end)
 
@@ -626,6 +633,7 @@ return function(context)
 					if shape then
 						x1.k6 = mn
 						x6.transition_time = time()
+						x6.transition_dur = 1.5
 						for _, d in pairs(x6.a) do
 							d.trans_vl = d.vl or Vector3.zero
 							d.v1, d.v2, d.v3, d.v4, d.v5, d.v6, d.v7, d.v8, d.v9 = nil, nil, nil, nil, nil, nil, nil, nil, nil
@@ -657,6 +665,69 @@ return function(context)
 		minb.Size = UDim2.new(0, 20, 0, 20)
 		minb.Text = ""
 		Instance.new("UICorner", minb).CornerRadius = UDim.new(1, 0)
+		
+		local tutb = Instance.new("TextButton", h)
+		tutb.BackgroundColor3 = Color3.fromRGB(50, 150, 200)
+		tutb.Position = UDim2.new(1, -90, 0.5, -10)
+		tutb.Size = UDim2.new(0, 20, 0, 20)
+		tutb.Text = "?"
+		tutb.TextColor3 = Color3.fromRGB(255, 255, 255)
+		tutb.Font = Enum.Font.GothamBold
+		tutb.TextSize = 14
+		Instance.new("UICorner", tutb).CornerRadius = UDim.new(1, 0)
+
+		local tut_container = Instance.new("CanvasGroup", sg)
+		tut_container.Name = "Tutorial"
+		tut_container.Visible = false
+		tut_container.GroupTransparency = 1
+		tut_container.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+		tut_container.Position = UDim2.new(0.5, -200, 0.5, -150)
+		tut_container.Size = UDim2.new(0, 400, 0, 300)
+		tut_container.Active = true
+		tut_container.Draggable = true
+		Instance.new("UICorner", tut_container).CornerRadius = UDim.new(0, 10)
+		local tuls = Instance.new("UIStroke", tut_container)
+		tuls.Color = Color3.fromRGB(40, 40, 45)
+
+		local tut_header = Instance.new("Frame", tut_container)
+		tut_header.BackgroundTransparency = 1
+		tut_header.Size = UDim2.new(1, 0, 0, 40)
+		
+		local tut_title = Instance.new("TextLabel", tut_header)
+		tut_title.BackgroundTransparency = 1
+		tut_title.Position = UDim2.new(0, 20, 0, 0)
+		tut_title.Size = UDim2.new(0.8, 0, 1, 0)
+		tut_title.Text = "HOW TO USE PROJECT GRAVITY"
+		tut_title.TextColor3 = Color3.fromRGB(255, 255, 255)
+		tut_title.Font = Enum.Font.GothamBlack
+		tut_title.TextSize = 14
+		tut_title.TextXAlignment = 0
+
+		local tut_close = Instance.new("TextButton", tut_header)
+		tut_close.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+		tut_close.Position = UDim2.new(1, -30, 0.5, -10)
+		tut_close.Size = UDim2.new(0, 20, 0, 20)
+		tut_close.Text = ""
+		Instance.new("UICorner", tut_close).CornerRadius = UDim.new(1, 0)
+		tut_close.MouseButton1Click:Connect(function()
+			toggle_window(tut_container, false)
+		end)
+
+		local tut_text = Instance.new("TextLabel", tut_container)
+		tut_text.BackgroundTransparency = 1
+		tut_text.Position = UDim2.new(0, 20, 0, 50)
+		tut_text.Size = UDim2.new(1, -40, 1, -70)
+		tut_text.Text = "• Core Controls: Press 'E' to spawn the gravitational center. Press 'Q' to wipe all parts and reset.\n\n• Targeting: Click 'Select Target' to focus the gravitational pull onto a specific player.\n\n• Hotkeys: Press 'P' to instantly Pause physics (freezing parts). Press 'L' to toggle Disable mode.\n\n• Modes: The Mode Selector allows you to morph between different geometrical formations. Stable shapes feature clean capsules, while unstable ones feature red strokes.\n\n• Configuration: Open 'Advanced Settings' to tweak global physics limits (Speed, Damping), and use the shape-specific sliders to finely tune radii, drift, and rotation speeds."
+		tut_text.TextColor3 = Color3.fromRGB(200, 200, 205)
+		tut_text.Font = Enum.Font.GothamMedium
+		tut_text.TextSize = 13
+		tut_text.TextXAlignment = 0
+		tut_text.TextYAlignment = 0
+		tut_text.TextWrapped = true
+
+		tutb.MouseButton1Click:Connect(function()
+			toggle_window(tut_container, not tut_container.Visible)
+		end)
 
 		local closeb = Instance.new("TextButton", h)
 		closeb.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
