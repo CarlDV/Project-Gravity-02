@@ -25,6 +25,8 @@ return {
 		PI_All = false,
 		AnchorSelf = false,
 		AntiFling = false,
+		PredictiveTracking = true,
+		PredictionFactor = 150,
 		ShowHUD = true,
 		["SM(ps.lag)"] = false,
 		Paused = false,

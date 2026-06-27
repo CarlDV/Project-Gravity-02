@@ -182,7 +182,14 @@ return function(context)
 		ap.PaddingLeft = UDim.new(0, 20)
 		ap.PaddingRight = UDim.new(0, 20)
 
-
+		et(ac, "Predictive Tracking", x1.PredictiveTracking ~= false, function(v)
+			x1.PredictiveTracking = v
+			save_settings()
+		end)
+		es(ac, "Prediction Factor", 0, 500, x1.PredictionFactor or 150, function(v)
+			x1.PredictionFactor = v
+			save_settings()
+		end)
 		es(ac, "Damping", 0, 5, x1.Damping, function(v)
 			x1.Damping = v
 			save_settings()
@@ -455,12 +462,36 @@ return function(context)
 					local ib = Instance.new("TextButton", scroll_frame)
 					ib.Size = UDim2.new(1, -16, 0, 44)
 					ib.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-					ib.Text = "  " .. pl.DisplayName
-					ib.TextColor3 = Color3.fromRGB(255, 255, 255)
-					ib.Font = Enum.Font.GothamBold
-					ib.TextSize = 12
-					ib.TextXAlignment = 0
+					ib.Text = ""
+					ib.AutoButtonColor = false
 					Instance.new("UICorner", ib).CornerRadius = UDim.new(0, 6)
+
+					local pfp = Instance.new("ImageLabel", ib)
+					pfp.Size = UDim2.new(0, 32, 0, 32)
+					pfp.Position = UDim2.new(0, 6, 0.5, -16)
+					pfp.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+					pfp.Image = "rbxthumb://type=AvatarHeadShot&id=" .. pl.UserId .. "&w=48&h=48"
+					Instance.new("UICorner", pfp).CornerRadius = UDim.new(1, 0)
+
+					local dname = Instance.new("TextLabel", ib)
+					dname.BackgroundTransparency = 1
+					dname.Position = UDim2.new(0, 46, 0, 6)
+					dname.Size = UDim2.new(1, -54, 0, 16)
+					dname.Text = pl.DisplayName
+					dname.TextColor3 = Color3.fromRGB(255, 255, 255)
+					dname.Font = Enum.Font.GothamBold
+					dname.TextSize = 13
+					dname.TextXAlignment = 0
+
+					local uname = Instance.new("TextLabel", ib)
+					uname.BackgroundTransparency = 1
+					uname.Position = UDim2.new(0, 46, 0, 22)
+					uname.Size = UDim2.new(1, -54, 0, 14)
+					uname.Text = "@" .. pl.Name
+					uname.TextColor3 = Color3.fromRGB(150, 150, 150)
+					uname.Font = Enum.Font.GothamMedium
+					uname.TextSize = 10
+					uname.TextXAlignment = 0
 
 					ib.MouseEnter:Connect(function()
 						ib.BackgroundColor3 = Color3.fromRGB(35, 35, 40)

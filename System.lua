@@ -138,7 +138,12 @@ return function(context)
 			if #x6.pi_targets > 0 then
 				for _, tgt in ipairs(x6.pi_targets) do
 					if tgt and tgt.Character and tgt.Character:FindFirstChild("HumanoidRootPart") then
-						table.insert(target_positions, tgt.Character.HumanoidRootPart.Position)
+						local root = tgt.Character.HumanoidRootPart
+						local pos = root.Position
+						if x1.PredictiveTracking then
+							pos = pos + (root.AssemblyLinearVelocity * ((x1.PredictionFactor or 150) / 1000))
+						end
+						table.insert(target_positions, pos)
 						valid_targets = valid_targets + 1
 					end
 				end

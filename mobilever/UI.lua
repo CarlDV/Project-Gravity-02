@@ -192,7 +192,14 @@ return function(context)
 		ap.PaddingLeft = UDim.new(0, 15)
 		ap.PaddingRight = UDim.new(0, 15)
 
-
+		et(ac, "Predictive Tracking", x1.PredictiveTracking ~= false, function(v)
+			x1.PredictiveTracking = v
+			save_settings()
+		end)
+		es(ac, "Prediction Factor", 0, 500, x1.PredictionFactor or 150, function(v)
+			x1.PredictionFactor = v
+			save_settings()
+		end)
 		es(ac, "Damping", 0, 5, x1.Damping, function(v)
 			x1.Damping = v
 			save_settings()
@@ -677,15 +684,42 @@ return function(context)
 				end
 
 				local ib = Instance.new("TextButton", t_scroll)
-				ib.Size = UDim2.new(1, -16, 0, 26)
+				ib.Size = UDim2.new(1, -16, 0, 36)
 				ib.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-				ib.Text = "  " .. pl.DisplayName
-				ib.TextColor3 = Color3.fromRGB(255, 255, 255)
-				ib.Font = Enum.Font.GothamBold
-				ib.TextSize = 9
-				ib.TextXAlignment = 0
+				ib.Text = ""
+				ib.AutoButtonColor = false
 				ib.ZIndex = 12
 				Instance.new("UICorner", ib).CornerRadius = UDim.new(0, 6)
+
+				local pfp = Instance.new("ImageLabel", ib)
+				pfp.Size = UDim2.new(0, 26, 0, 26)
+				pfp.Position = UDim2.new(0, 6, 0.5, -13)
+				pfp.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+				pfp.Image = "rbxthumb://type=AvatarHeadShot&id=" .. pl.UserId .. "&w=48&h=48"
+				pfp.ZIndex = 12
+				Instance.new("UICorner", pfp).CornerRadius = UDim.new(1, 0)
+
+				local dname = Instance.new("TextLabel", ib)
+				dname.BackgroundTransparency = 1
+				dname.Position = UDim2.new(0, 38, 0, 4)
+				dname.Size = UDim2.new(1, -44, 0, 14)
+				dname.Text = pl.DisplayName
+				dname.TextColor3 = Color3.fromRGB(255, 255, 255)
+				dname.Font = Enum.Font.GothamBold
+				dname.TextSize = 10
+				dname.TextXAlignment = 0
+				dname.ZIndex = 12
+
+				local uname = Instance.new("TextLabel", ib)
+				uname.BackgroundTransparency = 1
+				uname.Position = UDim2.new(0, 38, 0, 18)
+				uname.Size = UDim2.new(1, -44, 0, 12)
+				uname.Text = "@" .. pl.Name
+				uname.TextColor3 = Color3.fromRGB(150, 150, 150)
+				uname.Font = Enum.Font.GothamMedium
+				uname.TextSize = 8
+				uname.TextXAlignment = 0
+				uname.ZIndex = 12
 
 				ib.MouseEnter:Connect(function()
 					ib.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
