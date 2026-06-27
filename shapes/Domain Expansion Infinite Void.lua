@@ -40,7 +40,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			if c.k18 then
 				rv = Vector3.new(rv.X, math.abs(rv.Y), rv.Z)
 			end
-			return ((cen + (rv * R)) - wp) * (x1.k10 * x9.c1)
+			local speed_factor = math.max(1, (c.k13 or 10) / 25)
+			return ((cen + (rv * R)) - wp) * (x1.k10 * x9.c1 * speed_factor)
 end
 
 M.Controls = {
