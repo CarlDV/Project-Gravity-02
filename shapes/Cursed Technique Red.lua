@@ -26,27 +26,34 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		dir = dist.Unit
 	end
 	
-	if mag > radius then
-		local time_scale = t * 0.8
+	if mag > radius * 0.95 then
+		local time_scale = t * 0.3
 		local nx = math.noise(d.nx, time_scale, 0)
 		local ny = math.noise(d.ny, time_scale, 0)
 		local nz = math.noise(d.nz, time_scale, 0)
 		
-		local chaos = Vector3.new(nx, ny, nz) * 50
+		local drift = Vector3.new(nx, ny, nz) * 8
 		
 		local tangent = dir:Cross(Vector3.new(0, 1, 0))
 		if tangent.Magnitude < 0.001 then
 			tangent = Vector3.new(1, 0, 0)
 		end
+		local swirl = tangent.Unit * 15
 		
-		local swirl = tangent.Unit * 40
+		local target_pos = cen + (dir * radius)
 		
-		local boundary_pull = Vector3.zero
-		if mag > radius * 1.1 then
-			boundary_pull = -dir * math.clamp((mag - (radius * 1.1)) * 5, 0, 300)
+		if target_pos.Y < cen.Y + 2 then
+			target_pos = Vector3.new(target_pos.X, cen.Y + 2, target_pos.Z)
 		end
 		
-		return chaos + swirl + boundary_pull + Vector3.new(0, math.sin(t * 1.5 + d.v6) * 15, 0)
+		local pull = (target_pos - wp) * 4
+		
+		local equator_push = Vector3.zero
+		if wp.Y < cen.Y + 1 then
+			equator_push = Vector3.new(0, (cen.Y + 1 - wp.Y) * 10, 0)
+		end
+		
+		return pull + drift + swirl + equator_push + Vector3.new(0, math.sin(t * 1.2 + d.v6) * 10, 0)
 	end
 	
 	return dir * power
