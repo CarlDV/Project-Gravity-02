@@ -45,6 +45,9 @@ return function(context)
 		if not p:IsA("BasePart") then
 			return true
 		end
+		if p.Anchored then
+			return true
+		end
 		if EXCLUDED_NAMES[p.Name] then
 			return true
 		end
@@ -53,26 +56,15 @@ return function(context)
 				return true
 			end
 		end
-		for _, pl in ipairs(v2:GetPlayers()) do
-			if pl.Character and p:IsDescendantOf(pl.Character) then
-				return true
-			end
-		end
-		local target = p
+		local target = p.Parent
 		while target and target ~= v4 and target ~= game do
-			if
-				target:IsA("Model")
-				and (target:FindFirstChildOfClass("Humanoid") or target:FindFirstChildOfClass("AnimationController"))
-			then
-				return true
-			end
 			if target:IsA("Accessory") or target:IsA("Tool") then
 				return true
 			end
+			if target:IsA("Model") and (target:FindFirstChildOfClass("Humanoid") or target:FindFirstChildOfClass("AnimationController")) then
+				return true
+			end
 			target = target.Parent
-		end
-		if p.Anchored then
-			return true
 		end
 		return false
 	end
@@ -231,7 +223,7 @@ return function(context)
 					if k ~= last then
 						x6.active_array[k] = x6.active_array[last]
 					end
-					table.remove(x6.active_array, last)
+					x6.active_array[last] = nil
 					x6.n = math.max(0, x6.n - 1)
 					continue
 				end
@@ -315,8 +307,10 @@ return function(context)
 			return
 		end
 		local start = os.clock()
+		local loops = 0
 		while qi <= qn do
-			if os.clock() - start > 0.0015 then
+			loops = loops + 1
+			if loops % 20 == 0 and os.clock() - start > 0.0015 then
 				break
 			end
 			local p = queue[qi]
@@ -365,41 +359,35 @@ return function(context)
 			return
 		end
 		for _, c in ipairs(p:GetChildren()) do
-			if
-				c:IsA("BodyAngularVelocity")
-				or c:IsA("BodyForce")
-				or c:IsA("BodyGyro")
-				or c:IsA("BodyPosition")
-				or c:IsA("BodyThrust")
-				or c:IsA("BodyVelocity")
-				or c:IsA("RocketPropulsion")
-			then
+			if c:IsA("BodyMover") or c:IsA("Constraint") or c:IsA("Attachment") then
 				c:Destroy()
 			end
-			if c:IsA("Attachment") or c:IsA("AlignPosition") or c:IsA("Torque") then
-				c:Destroy()
-			end
-		end
-		if p:FindFirstChild("BHAtt") then
-			p.BHAtt:Destroy()
 		end
 		p.CanCollide = false
 		p.Anchored = false
 		p.CustomPhysicalProperties = PhysicalProperties.new(0.001, 0, 0, 0, 0)
-		local a = Instance.new("Attachment", p)
+		
+		local a = Instance.new("Attachment")
 		a.Name = "GRV_ATT"
-		local lv = Instance.new("LinearVelocity", p)
+		
+		local lv = Instance.new("LinearVelocity")
 		lv.Name = "GRV_LV"
 		lv.MaxForce = x1.k4
 		lv.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
 		lv.RelativeTo = Enum.ActuatorRelativeTo.World
 		lv.Attachment0 = a
-		local av = Instance.new("AngularVelocity", p)
+		
+		local av = Instance.new("AngularVelocity")
 		av.Name = "GRV_AV"
 		av.MaxTorque = math.huge
 		av.RelativeTo = Enum.ActuatorRelativeTo.World
 		av.AngularVelocity = Vector3.zero
 		av.Attachment0 = a
+		
+		a.Parent = p
+		lv.Parent = p
+		av.Parent = p
+		
 		x6.a[p] = { at = a, lv = lv, av = av, integral = Vector3.zero }
 		table.insert(x6.active_array, p)
 		x6.n = x6.n + 1
