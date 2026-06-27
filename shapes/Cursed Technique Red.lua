@@ -13,13 +13,11 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		d.nx = math.random() * 1000
 		d.ny = math.random() * 1000
 		d.nz = math.random() * 1000
-		d.start_pos = wp
 	end
 	
 	d.nx = d.nx or math.random() * 1000
 	d.ny = d.ny or math.random() * 1000
 	d.nz = d.nz or math.random() * 1000
-	d.start_pos = d.start_pos or wp
 	
 	local dir
 	if mag < 0.1 then
@@ -31,7 +29,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	if mag > radius * 0.95 then
 		
 		local time_scale_slow = t * 0.5
-		local time_scale_fast = t * 3.0
+		local time_scale_fast = t * 8.0
 		
 		local nx = math.noise(d.nx, time_scale_slow, 0)
 		local ny = math.noise(d.ny, time_scale_slow, 0)
@@ -41,18 +39,11 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		local jx = math.noise(d.nx, 0, time_scale_fast)
 		local jy = math.noise(d.ny, 0, time_scale_fast)
 		local jz = math.noise(d.nz, 0, time_scale_fast)
-		local jitter = Vector3.new(jx, jy, jz) * 10
+		local jitter = Vector3.new(jx, jy, jz) * 35
 		
-		local hover_pull = Vector3.zero
-		if not d.blasted and d.start_pos then
-			local target_y = d.start_pos.Y + 4
-			hover_pull = Vector3.new(0, (target_y - wp.Y) * 3, 0)
-		end
-		
-		return drift + jitter + hover_pull + Vector3.new(0, math.sin(t * 1.5 + d.v6) * 5, 0)
+		return drift + jitter + Vector3.new(0, math.sin(t * 1.5 + d.v6) * 5, 0)
 	end
 	
-	d.blasted = true
 	return dir * power
 end
 
