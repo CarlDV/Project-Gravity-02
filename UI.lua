@@ -211,6 +211,29 @@ return function(context)
 			x1.VerticalStiffness = v
 			save_settings()
 		end)
+		
+		local function update_color()
+			if x6.b then
+				x6.b.Color = x1.k3
+				if x6.b:FindFirstChild("Visual") and x6.b.Visual:FindFirstChildOfClass("ImageLabel") then
+					x6.b.Visual:FindFirstChildOfClass("ImageLabel").ImageColor3 = x1.k3
+				end
+			end
+			save_settings()
+		end
+
+		es(ac, "Center Color R", 0, 255, math.floor(x1.k3.R * 255), function(v)
+			x1.k3 = Color3.fromRGB(v, x1.k3.G * 255, x1.k3.B * 255)
+			update_color()
+		end, true)
+		es(ac, "Center Color G", 0, 255, math.floor(x1.k3.G * 255), function(v)
+			x1.k3 = Color3.fromRGB(x1.k3.R * 255, v, x1.k3.B * 255)
+			update_color()
+		end, true)
+		es(ac, "Center Color B", 0, 255, math.floor(x1.k3.B * 255), function(v)
+			x1.k3 = Color3.fromRGB(x1.k3.R * 255, x1.k3.G * 255, v)
+			update_color()
+		end, true)
 
 		local ab = eb(c, "Advanced Settings", function()
 			toggle_window(am, not am.Visible)

@@ -10,7 +10,14 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	
 	if not d.v6 then
 		d.v6 = math.random() * math.pi * 2
+		d.nx = math.random() * 1000
+		d.ny = math.random() * 1000
+		d.nz = math.random() * 1000
 	end
+	
+	d.nx = d.nx or math.random() * 1000
+	d.ny = d.ny or math.random() * 1000
+	d.nz = d.nz or math.random() * 1000
 	
 	local dir
 	if mag < 0.1 then
@@ -20,7 +27,26 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	end
 	
 	if mag > radius then
-		return Vector3.new(0, math.sin(t + d.v6) * 10, 0)
+		local time_scale = t * 0.8
+		local nx = math.noise(d.nx, time_scale, 0)
+		local ny = math.noise(d.ny, time_scale, 0)
+		local nz = math.noise(d.nz, time_scale, 0)
+		
+		local chaos = Vector3.new(nx, ny, nz) * 50
+		
+		local tangent = dir:Cross(Vector3.new(0, 1, 0))
+		if tangent.Magnitude < 0.001 then
+			tangent = Vector3.new(1, 0, 0)
+		end
+		
+		local swirl = tangent.Unit * 40
+		
+		local boundary_pull = Vector3.zero
+		if mag > radius * 1.1 then
+			boundary_pull = -dir * math.clamp((mag - (radius * 1.1)) * 5, 0, 300)
+		end
+		
+		return chaos + swirl + boundary_pull + Vector3.new(0, math.sin(t * 1.5 + d.v6) * 15, 0)
 	end
 	
 	return dir * power
