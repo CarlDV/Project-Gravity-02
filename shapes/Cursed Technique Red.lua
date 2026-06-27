@@ -27,33 +27,21 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	end
 	
 	if mag > radius * 0.95 then
-		local time_scale = t * 0.3
-		local nx = math.noise(d.nx, time_scale, 0)
-		local ny = math.noise(d.ny, time_scale, 0)
-		local nz = math.noise(d.nz, time_scale, 0)
 		
-		local drift = Vector3.new(nx, ny, nz) * 8
+		local time_scale_slow = t * 0.5
+		local time_scale_fast = t * 3.0
 		
-		local tangent = dir:Cross(Vector3.new(0, 1, 0))
-		if tangent.Magnitude < 0.001 then
-			tangent = Vector3.new(1, 0, 0)
-		end
-		local swirl = tangent.Unit * 15
+		local nx = math.noise(d.nx, time_scale_slow, 0)
+		local ny = math.noise(d.ny, time_scale_slow, 0)
+		local nz = math.noise(d.nz, time_scale_slow, 0)
+		local drift = Vector3.new(nx, ny, nz) * 5
 		
-		local target_pos = cen + (dir * radius)
+		local jx = math.noise(d.nx, 0, time_scale_fast)
+		local jy = math.noise(d.ny, 0, time_scale_fast)
+		local jz = math.noise(d.nz, 0, time_scale_fast)
+		local jitter = Vector3.new(jx, jy, jz) * 10
 		
-		if target_pos.Y < cen.Y + 2 then
-			target_pos = Vector3.new(target_pos.X, cen.Y + 2, target_pos.Z)
-		end
-		
-		local pull = (target_pos - wp) * 4
-		
-		local equator_push = Vector3.zero
-		if wp.Y < cen.Y + 1 then
-			equator_push = Vector3.new(0, (cen.Y + 1 - wp.Y) * 10, 0)
-		end
-		
-		return pull + drift + swirl + equator_push + Vector3.new(0, math.sin(t * 1.2 + d.v6) * 10, 0)
+		return drift + jitter + Vector3.new(0, math.sin(t * 1.5 + d.v6) * 5, 0)
 	end
 	
 	return dir * power
