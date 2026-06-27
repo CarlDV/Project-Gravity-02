@@ -146,6 +146,40 @@ return function(context)
 			local cur_shape_mod = get_shape(x1.k6)
 			local cur_shape_cfg = x1.S[x1.k6] or {}
 
+			local k1 = x1.k1
+			local c7 = x9.c7
+			local ki = x1.Ki or 0
+			local damping = x1.Damping or 0
+			local max_speed = x1.MaxSpeed
+			local vert_stiff = x1.VerticalStiffness or 1
+			local vert_mult = vert_stiff ~= 1 and Vector3.new(1, vert_stiff, 1) or nil
+			local dt_mult = real_dt * 60 * dt
+
+			local smoothing = (x1.k6 == "Point Impact" and 1) or x1.k8
+			if x1.DramaMode and x1.k6 == "Point Impact" then
+				smoothing = 1
+			end
+			local sm_alpha = smoothing >= 1 and 1 or (1 - math.exp(-dt_mult * -math.log(math.max(0.001, 1 - smoothing))))
+
+			local ang_damp_mult = 1
+			if x1.AngularDamping and x1.AngularDamping > 0 then
+				local damp_rate = -60 * math.log(math.max(0.001, 1 - math.clamp(x1.AngularDamping, 0, 0.99)))
+				ang_damp_mult = math.exp(-damp_rate * real_dt * dt)
+			end
+
+			local trans_ease = 1
+			local in_transition = false
+			if x6.transition_time and x6.transition_time > 0 then
+				in_transition = true
+				local alpha = math.clamp((ft - x6.transition_time) / x6.transition_dur, 0, 1)
+				if alpha < 1 then
+					trans_ease = alpha * alpha * (3 - 2 * alpha)
+				else
+					x6.transition_time = 0
+					in_transition = false
+				end
+			end
+
 			for k = #x6.active_array, 1, -1 do
 				local p = x6.active_array[k]
 				local d = x6.a[p]
@@ -176,55 +210,47 @@ return function(context)
 				end
 				local tc = active_c - p.Position
 				local tc_mag = tc.Magnitude
-				if tc_mag > x1.k1 then
+				if tc_mag > k1 then
 					continue
 				end
-				if tc_mag > x9.c7 then
+				if tc_mag > c7 then
 					local target_pos_delta = Vector3.new(0, 0.01, 0)
 					if cur_shape_mod then
 						target_pos_delta = cur_shape_mod.f2(p, active_c, d, ft, cur_shape_cfg, x1, x6, x9)
 					end
-					if x1.VerticalStiffness and x1.VerticalStiffness ~= 1 then
-						target_pos_delta =
-							Vector3.new(target_pos_delta.X, target_pos_delta.Y * x1.VerticalStiffness, target_pos_delta.Z)
+					if vert_mult then
+						target_pos_delta = target_pos_delta * vert_mult
 					end
-					if x1.Ki and x1.Ki > 0 and d.integral then
-						d.integral = d.integral + (target_pos_delta * real_dt * 60 * dt)
-						local max_i = 100
-						if d.integral.Magnitude > max_i then
-							d.integral = d.integral.Unit * max_i
+					if ki > 0 and d.integral then
+						d.integral = d.integral + (target_pos_delta * dt_mult)
+						if d.integral.Magnitude > 100 then
+							d.integral = d.integral.Unit * 100
 						end
-						target_pos_delta = target_pos_delta + (d.integral * x1.Ki)
+						target_pos_delta = target_pos_delta + (d.integral * ki)
 					end
 					local tv = target_pos_delta
-					if x1.Damping and x1.Damping > 0 and not cur_no_damp then
-						tv = tv - (p_vel * x1.Damping)
+					if damping > 0 and not cur_no_damp then
+						tv = tv - (p_vel * damping)
 					end
 
-					if x1.MaxSpeed and not cur_no_damp then
+					if max_speed and not cur_no_damp then
 						local spd = p_vel.Magnitude
-						local s_factor = math.clamp(1 - (spd / x1.MaxSpeed), 0.2, 1)
+						local s_factor = math.clamp(1 - (spd / max_speed), 0.2, 1)
 						tv = tv * s_factor
 					end
 
-					local smoothing = (x1.k6 == "Point Impact" and 1) or x1.k8
-					if x1.DramaMode and x1.k6 == "Point Impact" then
-						smoothing = 1
-					end
-					local sm_alpha = smoothing >= 1 and 1 or (1 - math.exp(-60 * real_dt * dt * -math.log(math.max(0.001, 1 - smoothing))))
 					d.vl = d.vl and d.vl:Lerp(tv, sm_alpha) or tv
-					if d.trans_vl and x6.transition_time > 0 then
-						local alpha = math.clamp((ft - x6.transition_time) / x6.transition_dur, 0, 1)
-						if alpha < 1 then
-							local ease = alpha * alpha * (3 - 2 * alpha)
-							d.vl = d.trans_vl:Lerp(d.vl, ease)
+					if in_transition and d.trans_vl then
+						if trans_ease < 1 then
+							d.vl = d.trans_vl:Lerp(d.vl, trans_ease)
 						else
 							d.trans_vl = nil
 						end
 					end
-					if x1.MaxSpeed and not cur_no_damp then
-						if d.vl.Magnitude > x1.MaxSpeed then
-							d.vl = d.vl.Unit * x1.MaxSpeed
+					
+					if max_speed and not cur_no_damp then
+						if d.vl.Magnitude > max_speed then
+							d.vl = d.vl.Unit * max_speed
 						end
 					else
 						if d.vl.Magnitude > 3000 then
@@ -232,10 +258,9 @@ return function(context)
 						end
 					end
 					d.lv.VectorVelocity = d.vl
-					if x1.AngularDamping and x1.AngularDamping > 0 then
-						local damp_rate = -60 * math.log(math.max(0.001, 1 - math.clamp(x1.AngularDamping, 0, 0.99)))
-						p.AssemblyAngularVelocity = p.AssemblyAngularVelocity
-							* math.exp(-damp_rate * real_dt * dt)
+					
+					if ang_damp_mult ~= 1 then
+						p.AssemblyAngularVelocity = p.AssemblyAngularVelocity * ang_damp_mult
 					end
 				end
 			end
