@@ -22,7 +22,7 @@ return function(context)
 		["Celestial Ribbon"] = true,
 		["Big Ring Things"] = true,
 		["Point Impact"] = true,
-		["Orbital Shell"] = true
+		["Domain Expansion Infinite Void"] = true
 	}
 
 	function x5.st()

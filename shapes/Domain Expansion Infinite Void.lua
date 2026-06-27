@@ -1,10 +1,10 @@
 local M = {}
 
 function M.px(t, c, x6, x9)
-	if not x6.pre["Orbital Shell"] then
-		x6.pre["Orbital Shell"] = table.create(200)
+	if not x6.pre["Domain Expansion Infinite Void"] then
+		x6.pre["Domain Expansion Infinite Void"] = table.create(200)
 	end
-	local r = x6.pre["Orbital Shell"]
+	local r = x6.pre["Domain Expansion Infinite Void"]
 	table.clear(r)
 	local s = (c.k13 or 10) * x9.c2
 	local ph = t * s
@@ -14,7 +14,7 @@ end
 function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local wp = p.Position
 	local tc = cen - wp
-	local md = "Orbital Shell"
+	local md = "Domain Expansion Infinite Void"
 	local R = (c.k11 or 200)
 			if not d.v4 then
 				d.v4 = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5).Unit
@@ -44,11 +44,10 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 end
 
 M.Controls = {
-	{ Type = "Slider", Name = "Spin Speed", Min = 1, Max = 300, Key = "k13", Div = 10 },
-	{ Type = "Slider", Name = "Shell Radius", Min = 50, Max = 1000, Key = "k11" },
-	{ Type = "Slider", Name = "Move Area", Min = 50, Max = 1500, Key = "k17" },
+	{ Type = "Slider", Name = "Spin Speed", Min = 1, Max = 1000, Key = "k13", Div = 10 },
+	{ Type = "Slider", Name = "Domain Radius", Min = 50, Max = 1000, Key = "k11" },
 	{ Type = "Toggle", Name = "Cut in Half", Key = "k18", Default = true },
-	{ Type = "Toggle", Name = "Stable Flow", Key = "k19" }
+	{ Type = "Toggle", Name = "Stable Flow", Key = "k19", Default = true }
 }
 
 return M
