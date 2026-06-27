@@ -27,21 +27,12 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	end
 	
 	if mag > radius * 0.95 then
+		local hover_y = math.sin(t * 2.0 + d.v6) * 20
 		
-		local time_scale_slow = t * 0.5
-		local time_scale_fast = t * 8.0
+		local hover_x = math.sin(t * 1.2 + d.nx) * 8
+		local hover_z = math.cos(t * 1.3 + d.nz) * 8
 		
-		local nx = math.noise(d.nx, time_scale_slow, 0)
-		local ny = math.noise(d.ny, time_scale_slow, 0)
-		local nz = math.noise(d.nz, time_scale_slow, 0)
-		local drift = Vector3.new(nx, ny, nz) * 5
-		
-		local jx = math.noise(d.nx, 0, time_scale_fast)
-		local jy = math.noise(d.ny, 0, time_scale_fast)
-		local jz = math.noise(d.nz, 0, time_scale_fast)
-		local jitter = Vector3.new(jx, jy, jz) * 35
-		
-		return drift + jitter + Vector3.new(0, math.sin(t * 1.5 + d.v6) * 5, 0)
+		return Vector3.new(hover_x, hover_y, hover_z)
 	end
 	
 	return dir * power
