@@ -16,6 +16,7 @@ return function(context)
 	x5.h = eh
 
 	local stable_shapes = {
+		["Cursed Technique Red"] = true,
 		["Galactic Web"] = true,
 		["Celestial Ribbon"] = true,
 		["Big Ring Things"] = true,
