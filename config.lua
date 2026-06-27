@@ -17,7 +17,7 @@ return {
 		k15 = 10,
 		k16 = 0.6,
 		k17 = 150,
-		Tgt = nil,
+		Targets = {},
 		ImpactManual = false,
 		IsLaunching = false,
 		Disabled = false,

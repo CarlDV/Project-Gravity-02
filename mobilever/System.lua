@@ -125,8 +125,39 @@ return function(context)
 						end
 					end
 				else
-					if x1.Tgt and x1.Tgt.Character and x1.Tgt.Character:FindFirstChild("HumanoidRootPart") then
-						table.insert(x6.pi_targets, x1.Tgt)
+					if x1.Targets and #x1.Targets > 0 then
+						for _, tgt in ipairs(x1.Targets) do
+							if tgt and tgt.Parent and tgt.Character and tgt.Character:FindFirstChild("HumanoidRootPart") then
+								table.insert(x6.pi_targets, tgt)
+							end
+						end
+					end
+				end
+
+				for _, pl in ipairs(v2:GetPlayers()) do
+					if pl.Character and pl.Character:FindFirstChild("Head") then
+						local head = pl.Character.Head
+						local is_tgt = table.find(x6.pi_targets, pl) ~= nil
+						local marker = head:FindFirstChild("GravityTargetMarker")
+						
+						if is_tgt and not marker then
+							local bg = Instance.new("BillboardGui")
+							bg.Name = "GravityTargetMarker"
+							bg.Size = UDim2.new(0, 14, 0, 14)
+							bg.StudsOffset = Vector3.new(0, 1.5, 0)
+							bg.AlwaysOnTop = true
+							
+							local frame = Instance.new("Frame", bg)
+							frame.Size = UDim2.new(1, 0, 1, 0)
+							frame.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+							Instance.new("UICorner", frame).CornerRadius = UDim.new(1, 0)
+							local str = Instance.new("UIStroke", frame)
+							str.Color = Color3.fromRGB(255, 150, 150)
+							str.Thickness = 2
+							bg.Parent = head
+						elseif not is_tgt and marker then
+							marker:Destroy()
+						end
 					end
 				end
 			end

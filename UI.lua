@@ -367,7 +367,14 @@ return function(context)
 				end)
 			)
 
-			local tn = x1.Tgt and "Target: " .. (x1.Tgt.DisplayName or x1.Tgt.Name) or "Select Target"
+			local tn = "Select Target"
+			if x1.Targets and #x1.Targets > 0 then
+				if #x1.Targets == 1 then
+					tn = "Target: " .. (x1.Targets[1].DisplayName or x1.Targets[1].Name)
+				else
+					tn = "Multi-Target (" .. tostring(#x1.Targets) .. ")"
+				end
+			end
 
 			local tdb = Instance.new("TextButton", gsc)
 			tdb.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
@@ -381,7 +388,7 @@ return function(context)
 			local dst2 = Instance.new("UIStroke", tdb)
 			dst2.Color = Color3.fromRGB(40, 40, 45)
 
-			if x1.Tgt then
+			if x1.Targets and #x1.Targets > 0 then
 				local ctb = Instance.new("TextButton", tdb)
 				ctb.BackgroundTransparency = 1
 				ctb.Position = UDim2.new(1, -30, 0, 0)
@@ -390,7 +397,7 @@ return function(context)
 				ctb.TextColor3 = Color3.fromRGB(200, 80, 80)
 				ctb.TextSize = 20
 				ctb.MouseButton1Click:Connect(function()
-					x1.Tgt = nil
+					table.clear(x1.Targets)
 					x1.TgtActive = false
 					f1()
 				end)
@@ -465,6 +472,13 @@ return function(context)
 					ib.Text = ""
 					ib.AutoButtonColor = false
 					Instance.new("UICorner", ib).CornerRadius = UDim.new(0, 6)
+					
+					local is_selected = table.find(x1.Targets, pl) ~= nil
+					local sel_indicator = Instance.new("Frame", ib)
+					sel_indicator.Position = UDim2.new(1, -24, 0.5, -6)
+					sel_indicator.Size = UDim2.new(0, 12, 0, 12)
+					sel_indicator.BackgroundColor3 = is_selected and Color3.fromRGB(60, 200, 100) or Color3.fromRGB(60, 60, 65)
+					Instance.new("UICorner", sel_indicator).CornerRadius = UDim.new(1, 0)
 
 					local pfp = Instance.new("ImageLabel", ib)
 					pfp.Size = UDim2.new(0, 32, 0, 32)
@@ -508,9 +522,15 @@ return function(context)
 					end)
 
 					ib.MouseButton1Click:Connect(function()
-						x1.Tgt = pl
-						x1.TgtActive = true
-						toggle_window(tdlst, false)
+						local idx = table.find(x1.Targets, pl)
+						if idx then
+							table.remove(x1.Targets, idx)
+							sel_indicator.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+						else
+							table.insert(x1.Targets, pl)
+							sel_indicator.BackgroundColor3 = Color3.fromRGB(60, 200, 100)
+						end
+						x1.TgtActive = (#x1.Targets > 0)
 						f1()
 					end)
 				end
