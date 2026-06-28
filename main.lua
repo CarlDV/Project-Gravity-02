@@ -24,6 +24,33 @@ if setthreadidentity then
 	end)
 end
 
+local function cleanup_previous()
+	if gethui then
+		for _, gui in ipairs(gethui():GetChildren()) do
+			if gui:IsA("ScreenGui") and (gui.Name == "GravityLoading" or string.sub(gui.Name, 1, 2) == "G_") then
+				pcall(function() gui:Destroy() end)
+			end
+		end
+	elseif syn and syn.protect_gui then
+		local core = game:GetService("CoreGui")
+		for _, gui in ipairs(core:GetChildren()) do
+			if gui:IsA("ScreenGui") and (gui.Name == "GravityLoading" or string.sub(gui.Name, 1, 2) == "G_") then
+				pcall(function() gui:Destroy() end)
+			end
+		end
+	else
+		local pg = v2.LocalPlayer:FindFirstChild("PlayerGui")
+		if pg then
+			for _, gui in ipairs(pg:GetChildren()) do
+				if gui:IsA("ScreenGui") and (gui.Name == "GravityLoading" or string.sub(gui.Name, 1, 2) == "G_") then
+					pcall(function() gui:Destroy() end)
+				end
+			end
+		end
+	end
+end
+cleanup_previous()
+
 local v8, v9 = v2.LocalPlayer, v2.LocalPlayer:GetMouse()
 local is_mobile = v1.TouchEnabled and not v1.KeyboardEnabled
 local SUB_DIR = is_mobile and "mobilever/" or ""
@@ -249,7 +276,9 @@ get_shape(x1.k6)
 coroutine.wrap(function()
 	for mn, _ in pairs(x2) do
 		if mn ~= x1.k6 then
-			get_shape(mn)
+			pcall(function()
+				get_shape(mn)
+			end)
 			if task and task.wait then
 				task.wait(0.05)
 			end
@@ -280,6 +309,27 @@ local context = {
 	SUB_DIR = SUB_DIR,
 }
 
+local function destroy()
+	if spin_conn then
+		pcall(function() spin_conn:Disconnect() end)
+		spin_conn = nil
+	end
+	if loading_sg then
+		pcall(function() loading_sg:Destroy() end)
+		loading_sg = nil
+	end
+	for i = #x6.c, 1, -1 do
+		pcall(function() x6.c[i]:Disconnect() end)
+		x6.c[i] = nil
+	end
+	for _, d in pairs(x6.a) do
+		if d and d.lv then
+			pcall(function() d.lv:Destroy() end)
+		end
+	end
+	x6.a = setmetatable({}, {__mode = "k"})
+end
+
 local success, err = pcall(function()
 	local UI_builder = load_module(SUB_DIR .. "UI.lua")
 	if not UI_builder then error("Failed to load UI") end
@@ -300,7 +350,10 @@ end)
 
 spin_conn:Disconnect()
 loading_sg:Destroy()
+spin_conn = nil
+loading_sg = nil
 
 if not success then
+	destroy()
 	warn("Project Gravity Initialization Failed: " .. tostring(err))
 end
