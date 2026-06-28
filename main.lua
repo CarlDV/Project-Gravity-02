@@ -1,5 +1,13 @@
 --!native
 
+local SESSION_ID = tostring(math.random(1000000, 9999999)) .. tostring(time())
+
+if _G._GRAVITY_SESSION_ID ~= nil and _G._GRAVITY_DESTROY then
+	pcall(_G._GRAVITY_DESTROY)
+end
+
+_G._GRAVITY_SESSION_ID = SESSION_ID
+
 local function safe_service(name)
 	local service = game:GetService(name)
 	if cloneref then
@@ -328,7 +336,19 @@ local function destroy()
 		end
 	end
 	x6.a = setmetatable({}, {__mode = "k"})
+	if x6.b then
+		pcall(function() x6.b:Destroy() end)
+		x6.b = nil
+	end
+	if x6.sg then
+		pcall(function() x6.sg:Destroy() end)
+		x6.sg = nil
+	end
+	_G._GRAVITY_SESSION_ID = nil
+	_G._GRAVITY_DESTROY = nil
 end
+
+_G._GRAVITY_DESTROY = destroy
 
 local success, err = pcall(function()
 	local UI_builder = load_module(SUB_DIR .. "UI.lua")
@@ -356,4 +376,6 @@ loading_sg = nil
 if not success then
 	destroy()
 	warn("Project Gravity Initialization Failed: " .. tostring(err))
+else
+	_G._GRAVITY_SESSION_ID = SESSION_ID
 end
