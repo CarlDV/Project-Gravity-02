@@ -149,6 +149,48 @@ local x1 = config.x1
 local x2 = config.x2
 x1.S = x2
 
+local default_x1 = {}
+for k, v in pairs(x1) do
+	if typeof(v) == "table" then
+		default_x1[k] = {}
+		for sk, sv in pairs(v) do
+			default_x1[k][sk] = sv
+		end
+	else
+		default_x1[k] = v
+	end
+end
+local default_x2 = {}
+for mk, mv in pairs(x2) do
+	default_x2[mk] = {}
+	for sk, sv in pairs(mv) do
+		default_x2[mk][sk] = sv
+	end
+end
+
+local function reset_config()
+	for k, v in pairs(default_x1) do
+		if k ~= "S" and k ~= "Targets" then
+			if typeof(v) == "table" then
+				x1[k] = {}
+				for sk, sv in pairs(v) do
+					x1[k][sk] = sv
+				end
+			else
+				x1[k] = v
+			end
+		end
+	end
+	for mk, mv in pairs(default_x2) do
+		if x2[mk] then
+			for sk, sv in pairs(mv) do
+				x2[mk][sk] = sv
+			end
+		end
+	end
+	x1.S = x2
+end
+
 local serialization = load_module("math/serialization.lua")
 local sanitize = serialization.sanitize
 local desanitize = serialization.desanitize
@@ -315,6 +357,7 @@ local context = {
 	load_module = load_module,
 	is_mobile = is_mobile,
 	SUB_DIR = SUB_DIR,
+	reset_config = reset_config,
 }
 
 local function destroy()
