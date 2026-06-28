@@ -2,11 +2,11 @@
 
 local SESSION_ID = tostring(math.random(1000000, 9999999)) .. tostring(time())
 
-if _G._GRAVITY_SESSION_ID ~= nil and _G._GRAVITY_DESTROY then
-	pcall(_G._GRAVITY_DESTROY)
+if getgenv()._GRAVITY_SESSION_ID ~= nil and getgenv()._GRAVITY_DESTROY then
+	pcall(getgenv()._GRAVITY_DESTROY)
 end
 
-_G._GRAVITY_SESSION_ID = SESSION_ID
+getgenv()._GRAVITY_SESSION_ID = SESSION_ID
 
 local function safe_service(name)
 	local service = game:GetService(name)
@@ -344,11 +344,11 @@ local function destroy()
 		pcall(function() x6.sg:Destroy() end)
 		x6.sg = nil
 	end
-	_G._GRAVITY_SESSION_ID = nil
-	_G._GRAVITY_DESTROY = nil
+	getgenv()._GRAVITY_SESSION_ID = nil
+	getgenv()._GRAVITY_DESTROY = nil
 end
 
-_G._GRAVITY_DESTROY = destroy
+getgenv()._GRAVITY_DESTROY = destroy
 
 local success, err = pcall(function()
 	local UI_builder = load_module(SUB_DIR .. "UI.lua")
