@@ -261,11 +261,7 @@ return function(context)
 						tv = tv - (p_vel * damping)
 					end
 
-					if max_speed and not cur_no_damp then
-						local spd = p_vel.Magnitude
-						local s_factor = math.clamp(1 - (spd / max_speed), 0.2, 1)
-						tv = tv * s_factor
-					end
+
 
 					d.vl = d.vl and d.vl:Lerp(tv, sm_alpha) or tv
 					if in_transition and d.trans_vl then
@@ -331,12 +327,25 @@ return function(context)
 		if not x6.b or x1.Disabled then
 			return
 		end
-		if x1.TgtActive and x1.Tgt and x1.Tgt.Character and x1.Tgt.Character:FindFirstChild("HumanoidRootPart") then
-			x6.b.Position = x1.Tgt.Character.HumanoidRootPart.Position
-			x6.b.AssemblyLinearVelocity = Vector3.zero
-			return
+		if x1.TgtActive and x1.Targets and #x1.Targets > 0 then
+			local tgt = x1.Targets[1]
+			if tgt and tgt.Character and tgt.Character:FindFirstChild("HumanoidRootPart") then
+				local root = tgt.Character.HumanoidRootPart
+				local pos = root.Position
+				if x1.PredictiveTracking then
+					pos = pos + (root.AssemblyLinearVelocity * ((x1.PredictionFactor or 150) / 1000))
+				end
+				x6.b.Position = pos
+				x6.b.AssemblyLinearVelocity = Vector3.zero
+				return
+			end
 		elseif x1.AnchorSelf and v8.Character and v8.Character:FindFirstChild("HumanoidRootPart") then
-			x6.b.Position = v8.Character.HumanoidRootPart.Position
+			local root = v8.Character.HumanoidRootPart
+			local pos = root.Position
+			if x1.PredictiveTracking then
+				pos = pos + (root.AssemblyLinearVelocity * ((x1.PredictionFactor or 150) / 1000))
+			end
+			x6.b.Position = pos
 			x6.b.AssemblyLinearVelocity = Vector3.zero
 			return
 		elseif x6.d then
