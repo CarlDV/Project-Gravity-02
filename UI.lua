@@ -623,24 +623,24 @@ return function(context)
 			eh(gsc, "DANGER ZONE")
 
 			local reset_btn = Instance.new("TextButton", gsc)
-			reset_btn.BackgroundColor3 = Color3.fromRGB(60, 25, 25)
-			reset_btn.Size = UDim2.new(1, 0, 0, 36)
-			reset_btn.Text = "RESET ALL SETTINGS"
-			reset_btn.TextColor3 = Color3.fromRGB(255, 100, 100)
-			reset_btn.Font = Enum.Font.GothamBold
-			reset_btn.TextSize = 12
-			reset_btn.AutoButtonColor = false
-			Instance.new("UICorner", reset_btn).CornerRadius = UDim.new(0, 6)
-			local reset_stroke = Instance.new("UIStroke", reset_btn)
-			reset_stroke.Color = Color3.fromRGB(120, 40, 40)
-			reset_stroke.Thickness = 1
+		reset_btn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+		reset_btn.Size = UDim2.new(1, 0, 0, 40)
+		reset_btn.Text = "⚠ RESET ALL SETTINGS"
+		reset_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		reset_btn.Font = Enum.Font.GothamBold
+		reset_btn.TextSize = 13
+		reset_btn.AutoButtonColor = false
+		Instance.new("UICorner", reset_btn).CornerRadius = UDim.new(0, 6)
+		local reset_stroke = Instance.new("UIStroke", reset_btn)
+		reset_stroke.Color = Color3.fromRGB(255, 80, 80)
+		reset_stroke.Thickness = 1
 
-			reset_btn.MouseEnter:Connect(function()
-				v6:Create(reset_btn, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(80, 30, 30) }):Play()
-			end)
-			reset_btn.MouseLeave:Connect(function()
-				v6:Create(reset_btn, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(60, 25, 25) }):Play()
-			end)
+		reset_btn.MouseEnter:Connect(function()
+			v6:Create(reset_btn, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(220, 50, 50) }):Play()
+		end)
+		reset_btn.MouseLeave:Connect(function()
+			v6:Create(reset_btn, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(180, 40, 40) }):Play()
+		end)
 
 			reset_btn.MouseButton1Click:Connect(function()
 				if x6.reset_confirm then

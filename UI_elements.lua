@@ -59,7 +59,8 @@ return function(context)
 		k.AutoButtonColor = false
 		Instance.new("UICorner", k).CornerRadius = UDim.new(1, 0)
 
-		local d = false
+		local dragging = false
+		local hover_slider = false
 		local function u(i)
 			local pos = i.Position.X
 			local rp = pos - sc.AbsolutePosition.X
@@ -81,21 +82,34 @@ return function(context)
 		end
 
 		k.MouseButton1Down:Connect(function()
-			d = true
+			dragging = true
 		end)
 		sb.InputBegan:Connect(function(i)
 			if i.UserInputType == Enum.UserInputType.MouseButton1 then
-				d = true
+				dragging = true
+				hover_slider = true
 				u(i)
 			end
 		end)
+		k.MouseEnter:Connect(function()
+			hover_slider = true
+		end)
+		k.MouseLeave:Connect(function()
+			hover_slider = false
+		end)
+		sb.MouseEnter:Connect(function()
+			hover_slider = true
+		end)
+		sb.MouseLeave:Connect(function()
+			hover_slider = false
+		end)
 		local c1 = v1.InputEnded:Connect(function(i)
 			if i.UserInputType == Enum.UserInputType.MouseButton1 then
-				d = false
+				dragging = false
 			end
 		end)
 		local c2 = v1.InputChanged:Connect(function(i)
-			if d and i.UserInputType == Enum.UserInputType.MouseMovement then
+			if dragging and hover_slider and i.UserInputType == Enum.UserInputType.MouseMovement then
 				u(i)
 			end
 		end)
