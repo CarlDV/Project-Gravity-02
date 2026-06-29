@@ -4,6 +4,7 @@ return function(context)
 	local favorites, save_favs, save_settings = context.favorites, context.save_favs, context.save_settings
 	local get_shape = context.get_shape
 	local load_module = context.load_module
+	local reset_config = context.reset_config
 	local SUB_DIR = context.SUB_DIR or "mobilever/"
 
 	local UI_elements = load_module(SUB_DIR .. "UI_elements.lua")(context)
@@ -496,6 +497,152 @@ return function(context)
 					end
 				end
 			end
+
+			eh(sc, "DANGER ZONE")
+
+			local reset_btn = Instance.new("TextButton", sc)
+		reset_btn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+		reset_btn.Size = UDim2.new(1, 0, 0, 24)
+		reset_btn.Text = "⚠ RESET ALL SETTINGS"
+		reset_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		reset_btn.Font = Enum.Font.GothamBold
+		reset_btn.TextSize = 9
+		reset_btn.AutoButtonColor = false
+		Instance.new("UICorner", reset_btn).CornerRadius = UDim.new(0, 6)
+		local reset_stroke = Instance.new("UIStroke", reset_btn)
+		reset_stroke.Color = Color3.fromRGB(255, 80, 80)
+		reset_stroke.Thickness = 1
+
+		reset_btn.MouseEnter:Connect(function()
+			v6:Create(reset_btn, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(220, 50, 50) }):Play()
+		end)
+		reset_btn.MouseLeave:Connect(function()
+			v6:Create(reset_btn, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(180, 40, 40) }):Play()
+		end)
+
+			reset_btn.MouseButton1Click:Connect(function()
+				if x6.reset_confirm then
+					x6.reset_confirm:Destroy()
+					x6.reset_confirm = nil
+				end
+
+				local confirm = Instance.new("CanvasGroup", sg)
+				confirm.Name = "ResetConfirm"
+				confirm.BackgroundColor3 = Color3.fromRGB(12, 12, 15)
+				confirm.Position = UDim2.new(0.5, -100, 0.5, -60)
+				confirm.Size = UDim2.new(0, 200, 0, 120)
+				confirm.GroupTransparency = 1
+				confirm.ZIndex = 100
+				Instance.new("UICorner", confirm).CornerRadius = UDim.new(0, 12)
+				local confirm_stroke = Instance.new("UIStroke", confirm)
+				confirm_stroke.Color = Color3.fromRGB(120, 40, 40)
+				confirm_stroke.Thickness = 1
+
+				local confirm_shadow = Instance.new("Frame", sg)
+				confirm_shadow.Name = "ResetShadow"
+				confirm_shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+				confirm_shadow.BackgroundTransparency = 0.5
+				confirm_shadow.Position = UDim2.new(0, 0, 0, 0)
+				confirm_shadow.Size = UDim2.new(1, 0, 1, 0)
+				confirm_shadow.ZIndex = 99
+
+				local warning_icon = Instance.new("TextLabel", confirm)
+				warning_icon.BackgroundTransparency = 1
+				warning_icon.Position = UDim2.new(0.5, -10, 0, 10)
+				warning_icon.Size = UDim2.new(0, 20, 0, 20)
+				warning_icon.Text = "⚠"
+				warning_icon.TextColor3 = Color3.fromRGB(255, 100, 100)
+				warning_icon.TextSize = 16
+				warning_icon.ZIndex = 101
+
+				local confirm_title = Instance.new("TextLabel", confirm)
+				confirm_title.BackgroundTransparency = 1
+				confirm_title.Position = UDim2.new(0, 10, 0, 35)
+				confirm_title.Size = UDim2.new(1, -20, 0, 20)
+				confirm_title.Text = "RESET ALL SETTINGS?"
+				confirm_title.TextColor3 = Color3.fromRGB(255, 255, 255)
+				confirm_title.Font = Enum.Font.GothamBold
+				confirm_title.TextSize = 10
+				confirm_title.ZIndex = 101
+
+				local confirm_desc = Instance.new("TextLabel", confirm)
+				confirm_desc.BackgroundTransparency = 1
+				confirm_desc.Position = UDim2.new(0, 10, 0, 55)
+				confirm_desc.Size = UDim2.new(1, -20, 0, 30)
+				confirm_desc.Text = "This will reset all settings to default. This cannot be undone."
+				confirm_desc.TextColor3 = Color3.fromRGB(150, 150, 160)
+				confirm_desc.Font = Enum.Font.Gotham
+				confirm_desc.TextSize = 8
+				confirm_desc.TextWrapped = true
+				confirm_desc.ZIndex = 101
+
+				local cancel_btn = Instance.new("TextButton", confirm)
+				cancel_btn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+				cancel_btn.Position = UDim2.new(0, 10, 1, -30)
+				cancel_btn.Size = UDim2.new(0.5, -15, 0, 20)
+				cancel_btn.Text = "CANCEL"
+				cancel_btn.TextColor3 = Color3.fromRGB(200, 200, 210)
+				cancel_btn.Font = Enum.Font.GothamBold
+				cancel_btn.TextSize = 8
+				cancel_btn.AutoButtonColor = false
+				cancel_btn.ZIndex = 101
+				Instance.new("UICorner", cancel_btn).CornerRadius = UDim.new(0, 4)
+
+				local confirm_reset_btn = Instance.new("TextButton", confirm)
+				confirm_reset_btn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+				confirm_reset_btn.Position = UDim2.new(0.5, 5, 1, -30)
+				confirm_reset_btn.Size = UDim2.new(0.5, -15, 0, 20)
+				confirm_reset_btn.Text = "RESET"
+				confirm_reset_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+				confirm_reset_btn.Font = Enum.Font.GothamBold
+				confirm_reset_btn.TextSize = 8
+				confirm_reset_btn.AutoButtonColor = false
+				confirm_reset_btn.ZIndex = 101
+				Instance.new("UICorner", confirm_reset_btn).CornerRadius = UDim.new(0, 4)
+				local confirm_reset_stroke = Instance.new("UIStroke", confirm_reset_btn)
+				confirm_reset_stroke.Color = Color3.fromRGB(120, 30, 30)
+
+				cancel_btn.MouseButton1Click:Connect(function()
+					v6:Create(confirm, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.In), { GroupTransparency = 1 }):Play()
+					v6:Create(confirm_shadow, TweenInfo.new(0.2), { BackgroundTransparency = 1 }):Play()
+					task.delay(0.2, function()
+						confirm:Destroy()
+						confirm_shadow:Destroy()
+						x6.reset_confirm = nil
+					end)
+				end)
+
+				confirm_reset_btn.MouseButton1Click:Connect(function()
+					if reset_config then
+						reset_config()
+						save_settings()
+						if x5.up then
+							x5.up()
+						end
+						if x6.b then
+							x6.b.Color = x1.k3
+							if x6.b:FindFirstChild("Visual") and x6.b.Visual:FindFirstChildOfClass("ImageLabel") then
+								x6.b.Visual:FindFirstChildOfClass("ImageLabel").ImageColor3 = x1.k3
+							end
+						end
+					end
+					v6:Create(confirm, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.In), { GroupTransparency = 1 }):Play()
+					v6:Create(confirm_shadow, TweenInfo.new(0.2), { BackgroundTransparency = 1 }):Play()
+					task.delay(0.2, function()
+						confirm:Destroy()
+						confirm_shadow:Destroy()
+						x6.reset_confirm = nil
+					end)
+				end)
+
+				x6.reset_confirm = confirm
+
+				local scale = Instance.new("UIScale", confirm)
+				scale.Scale = 0.9
+				v6:Create(confirm, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { GroupTransparency = 0 }):Play()
+				v6:Create(confirm_shadow, TweenInfo.new(0.3), { BackgroundTransparency = 0.5 }):Play()
+				v6:Create(scale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+			end)
 		end
 		x5.up = f1
 

@@ -620,9 +620,9 @@ return function(context)
 				end
 			end
 
-			eh(gsc, "DANGER ZONE")
+			eh(sc, "DANGER ZONE")
 
-			local reset_btn = Instance.new("TextButton", gsc)
+			local reset_btn = Instance.new("TextButton", sc)
 		reset_btn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
 		reset_btn.Size = UDim2.new(1, 0, 0, 40)
 		reset_btn.Text = "⚠ RESET ALL SETTINGS"
