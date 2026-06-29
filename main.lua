@@ -420,5 +420,5 @@ if not success then
 	destroy()
 	warn("Project Gravity Initialization Failed: " .. tostring(err))
 else
-	_G._GRAVITY_SESSION_ID = SESSION_ID
+	getgenv()._GRAVITY_SESSION_ID = SESSION_ID
 end
