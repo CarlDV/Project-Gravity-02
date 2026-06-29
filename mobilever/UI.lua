@@ -328,8 +328,6 @@ return function(context)
 			scl.HorizontalAlignment = Enum.HorizontalAlignment.Center
 			local s = x1.S[x1.k6] or {}
 
-			eh(gsc, "Control")
-
 
 			et(gsc, "Show HUD", x1.ShowHUD ~= false, function(v)
 				x1.ShowHUD = v
@@ -468,7 +466,6 @@ return function(context)
 			end)
 
 			if not x1.SimpleMode then
-				eh(sc, "Shape")
 				local shape_mod = get_shape(x1.k6)
 				if shape_mod and shape_mod.Controls then
 					for _, ctrl in ipairs(shape_mod.Controls) do
@@ -497,8 +494,6 @@ return function(context)
 					end
 				end
 			end
-
-			eh(sc, "DANGER ZONE")
 
 			local reset_btn = Instance.new("TextButton", sc)
 		reset_btn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
@@ -537,17 +532,7 @@ return function(context)
 				local confirm_stroke = Instance.new("UIStroke", confirm)
 				confirm_stroke.Color = Color3.fromRGB(120, 40, 40)
 				confirm_stroke.Thickness = 1
-
-				local confirm_shadow = Instance.new("Frame", sg)
-				confirm_shadow.Name = "ResetShadow"
-				confirm_shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-				confirm_shadow.BackgroundTransparency = 0.5
-				confirm_shadow.Position = UDim2.new(0, 0, 0, 0)
-				confirm_shadow.Size = UDim2.new(1, 0, 1, 0)
-				confirm_shadow.ZIndex = 99
-
 				local warning_icon = Instance.new("TextLabel", confirm)
-				warning_icon.BackgroundTransparency = 1
 				warning_icon.Position = UDim2.new(0.5, -10, 0, 10)
 				warning_icon.Size = UDim2.new(0, 20, 0, 20)
 				warning_icon.Text = "⚠"
@@ -604,10 +589,8 @@ return function(context)
 
 				cancel_btn.MouseButton1Click:Connect(function()
 					v6:Create(confirm, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.In), { GroupTransparency = 1 }):Play()
-					v6:Create(confirm_shadow, TweenInfo.new(0.2), { BackgroundTransparency = 1 }):Play()
 					task.delay(0.2, function()
 						confirm:Destroy()
-						confirm_shadow:Destroy()
 						x6.reset_confirm = nil
 					end)
 				end)
@@ -627,10 +610,8 @@ return function(context)
 						end
 					end
 					v6:Create(confirm, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.In), { GroupTransparency = 1 }):Play()
-					v6:Create(confirm_shadow, TweenInfo.new(0.2), { BackgroundTransparency = 1 }):Play()
 					task.delay(0.2, function()
 						confirm:Destroy()
-						confirm_shadow:Destroy()
 						x6.reset_confirm = nil
 					end)
 				end)
@@ -640,7 +621,6 @@ return function(context)
 				local scale = Instance.new("UIScale", confirm)
 				scale.Scale = 0.9
 				v6:Create(confirm, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { GroupTransparency = 0 }):Play()
-				v6:Create(confirm_shadow, TweenInfo.new(0.3), { BackgroundTransparency = 0.5 }):Play()
 				v6:Create(scale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 			end)
 		end
