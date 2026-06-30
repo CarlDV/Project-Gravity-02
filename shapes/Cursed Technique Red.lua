@@ -15,10 +15,6 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		d.nz = math.random() * 1000
 	end
 	
-	d.nx = d.nx or math.random() * 1000
-	d.ny = d.ny or math.random() * 1000
-	d.nz = d.nz or math.random() * 1000
-	
 	local dir
 	if mag < 0.1 then
 		dir = Vector3.new(math.random()-0.5, math.random()-0.5, math.random()-0.5).Unit
@@ -26,27 +22,22 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		dir = dist.Unit
 	end
 	
-	if mag > radius * 0.95 then
-		local hover_y = math.sin(t * 0.5 + d.v6) * 0.5
-		local hover_x = math.sin(t * 0.3 + d.nx) * 0.3
-		local hover_z = math.cos(t * 0.4 + d.nz) * 0.3
+	if mag >= radius then
+		local hover_y = math.sin(t * 25 + d.v6) * 4
+		local hover_x = math.sin(t * 22 + d.nx) * 4
+		local hover_z = math.cos(t * 28 + d.nz) * 4
 		
-		local anchor_force = Vector3.zero
-		if mag > radius * 1.05 then
-			anchor_force = -dir * (mag - radius) * 20
-		end
+		local outward_pressure = dir * (power * 0.05)
 		
-		return Vector3.new(hover_x, hover_y, hover_z) + anchor_force
+		return Vector3.new(hover_x, hover_y, hover_z) + outward_pressure
 	end
 	
-	return dir * power
+	return dir * (power * 3)
 end
 
 M.Controls = {
-	{ Type = "Slider", Name = "Repulsion Power", Min = 100, Max = 5000, Key = "k11" },
-	{ Type = "Slider", Name = "Blast Radius", Min = 10, Max = 500, Key = "k12" }
+	{ Type = "Slider", Name = "Repulsion Power", Min = 100, Max = 15000, Key = "k11" },
+	{ Type = "Slider", Name = "Blast Radius", Min = 10, Max = 1000, Key = "k12" }
 }
-
-
 
 return M
