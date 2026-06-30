@@ -129,10 +129,10 @@ return function(context)
 
 	local stable_shapes = {
 		["Cursed Technique Red"] = true,
-		["Spinning Web"] = true,
-		["Orbiting Ribbon"] = true,
-		["Concentric Rings"] = true,
-		["Part Fling"] = true,
+		["Galactic Web"] = true,
+		["Celestial Ribbon"] = true,
+		["Big Ring Things"] = true,
+		["Point Impact"] = true,
 		["Domain Expansion Infinite Void"] = true
 	}
 
@@ -846,7 +846,7 @@ return function(context)
 
 				local is_stable = stable_shapes[mn]
 				local f = Instance.new("Frame", dlst)
-				f.Size = UDim2.new(1, -16, 0, 44)
+				f.Size = UDim2.new(1, -16, 0, 24)
 				f.BackgroundColor3 = mn == x1.k6 and Color3.fromRGB(40, 40, 180) or Color3.fromRGB(25, 25, 30)
 				f.ZIndex = 12
 				Instance.new("UICorner", f).CornerRadius = is_stable and UDim.new(1, 0) or UDim.new(0, 4)
@@ -859,8 +859,8 @@ return function(context)
 				end
 
 				local ib = Instance.new("TextButton", f)
-				ib.Size = UDim2.new(1, -40, 0, 16)
-				ib.Position = UDim2.new(0, 8, 0, 2)
+				ib.Size = UDim2.new(1, -40, 1, 0)
+				ib.Position = UDim2.new(0, 8, 0, 0)
 				ib.BackgroundTransparency = 1
 				ib.Text = "  " .. mn
 				ib.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -868,28 +868,6 @@ return function(context)
 				ib.TextSize = 9
 				ib.TextXAlignment = 0
 				ib.ZIndex = 13
-
-				local desc_lbl = Instance.new("TextLabel", f)
-				desc_lbl.BackgroundTransparency = 1
-				desc_lbl.Position = UDim2.new(0, 14, 0, 16)
-				desc_lbl.Size = UDim2.new(1, -40, 0, 24)
-				desc_lbl.Text = "Loading description..."
-				desc_lbl.TextColor3 = Color3.fromRGB(150, 150, 160)
-				desc_lbl.Font = Enum.Font.Gotham
-				desc_lbl.TextSize = 7
-				desc_lbl.TextXAlignment = 0
-				desc_lbl.TextYAlignment = 0
-				desc_lbl.TextWrapped = true
-				desc_lbl.ZIndex = 13
-
-				task.spawn(function()
-					local shape_mod = get_shape(mn)
-					if shape_mod and type(shape_mod) == "table" and shape_mod.Description then
-						desc_lbl.Text = shape_mod.Description
-					else
-						desc_lbl.Text = "No description available."
-					end
-				end)
 
 				local sb = Instance.new("TextButton", f)
 				sb.Position = UDim2.new(1, -35, 0, 0)

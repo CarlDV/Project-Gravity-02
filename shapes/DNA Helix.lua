@@ -39,6 +39,6 @@ M.Controls = {
 	{ Type = "Slider", Name = "Frequency", Min = 10, Max = 200, Key = "k14" }
 }
 
-M.Description = "A rotating double-helix formation."
+
 
 return M

@@ -3,7 +3,7 @@ local M = {}
 function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local wp = p.Position
 	local tc = cen - wp
-	local md = "Winged Array"
+	local md = "Seraphim"
 	local R, RingCount, s, Wingspan = (c.k11 or 80), (c.k12 or 4), (c.k13 or 15) * x9.c2, (c.k14 or 40)
 			if not d.v1 then
 				local roll = math.random()
@@ -75,6 +75,6 @@ M.Controls = {
 	{ Type = "Slider", Name = "Wingspan", Min = 10, Max = 150, Key = "k14" }
 }
 
-M.Description = "Two symmetric wing-like formations flanking the center."
+
 
 return M

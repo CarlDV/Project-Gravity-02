@@ -19,7 +19,7 @@ end
 function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local wp = p.Position
 	local tc = cen - wp
-	local md = "Orbital Comet"
+	local md = "Cosmic Comet"
 	local hr, ts = (c.k11 or 4), (c.k12 or 50) * x9.c7
 			if not d.v4 then
 				d.v4 = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5).Unit
@@ -51,6 +51,6 @@ M.Controls = {
 	{ Type = "Slider", Name = "Move Area", Min = 50, Max = 800, Key = "k17" }
 }
 
-M.Description = "A dense cluster of parts with a long trailing tail."
+
 
 return M

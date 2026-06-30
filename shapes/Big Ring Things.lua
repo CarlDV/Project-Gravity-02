@@ -3,7 +3,7 @@ local M = {}
 function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local wp = p.Position
 	local tc = cen - wp
-	local md = "Concentric Rings"
+	local md = "Big Ring Things"
 	local rc = c.k11 or 2
 			if not d.v1 or d.v2 ~= rc then
 				d.v1 = math.random(1, rc)
@@ -47,7 +47,5 @@ M.Controls = {
 	{ Type = "Slider", Name = "Tilt Angle", Min = 0, Max = 90, Key = "k15" },
 	{ Type = "Slider", Name = "Tilt Speed", Min = 0, Max = 50, Key = "k16", Div = 10 }
 }
-
-M.Description = "Multiple overlapping rings that rotate independently around a central axis."
 
 return M
