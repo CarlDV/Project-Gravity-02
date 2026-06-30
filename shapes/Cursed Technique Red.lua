@@ -23,16 +23,23 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	end
 	
 	if mag >= radius then
+		if not d.hit_wall then
+			d.hit_wall = true
+			d.vl = Vector3.zero
+			p.AssemblyLinearVelocity = Vector3.zero
+		end
+		
 		local hover_y = math.sin(t * 25 + d.v6) * 4
 		local hover_x = math.sin(t * 22 + d.nx) * 4
 		local hover_z = math.cos(t * 28 + d.nz) * 4
 		
-		local outward_pressure = dir * (power * 0.05)
+		local outward_pressure = dir * (power * 0.01)
 		
 		return Vector3.new(hover_x, hover_y, hover_z) + outward_pressure
+	else
+		d.hit_wall = false
+		return dir * (power * 3)
 	end
-	
-	return dir * (power * 3)
 end
 
 M.Controls = {
