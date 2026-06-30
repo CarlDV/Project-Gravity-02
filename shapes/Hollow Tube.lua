@@ -21,7 +21,7 @@ end
 function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local wp = p.Position
 	local tc = cen - wp
-	local md = "Hollow Worm"
+	local md = "Hollow Tube"
 	local r, wf = (c.k11 or 8), (c.k15 or 10) * x9.c7
 			if not d.v4 then
 				d.v4 = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5).Unit
@@ -51,5 +51,7 @@ M.Controls = {
 	{ Type = "Slider", Name = "Wavelength", Min = 1, Max = 50, Key = "k15" },
 	{ Type = "Slider", Name = "Move Area", Min = 50, Max = 800, Key = "k17" }
 }
+
+M.Description = "Arranges parts into a hollow cylindrical tunnel."
 
 return M

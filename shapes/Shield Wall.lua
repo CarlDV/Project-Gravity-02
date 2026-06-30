@@ -24,4 +24,6 @@ M.Controls = {
 	{ Type = "Slider", Name = "H-Offset", Min = -50, Max = 50, Key = "k15" }
 }
 
+M.Description = "A flat, dense barrier of parts for defense."
+
 return M

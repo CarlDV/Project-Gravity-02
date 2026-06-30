@@ -28,4 +28,6 @@ M.Controls = {
 	{ Type = "Slider", Name = "Disk Height", Min = 5, Max = 200, Key = "k14" }
 }
 
+M.Description = "Pulls all parts into a dense singularity at the center."
+
 return M

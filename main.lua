@@ -203,10 +203,29 @@ local function save_favs()
 		end)
 	end
 end
+local LEGACY_MODE_NAMES = {
+	["Big Ring Things"] = "Concentric Rings",
+	["Celestial Ribbon"] = "Orbiting Ribbon",
+	["Hollow Worm"] = "Hollow Tube",
+	["Cosmic Comet"] = "Orbital Comet",
+	["Point Impact"] = "Part Fling",
+	["Halo Ring"] = "Static Halo",
+	["Gods Call"] = "Ascend",
+	["Seraphim"] = "Winged Array",
+	["Galactic Web"] = "Spinning Web"
+}
+
 local function load_favs()
 	if isfile and isfile("GravityFavorites.json") then
 		pcall(function()
-			favorites = HttpService:JSONDecode(readfile("GravityFavorites.json"))
+			local raw_favs = HttpService:JSONDecode(readfile("GravityFavorites.json"))
+			favorites = {}
+			if type(raw_favs) == "table" then
+				for k, v in pairs(raw_favs) do
+					local new_k = LEGACY_MODE_NAMES[k] or k
+					favorites[new_k] = v
+				end
+			end
 		end)
 	end
 end
@@ -243,15 +262,22 @@ local function load_settings()
 		if success and data then
 			local cx1 = desanitize(data.x1)
 			local cx2 = desanitize(data.x2)
+			
+			if cx1.k6 and LEGACY_MODE_NAMES[cx1.k6] then
+				cx1.k6 = LEGACY_MODE_NAMES[cx1.k6]
+			end
+			
 			for k, v in pairs(cx1) do
 				if k ~= "S" and x1[k] ~= nil and typeof(x1[k]) == typeof(v) then
 					x1[k] = v
 				end
 			end
+			
 			for mk, mv in pairs(cx2) do
-				if x2[mk] and type(mv) == "table" then
+				local target_mk = LEGACY_MODE_NAMES[mk] or mk
+				if x2[target_mk] and type(mv) == "table" then
 					for sk, sv in pairs(mv) do
-						x2[mk][sk] = sv
+						x2[target_mk][sk] = sv
 					end
 				end
 			end

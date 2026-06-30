@@ -6,6 +6,116 @@ return function(context)
 	local load_module = context.load_module
 	local reset_config = context.reset_config
 
+	local Lighting = game:GetService("Lighting")
+	
+	local PerfOriginals = {
+		Shadows = nil,
+		FX = {},
+		Materials = {},
+		Particles = {}
+	}
+	
+	local function RestorePerfShadows()
+		if PerfOriginals.Shadows ~= nil then
+			Lighting.GlobalShadows = PerfOriginals.Shadows
+			PerfOriginals.Shadows = nil
+		end
+	end
+	
+	local function ApplyPerfShadows(disable)
+		if disable then
+			if PerfOriginals.Shadows == nil then
+				PerfOriginals.Shadows = Lighting.GlobalShadows
+			end
+			Lighting.GlobalShadows = false
+		else
+			RestorePerfShadows()
+		end
+	end
+	
+	local function RestorePerfPostFX()
+		for fx, was_enabled in pairs(PerfOriginals.FX) do
+			if fx.Parent then fx.Enabled = was_enabled end
+		end
+		table.clear(PerfOriginals.FX)
+	end
+	
+	local function ApplyPerfPostFX(disable)
+		if disable then
+			for _, effect in pairs(Lighting:GetDescendants()) do
+				if effect:IsA("PostEffect") then
+					if PerfOriginals.FX[effect] == nil then
+						PerfOriginals.FX[effect] = effect.Enabled
+					end
+					effect.Enabled = false
+				end
+			end
+			local camera = workspace.CurrentCamera
+			if camera then
+				for _, effect in pairs(camera:GetDescendants()) do
+					if effect:IsA("PostEffect") then
+						if PerfOriginals.FX[effect] == nil then
+							PerfOriginals.FX[effect] = effect.Enabled
+						end
+						effect.Enabled = false
+					end
+				end
+			end
+		else
+			RestorePerfPostFX()
+		end
+	end
+	
+	local function RestorePerfMaterials()
+		for part, mat in pairs(PerfOriginals.Materials) do
+			if part.Parent then part.Material = mat end
+		end
+		table.clear(PerfOriginals.Materials)
+	end
+	
+	local function ApplyPerfMaterials(disable)
+		if disable then
+			for _, part in pairs(workspace:GetDescendants()) do
+				if part:IsA("BasePart") then
+					if not PerfOriginals.Materials[part] then
+						PerfOriginals.Materials[part] = part.Material
+					end
+					part.Material = Enum.Material.SmoothPlastic
+				end
+			end
+		else
+			RestorePerfMaterials()
+		end
+	end
+	
+	local function RestorePerfParticles()
+		for p, enabled in pairs(PerfOriginals.Particles) do
+			if p.Parent then p.Enabled = enabled end
+		end
+		table.clear(PerfOriginals.Particles)
+	end
+	
+	local function ApplyPerfParticles(disable)
+		if disable then
+			for _, obj in pairs(workspace:GetDescendants()) do
+				if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") or obj:IsA("Fire") or obj:IsA("Smoke") or obj:IsA("Sparkles") then
+					if PerfOriginals.Particles[obj] == nil then
+						PerfOriginals.Particles[obj] = obj.Enabled
+					end
+					obj.Enabled = false
+				end
+			end
+		else
+			RestorePerfParticles()
+		end
+	end
+
+	local function RestoreAllPerf()
+		RestorePerfShadows()
+		RestorePerfPostFX()
+		RestorePerfMaterials()
+		RestorePerfParticles()
+	end
 	local UI_elements = load_module("UI_elements.lua")(context)
 	local es, et, eb, eh = UI_elements.s, UI_elements.t, UI_elements.b, UI_elements.h
 
@@ -18,10 +128,10 @@ return function(context)
 
 	local stable_shapes = {
 		["Cursed Technique Red"] = true,
-		["Galactic Web"] = true,
-		["Celestial Ribbon"] = true,
-		["Big Ring Things"] = true,
-		["Point Impact"] = true,
+		["Spinning Web"] = true,
+		["Orbiting Ribbon"] = true,
+		["Concentric Rings"] = true,
+		["Part Fling"] = true,
 		["Domain Expansion Infinite Void"] = true
 	}
 
@@ -212,6 +322,32 @@ return function(context)
 			x1.VerticalStiffness = v
 			save_settings()
 		end)
+		
+		et(ac, "Disable Shadows", x1.Perf_DisableShadows, function(v)
+			x1.Perf_DisableShadows = v
+			ApplyPerfShadows(v)
+			save_settings()
+		end)
+		et(ac, "Disable Post-FX", x1.Perf_DisablePostFX, function(v)
+			x1.Perf_DisablePostFX = v
+			ApplyPerfPostFX(v)
+			save_settings()
+		end)
+		et(ac, "Potato Materials", x1.Perf_PotatoMaterials, function(v)
+			x1.Perf_PotatoMaterials = v
+			ApplyPerfMaterials(v)
+			save_settings()
+		end)
+		et(ac, "Hide Particles", x1.Perf_HideParticles, function(v)
+			x1.Perf_HideParticles = v
+			ApplyPerfParticles(v)
+			save_settings()
+		end)
+		
+		ApplyPerfShadows(x1.Perf_DisableShadows)
+		ApplyPerfPostFX(x1.Perf_DisablePostFX)
+		ApplyPerfMaterials(x1.Perf_PotatoMaterials)
+		ApplyPerfParticles(x1.Perf_HideParticles)
 		
 		local function update_color()
 			if x6.b then
@@ -815,7 +951,7 @@ return function(context)
 
 				local is_stable = stable_shapes[mn]
 				local f = Instance.new("Frame", dlst)
-				f.Size = UDim2.new(1, -16, 0, 40)
+				f.Size = UDim2.new(1, -16, 0, 65)
 				f.BackgroundColor3 = mn == x1.k6 and Color3.fromRGB(40, 40, 180) or Color3.fromRGB(25, 25, 30)
 				Instance.new("UICorner", f).CornerRadius = is_stable and UDim.new(1, 0) or UDim.new(0, 6)
 
@@ -827,14 +963,35 @@ return function(context)
 				end
 
 				local ib = Instance.new("TextButton", f)
-				ib.Size = UDim2.new(1, -40, 1, 0)
-				ib.Position = UDim2.new(0, 8, 0, 0)
+				ib.Size = UDim2.new(1, -40, 0, 24)
+				ib.Position = UDim2.new(0, 8, 0, 4)
 				ib.BackgroundTransparency = 1
 				ib.Text = "  " .. mn
 				ib.TextColor3 = Color3.fromRGB(255, 255, 255)
 				ib.Font = Enum.Font.GothamBold
 				ib.TextSize = 12
 				ib.TextXAlignment = 0
+
+				local desc_lbl = Instance.new("TextLabel", f)
+				desc_lbl.BackgroundTransparency = 1
+				desc_lbl.Position = UDim2.new(0, 18, 0, 26)
+				desc_lbl.Size = UDim2.new(1, -50, 0, 36)
+				desc_lbl.Text = "Loading description..."
+				desc_lbl.TextColor3 = Color3.fromRGB(150, 150, 160)
+				desc_lbl.Font = Enum.Font.Gotham
+				desc_lbl.TextSize = 9
+				desc_lbl.TextXAlignment = 0
+				desc_lbl.TextYAlignment = 0
+				desc_lbl.TextWrapped = true
+
+				task.spawn(function()
+					local shape_mod = get_shape(mn)
+					if shape_mod and type(shape_mod) == "table" and shape_mod.Description then
+						desc_lbl.Text = shape_mod.Description
+					else
+						desc_lbl.Text = "No description available."
+					end
+				end)
 
 				local sb = Instance.new("TextButton", f)
 				sb.Position = UDim2.new(1, -35, 0, 0)
@@ -978,7 +1135,14 @@ return function(context)
 		end)
 
 		closeb.MouseButton1Click:Connect(function()
+			RestoreAllPerf()
 			sg:Destroy()
+		end)
+		
+		pcall(function()
+			sg.Destroying:Connect(function()
+				RestoreAllPerf()
+			end)
 		end)
 	end
 

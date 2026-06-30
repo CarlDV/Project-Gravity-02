@@ -55,7 +55,7 @@ end
 
 function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local wp = p.Position
-	local md = "Celestial Ribbon"
+	local md = "Orbiting Ribbon"
 	local w = c.k11 or 8
 	if not d.v7 then
 		d.v7 = math.random() - 0.5
@@ -119,5 +119,7 @@ M.Controls = {
 	{ Type = "Toggle", Name = "Enable Slither", Key = "k18" },
 	{ Type = "Toggle", Name = "Dual Dragons", Key = "k19" }
 }
+
+M.Description = "A continuous ribbon formation orbiting the center point."
 
 return M

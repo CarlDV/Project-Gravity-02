@@ -3,7 +3,7 @@ local M = {}
 function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local wp = p.Position
 	local tc = cen - wp
-	local md = "Point Impact"
+	local md = "Part Fling"
 	local s = 500
 			local radius = c.k11 or 0
 			if x1.ImpactManual then
@@ -36,5 +36,7 @@ M.Controls = {
 	{ Type = "Slider", Name = "Closeness", Min = 1, Max = 50, Key = "k11", Div = 2 },
 	{ Type = "Slider", Name = "Move Area", Min = 50, Max = 800, Key = "k17" }
 }
+
+M.Description = "Rapidly ejects all parts outwards from a central point."
 
 return M

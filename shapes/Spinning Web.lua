@@ -3,7 +3,7 @@ local M = {}
 function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local wp = p.Position
 	local tc = cen - wp
-	local md = "Galactic Web"
+	local md = "Spinning Web"
 	local Spread, SpinSpeed, DriftTime = (c.k11 or 400), (c.k12 or 10) * x9.c2, (c.k13 or 5)
 			if not d.v1 then
 				d.v1 = (math.random() - 0.5) * 2
@@ -70,5 +70,7 @@ M.Controls = {
 	{ Type = "Slider", Name = "Web Height Limit", Min = 0, Max = 1500, Key = "k24" },
 	{ Type = "Toggle", Name = "Cut In Half", Key = "k23", Default = true }
 }
+
+M.Description = "A rotating lattice structure of interconnected parts."
 
 return M

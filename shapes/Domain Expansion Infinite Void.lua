@@ -51,4 +51,6 @@ M.Controls = {
 	{ Type = "Toggle", Name = "Stable Flow", Key = "k19", Default = true }
 }
 
+M.Description = "Gojo Satoru's Domain. Traps targets inside the Limitless, flooding their minds with endless information."
+
 return M

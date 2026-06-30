@@ -31,4 +31,6 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			end
 end
 
+M.Description = "Allows manual shaping and positioning of parts."
+
 return M

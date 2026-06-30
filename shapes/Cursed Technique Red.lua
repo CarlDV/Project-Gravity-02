@@ -43,4 +43,6 @@ M.Controls = {
 	{ Type = "Slider", Name = "Blast Radius", Min = 10, Max = 500, Key = "k12" }
 }
 
+M.Description = "The reversal of Limitless. Manifests as a concentrated red orb that violently repels all matter."
+
 return M
