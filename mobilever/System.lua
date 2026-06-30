@@ -88,7 +88,16 @@ return function(context)
 		end
 	end
 
-
+	local function get_predicted_pos(root, factor)
+		local pos = root.Position
+		local vel = root.AssemblyLinearVelocity
+		if vel.Magnitude > 250 then
+			vel = vel.Unit * 250
+		end
+		local y_vel = math.clamp(vel.Y, -50, 15)
+		vel = Vector3.new(vel.X, y_vel, vel.Z)
+		return pos + (vel * (factor / 1000))
+	end
 
 	local no_damp = { ["Slingshot"] = true, ["Point Impact"] = true, ["Deflect"] = true }
 
@@ -143,16 +152,20 @@ return function(context)
 						if is_tgt and not marker then
 							local bg = Instance.new("BillboardGui")
 							bg.Name = "GravityTargetMarker"
-							bg.Size = UDim2.new(0, 14, 0, 14)
-							bg.StudsOffset = Vector3.new(0, 1.5, 0)
+							bg.Size = UDim2.new(1.5, 0, 1.5, 0)
+							bg.StudsOffset = Vector3.new(0, 2.5, 0)
 							bg.AlwaysOnTop = true
 							
-							local frame = Instance.new("Frame", bg)
-							frame.Size = UDim2.new(1, 0, 1, 0)
-							frame.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
-							Instance.new("UICorner", frame).CornerRadius = UDim.new(1, 0)
-							local str = Instance.new("UIStroke", frame)
-							str.Color = Color3.fromRGB(255, 150, 150)
+							local txt = Instance.new("TextLabel", bg)
+							txt.BackgroundTransparency = 1
+							txt.Size = UDim2.new(1, 0, 1, 0)
+							txt.Text = "▼"
+							txt.TextColor3 = Color3.fromRGB(255, 60, 60)
+							txt.TextScaled = true
+							txt.Font = Enum.Font.GothamBlack
+							
+							local str = Instance.new("UIStroke", txt)
+							str.Color = Color3.fromRGB(0, 0, 0)
 							str.Thickness = 2
 							bg.Parent = head
 						elseif not is_tgt and marker then
@@ -172,7 +185,7 @@ return function(context)
 						local root = tgt.Character.HumanoidRootPart
 						local pos = root.Position
 						if x1.PredictiveTracking then
-							pos = pos + (root.AssemblyLinearVelocity * ((x1.PredictionFactor or 150) / 1000))
+							pos = get_predicted_pos(root, x1.PredictionFactor or 150)
 						end
 						table.insert(target_positions, pos)
 						valid_targets = valid_targets + 1
@@ -339,7 +352,7 @@ return function(context)
 				local root = tgt.Character.HumanoidRootPart
 				local pos = root.Position
 				if x1.PredictiveTracking then
-					pos = pos + (root.AssemblyLinearVelocity * ((x1.PredictionFactor or 150) / 1000))
+					pos = get_predicted_pos(root, x1.PredictionFactor or 150)
 				end
 				x6.b.Position = pos
 				x6.b.AssemblyLinearVelocity = Vector3.zero
@@ -349,7 +362,7 @@ return function(context)
 			local root = v8.Character.HumanoidRootPart
 			local pos = root.Position
 			if x1.PredictiveTracking then
-				pos = pos + (root.AssemblyLinearVelocity * ((x1.PredictionFactor or 150) / 1000))
+				pos = get_predicted_pos(root, x1.PredictionFactor or 150)
 			end
 			x6.b.Position = pos
 			x6.b.AssemblyLinearVelocity = Vector3.zero
