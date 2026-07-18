@@ -306,6 +306,18 @@ return function(context)
 						target_pos_delta = target_pos_delta + (d.integral * ki)
 					end
 					local tv = target_pos_delta
+					local liftoff_limit = nil
+					
+					if x1["Realistic Liftoff"] and d.claim_t then
+						local age = ft - d.claim_t
+						if age < 2.5 then
+							local p_factor = math.clamp(age / 2.5, 0, 1)
+							local g_bias = Vector3.new(0, -(workspace.Gravity or 196.2) * 0.7, 0) * (1 - p_factor)
+							local kick = Vector3.new(0, 30, 0) * math.clamp(1 - (age / 0.5), 0, 1)
+							tv = tv + g_bias + kick
+							liftoff_limit = 15 + ((max_speed or 3300) - 15) * (p_factor ^ 3)
+						end
+					end
 					
 					if pure_target_pos then
 						if d.last_target_pos and d.sys_last_t then
@@ -339,6 +351,7 @@ return function(context)
 					
 					local limit = (max_speed and not cur_no_damp) and max_speed or 3300
 					if pure_target_pos then limit = math.max(limit, 15300) end
+					if liftoff_limit then limit = math.min(limit, liftoff_limit) end
 					if d.vl.Magnitude > limit then
 						d.vl = d.vl.Unit * limit
 					end
@@ -462,7 +475,7 @@ return function(context)
 		av.RelativeTo = Enum.ActuatorRelativeTo.World
 		av.AngularVelocity = Vector3.zero
 		av.Attachment0 = a
-		x6.a[p] = { at = a, lv = lv, av = av, integral = Vector3.zero }
+		x6.a[p] = { at = a, lv = lv, av = av, integral = Vector3.zero, claim_t = time() }
 		table.insert(x6.active_array, p)
 		x6.n = x6.n + 1
 	end

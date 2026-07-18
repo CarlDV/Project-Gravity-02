@@ -491,6 +491,10 @@ return function(context)
 					x1["Force Smooth (Lags)"] = v
 					save_settings()
 				end)
+				et(gsc, "Realistic Liftoff", x1["Realistic Liftoff"], function(v)
+					x1["Realistic Liftoff"] = v
+					save_settings()
+				end)
 			end
 
 			x6.disable_btn = et(gsc, "Disable Gravity", x1.Disabled, function(v)

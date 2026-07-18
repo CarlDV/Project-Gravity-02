@@ -29,6 +29,7 @@ return {
 		PredictionFactor = 150,
 		ShowHUD = true,
 		["Force Smooth (Lags)"] = false,
+		["Realistic Liftoff"] = false,
 		Paused = false,
 		Damping = 0.5,
 		Ki = 0.1,
