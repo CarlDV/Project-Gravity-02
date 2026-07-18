@@ -233,6 +233,9 @@ return function(context)
 				smoothing = 1
 			end
 			local sm_alpha = smoothing >= 1 and 1 or (1 - math.exp(-dt_mult * -math.log(math.max(0.001, 1 - smoothing))))
+			if x1["Force Smooth (Lags)"] then
+				sm_alpha = 1
+			end
 
 			local ang_damp_mult = 1
 			if x1.AngularDamping and x1.AngularDamping > 0 then
@@ -307,7 +310,7 @@ return function(context)
 					if pure_target_pos then
 						if d.last_target_pos and d.sys_last_t then
 							local actual_dt = ft - d.sys_last_t
-							if actual_dt > 0 then
+							if actual_dt > 0.001 then
 								local target_velocity = (pure_target_pos - d.last_target_pos) / actual_dt
 								tv = tv + target_velocity
 							end
@@ -319,7 +322,7 @@ return function(context)
 						d.sys_last_t = nil
 					end
 					
-					if damping > 0 and not cur_no_damp then
+					if damping > 0 and not cur_no_damp and not x1["Force Smooth (Lags)"] then
 						tv = tv - (p_vel * damping)
 					end
 
