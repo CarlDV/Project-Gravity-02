@@ -1033,6 +1033,28 @@ return function(context)
 		minb.Text = ""
 		Instance.new("UICorner", minb).CornerRadius = UDim.new(1, 0)
 		
+		local dcb = Instance.new("TextButton", h)
+		dcb.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+		dcb.Position = UDim2.new(1, -120, 0.5, -10)
+		dcb.Size = UDim2.new(0, 20, 0, 20)
+		dcb.Text = "D"
+		dcb.TextColor3 = Color3.fromRGB(255, 255, 255)
+		dcb.Font = Enum.Font.GothamBold
+		dcb.TextSize = 11
+		Instance.new("UICorner", dcb).CornerRadius = UDim.new(1, 0)
+		dcb.MouseButton1Click:Connect(function()
+			pcall(function()
+				if setclipboard then
+					setclipboard("https://discord.gg/9xYyyYuKap")
+				elseif toclipboard then
+					toclipboard("https://discord.gg/9xYyyYuKap")
+				end
+			end)
+			pcall(function()
+				v5:SetCore("SendNotification", { Title = "Discord", Text = "Invite link copied to clipboard!", Duration = 3 })
+			end)
+		end)
+
 		local tutb = Instance.new("TextButton", h)
 		tutb.BackgroundColor3 = Color3.fromRGB(50, 150, 200)
 		tutb.Position = UDim2.new(1, -90, 0.5, -10)
