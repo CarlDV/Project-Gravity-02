@@ -163,7 +163,6 @@ if isfolder and makefolder and listfiles and readfile then
 					local_shapes[name] = file
 					if not x2[name] then
 						x2[name] = {}
-						-- Read the shape module to auto-initialize default configuration values
 						local read_success, code = pcall(readfile, file)
 						if read_success and code then
 							local func = loadstring(code)
@@ -182,7 +181,7 @@ if isfolder and makefolder and listfiles and readfile then
 											x2[name][ctrl.Key] = default_val
 										end
 									end
-								end
+								end	
 							end
 						end
 					end
