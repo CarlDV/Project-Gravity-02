@@ -11,7 +11,7 @@ function M.px(t, c, x6, x9, x1)
 	local dt = current_time - (r.last_t or current_time)
 	r.last_t = current_time
 	
-	local s = 500
+	local s = (c.k13 or 50) * 10
 	if x1 and x1.ImpactManual then
 		if not x1.IsLaunching then
 			s = 1
@@ -27,7 +27,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local wp = p.Position
 	local tc = cen - wp
 	local md = "Point Impact"
-	local s = 500
+	local s = c.k13 or 500
 			local radius = c.k11 or 0
 			if x1.ImpactManual then
 				if not x1.IsLaunching then
@@ -53,7 +53,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 
 
 			local target_pos = cen + (rd * radius)
-			return (target_pos - wp) * 5000, target_pos
+			return (target_pos - wp) * 5000
 end
 
 M.Controls = {
