@@ -394,6 +394,20 @@ return function(context)
 		end)
 		ab.Size = UDim2.new(1, 0, 0, 20)
 
+		local dcb = eb(c, "Join Discord Server", function()
+			pcall(function()
+				if setclipboard then
+					setclipboard("https://discord.gg/9xYyyYuKap")
+				elseif toclipboard then
+					toclipboard("https://discord.gg/9xYyyYuKap")
+				end
+			end)
+			pcall(function()
+				v5:SetCore("SendNotification", { Title = "Discord", Text = "Invite link copied to clipboard!", Duration = 3 })
+			end)
+		end)
+		dcb.Size = UDim2.new(1, 0, 0, 20)
+
 		local mode_f = Instance.new("Frame", c)
 		mode_f.BackgroundTransparency = 1
 		mode_f.Size = UDim2.new(1, 0, 0, 24)
@@ -1085,28 +1099,6 @@ return function(context)
 		minb.Size = UDim2.new(0, 14, 0, 14)
 		minb.Text = ""
 		Instance.new("UICorner", minb).CornerRadius = UDim.new(1, 0)
-		
-		local dcb = Instance.new("TextButton", h)
-		dcb.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
-		dcb.Position = UDim2.new(1, -88, 0.5, -7)
-		dcb.Size = UDim2.new(0, 14, 0, 14)
-		dcb.Text = "D"
-		dcb.TextColor3 = Color3.fromRGB(255, 255, 255)
-		dcb.Font = Enum.Font.GothamBold
-		dcb.TextSize = 8
-		Instance.new("UICorner", dcb).CornerRadius = UDim.new(1, 0)
-		dcb.MouseButton1Click:Connect(function()
-			pcall(function()
-				if setclipboard then
-					setclipboard("https://discord.gg/9xYyyYuKap")
-				elseif toclipboard then
-					toclipboard("https://discord.gg/9xYyyYuKap")
-				end
-			end)
-			pcall(function()
-				v5:SetCore("SendNotification", { Title = "Discord", Text = "Invite link copied to clipboard!", Duration = 3 })
-			end)
-		end)
 
 		local tutb = Instance.new("TextButton", h)
 		tutb.BackgroundColor3 = Color3.fromRGB(50, 150, 200)
