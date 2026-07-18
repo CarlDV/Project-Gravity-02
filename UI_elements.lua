@@ -109,7 +109,7 @@ return function(context)
 			end
 		end)
 		local c2 = v1.InputChanged:Connect(function(i)
-			if dragging and hover_slider and i.UserInputType == Enum.UserInputType.MouseMovement then
+			if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
 				u(i)
 			end
 		end)
