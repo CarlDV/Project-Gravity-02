@@ -310,12 +310,12 @@ return function(context)
 					
 					if x1["Realistic Liftoff"] and d.claim_t then
 						local age = ft - d.claim_t
-						if age < 2.5 then
-							local p_factor = math.clamp(age / 2.5, 0, 1)
-							local g_bias = Vector3.new(0, -(workspace.Gravity or 196.2) * 0.7, 0) * (1 - p_factor)
-							local kick = Vector3.new(0, 30, 0) * math.clamp(1 - (age / 0.5), 0, 1)
+						if age < 4 then
+							local p_factor = math.clamp(age / 4, 0, 1)
+							local g_bias = Vector3.new(0, -(workspace.Gravity or 196.2), 0) * (1 - p_factor)
+							local kick = Vector3.new(0, 60, 0) * math.clamp(1 - (age / 0.8), 0, 1)
 							tv = tv + g_bias + kick
-							liftoff_limit = 15 + ((max_speed or 3300) - 15) * (p_factor ^ 3)
+							liftoff_limit = 8 + ((max_speed or 3300) - 8) * (p_factor ^ 4)
 						end
 					end
 					
