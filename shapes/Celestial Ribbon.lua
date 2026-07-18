@@ -7,16 +7,24 @@ function M.px(t, c, x6, x9)
 	if not x6.pre["Celestial Ribbon_B"] then
 		x6.pre["Celestial Ribbon_B"] = table.create(200)
 	end
+	if not x6.pre["Celestial Ribbon_meta"] then
+		x6.pre["Celestial Ribbon_meta"] = { phase = 0, last_t = t }
+	end
+	local meta = x6.pre["Celestial Ribbon_meta"]
+	local s, w, h, l = (c.k13 or 10) * x9.c2, (c.k11 or 8), c.k14 or 50, (c.k16 or x9.c5) * 100
+	local dt = t - meta.last_t
+	meta.last_t = t
+	meta.phase = meta.phase + dt * s
+
 	local r = x6.pre["Celestial Ribbon"]
 	local r2 = x6.pre["Celestial Ribbon_B"]
 	table.clear(r)
 	table.clear(r2)
 	local res = 200
-	local s, w, h, l = (c.k13 or 10) * x9.c2, (c.k11 or 8), c.k14 or 50, (c.k16 or x9.c5) * 100
 	local R = (c.k17 or 150)
 	for i = 1, res do
 		local pc = (i - 1) / (res - 1)
-		local ph = (t * s) - (pc * (l * x9.c2))
+		local ph = meta.phase - (pc * (l * x9.c2))
 		
 		local function get_pos(phi)
 			return Vector3.new(math.cos(phi) * R, math.sin(phi * 0.577) * h, math.sin(phi * 1.618) * R)
@@ -81,7 +89,10 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	else
 		local s, h, l = (c.k13 or 10) * x9.c2, c.k14 or 50, (c.k16 or x9.c5) * 100
 		local isB = c.k19 and d.v9 == 1
-		local ph = (t * s) - (d.v6 * (l * x9.c2)) + (isB and 2.37 or 0)
+		local dt = t - (d.last_t or t)
+		d.last_t = t
+		d.phase = (d.phase or 0) + dt * s
+		local ph = d.phase - (d.v6 * (l * x9.c2)) + (isB and 2.37 or 0)
 		local R = (c.k17 or 150)
 		local function get_pos_fallback(phi, is_b)
 			if is_b then
@@ -107,7 +118,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			+ (trn.Unit * (d.v7 * w))
 			+ (c.k18 and (trn.Unit * math.sin(ph * 8)) * (w * 2.0) or Vector3.zero)
 	end
-	return ((cen + fin) - wp) * (x1.k10 * x9.c1)
+	local target_pos = cen + fin
+	return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

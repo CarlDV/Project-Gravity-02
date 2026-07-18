@@ -4,15 +4,23 @@ function M.px(t, c, x6, x9)
 	if not x6.pre["Hollow Worm"] then
 		x6.pre["Hollow Worm"] = table.create(200)
 	end
+	if not x6.pre["Hollow Worm_meta"] then
+		x6.pre["Hollow Worm_meta"] = { phase = 0, last_t = t }
+	end
+	local meta = x6.pre["Hollow Worm_meta"]
+	local s, radius, h, wf, l =
+		(c.k13 or 10) * x9.c2, (c.k11 or 8), c.k14 or 50, (c.k15 or 10) * x9.c7, (c.k16 or x9.c5) * 100
+	local dt = t - meta.last_t
+	meta.last_t = t
+	meta.phase = meta.phase + dt * s
+
 	local r = x6.pre["Hollow Worm"]
 	table.clear(r)
 	local res = 200
-	local s, radius, h, wf, l =
-		(c.k13 or 10) * x9.c2, (c.k11 or 8), c.k14 or 50, (c.k15 or 10) * x9.c7, (c.k16 or x9.c5) * 100
 	local R = (c.k17 or 150)
 	for i = 1, res do
 		local pc = (i - 1) / (res - 1)
-		local ph = (t * s) - (pc * (l * x9.c2))
+		local ph = meta.phase - (pc * (l * x9.c2))
 		local sx, sz, sy = math.cos(ph) * R, math.sin(ph) * R, math.sin(ph * wf) * h
 		r[i] = Vector3.new(sx, sy, sz)
 	end
@@ -34,13 +42,17 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				center_pos = p_data[idx]
 			else
 				local s, h, l = (c.k13 or 10) * x9.c2, c.k14 or 50, (c.k16 or x9.c5) * 100
-				local ph = (t * s) - (d.v6 * (l * x9.c2))
+				local dt = t - (d.last_t or t)
+				d.last_t = t
+				d.phase = (d.phase or 0) + dt * s
+				local ph = d.phase - (d.v6 * (l * x9.c2))
 				local R = (c.k17 or 150)
 				center_pos = Vector3.new(math.cos(ph) * R, math.sin(ph * wf) * h, math.sin(ph) * R)
 			end
 			local cx, sx_spin = math.cos(t * 2), math.sin(t * 2)
 			local rd = Vector3.new(d.v4.X * cx - d.v4.Z * sx_spin, d.v4.Y, d.v4.X * sx_spin + d.v4.Z * cx).Unit
-			return ((cen + center_pos + (rd * r)) - wp) * (x1.k10 * x9.c1)
+			local target_pos = cen + center_pos + (rd * r)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

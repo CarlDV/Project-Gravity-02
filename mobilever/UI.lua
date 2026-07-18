@@ -616,7 +616,11 @@ return function(context)
 								end
 							end
 							if ctrl.Div then current_val = current_val * ctrl.Div end
-							es(p_frame, ctrl.Name, ctrl.Min, ctrl.Max, current_val, function(v)
+							local max_val = ctrl.Max
+							if string.find(ctrl.Name:lower(), "speed") then
+								max_val = max_val + 300
+							end
+							es(p_frame, ctrl.Name, ctrl.Min, max_val, current_val, function(v)
 								if ctrl.Div then s[ctrl.Key] = v / ctrl.Div else s[ctrl.Key] = v end
 							end, ctrl.IntOnly)
 						elseif ctrl.Type == "Toggle" then

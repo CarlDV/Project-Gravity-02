@@ -11,14 +11,18 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			if not d.v2 then
 				d.v2 = math.random()
 			end
-			local cycle = (t * s) % math.pi
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * s)
+			local cycle = d.phase % math.pi
 			local burst = math.sin(cycle)
 
 			local core_jitter = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 2
 			local shockwave = d.v1 * (burst * MaxSize * d.v2)
 			local current_pos = (burst > 0.1) and shockwave or (d.v1 * ExpandingRad + core_jitter)
 
-			return ((cen + current_pos) - wp) * (x1.k10 * x9.c1)
+			local target_pos = cen + current_pos
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

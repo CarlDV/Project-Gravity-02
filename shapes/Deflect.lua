@@ -6,7 +6,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local md = "Deflect"
 	local range, speed = c.k11 or 50, c.k12 or 500
 			if tc.Magnitude < range then
-				return (wp - wc).Unit * speed
+				return (wp - cen).Unit * speed
 			end
 end
 

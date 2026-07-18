@@ -8,7 +8,10 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			if not d.v1 then
 				d.v1 = math.random(0, 31)
 			end
-			local target_rot = (t * s)
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * s)
+			local target_rot = d.phase
 
 			local function proj_4d(x, y, z, w, rot)
 				local nw = w * math.cos(rot) - x * math.sin(rot)
@@ -41,14 +44,18 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				to = points[(edge - 24) + 1]
 			end
 
-			local lerp = (math.sin(t * s + d.v1) + 1) / 2
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * s)
+			local lerp = (math.sin(d.phase + d.v1) + 1) / 2
 			local lx = from[1] + (to[1] - from[1]) * lerp
 			local ly = from[2] + (to[2] - from[2]) * lerp
 			local lz = from[3] + (to[3] - from[3]) * lerp
 			local lw = (edge >= 12 and edge < 24) and 1 or -1
 
 			local rx, ry, rz = proj_4d(lx * outer_size, ly * outer_size, lz * outer_size, lw * outer_size, target_rot)
-			return ((cen + Vector3.new(rx, ry, rz)) - wp) * (x1.k10 * x9.c1)
+			local target_pos = cen + Vector3.new(rx, ry, rz)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

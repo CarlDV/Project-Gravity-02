@@ -19,7 +19,10 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				d.v2 = math.random() * math.pi * 2
 			end
 
-			local phase = t * s
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * s)
+			local phase = d.phase
 			local tx, ty, tz = 0, 0, 0
 
 			if d.v1 == 0 then
@@ -65,7 +68,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				ty = wing_flap + math.abs(wing_side * wing_w * 0.5)
 				tz = -20 - (wing_pos * 30)
 			end
-			return ((cen + Vector3.new(tx, ty, tz)) - wp) * (x1.k10 * x9.c1)
+			local target_pos = cen + Vector3.new(tx, ty, tz)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

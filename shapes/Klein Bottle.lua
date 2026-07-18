@@ -11,8 +11,14 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			if not d.v2 then
 				d.v2 = math.random() * math.pi * 2
 			end
-			local u_phase = (t * s) + d.v1
-			local v_phase = (t * s * 0.5) + d.v2
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * s)
+			local u_phase = d.phase + d.v1
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase2 = (d.phase2 or 0) + (dt * s * 0.5)
+			local v_phase = d.phase2 + d.v2
 
 			local cos_u, sin_u = math.cos(u_phase), math.sin(u_phase)
 			local cos_v, sin_v = math.cos(v_phase), math.sin(v_phase)
@@ -21,7 +27,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			local ty = sin_u * sin_v * R
 			local tz = (R + cos_u * sin_v - sin_u * sin_v * 2) * sin_v
 
-			return ((cen + Vector3.new(tx, ty, tz)) - wp) * (x1.k10 * x9.c1)
+			local target_pos = cen + Vector3.new(tx, ty, tz)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

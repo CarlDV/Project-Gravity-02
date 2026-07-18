@@ -33,9 +33,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		local hover_x = math.sin(t * 22 + d.nx) * 4
 		local hover_z = math.cos(t * 28 + d.nz) * 4
 		
-		local outward_pressure = dir * (power * 0.01)
-		
-		return Vector3.new(hover_x, hover_y, hover_z) + outward_pressure
+		local target_pos = cen + dir * radius + Vector3.new(hover_x, hover_y, hover_z)
+		return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 	else
 		d.hit_wall = false
 		return dir * (power * 3)

@@ -12,7 +12,10 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				d.v6 = math.random() * math.pi * 2
 			end
 			local current_r = R_base + ((R_top - R_base) * (d.v4 ^ 2))
-			local phase = (t * s) + d.v6 + ((1 - d.v4) * (c.k15 or 5) * 5)
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * s)
+			local phase = d.phase + d.v6 + ((1 - d.v4) * (c.k15 or 5) * 5)
 			return ((cen + Vector3.new(current_r * math.cos(phase), d.v4 * H - (H / 2), current_r * math.sin(phase))) - wp)
 				* (x1.k10 * x9.c1)
 end

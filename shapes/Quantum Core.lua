@@ -25,7 +25,10 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				d.v4 = (math.random() - 0.5) * 2
 			end
 
-			local phase = t * s
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * s)
+			local phase = d.phase
 			local tx, ty, tz = 0, 0, 0
 
 			if d.v1 == 1 then
@@ -45,7 +48,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			else
 
 				local spd = ParticleSpeed * 0.1
-				local dist = (math.sin(t * spd + d.v2) * 0.5 + 0.5) * (R * 0.8)
+				local dist = ((function() local dt = t - (d.last_t or t); d.last_t = t; d.phase = (d.phase or 0) + (dt * spd); return math.sin(d.phase + d.v2) end)() * 0.5 + 0.5) * (R * 0.8)
 				local phi = d.v3 + phase * 3 * d.v4
 				local theta = d.v2 + phase * 4 * d.v4
 
@@ -54,7 +57,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				tz = dist * math.sin(phi) * math.sin(theta)
 			end
 
-			return ((cen + Vector3.new(tx, ty, tz)) - wp) * (x1.k10 * x9.c1)
+			local target_pos = cen + Vector3.new(tx, ty, tz)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

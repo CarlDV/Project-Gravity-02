@@ -15,7 +15,10 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				d.v3 = math.random()
 			end
 			local is_rung = d.v3 > 0.8
-			local phase = (t * s) + (d.v1 * freq)
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * s)
+			local phase = d.phase + (d.v1 * freq)
 			local offset = d.v2 * math.pi
 			local tx, ty, tz = 0, (d.v1 - 0.5) * H, 0
 			if is_rung then
@@ -29,7 +32,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				tx = R * math.cos(phase + offset)
 				tz = R * math.sin(phase + offset)
 			end
-			return ((cen + Vector3.new(tx, ty, tz)) - wp) * (x1.k10 * x9.c1)
+			local target_pos = cen + Vector3.new(tx, ty, tz)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

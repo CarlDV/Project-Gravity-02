@@ -9,11 +9,15 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				d.v4 = math.random() - 0.5
 				d.v5 = math.random() - 0.5
 			end
-			local angle = (t * s) + (d.v4 * w)
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * s)
+			local angle = d.phase + (d.v4 * w)
 			local tx = math.cos(angle) * d_val
 			local tz = math.sin(angle) * d_val
 			local ty = (d.v5 * h) + h_off
-			return ((cen + Vector3.new(tx, ty, tz)) - wp) * (x1.k10 * x9.c1)
+			local target_pos = cen + Vector3.new(tx, ty, tz)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

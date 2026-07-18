@@ -15,7 +15,10 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				d.v3 = math.random() * math.pi * 2
 			end
 
-			local phase = t * s
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * s)
+			local phase = d.phase
 
 
 			local x_pos = d.v1 * (Span * 0.5)
@@ -33,7 +36,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 
 			y_pos = y_pos + math.sin((x_pos / 100) + phase * 2 + d.v3) * (RibbonWidth * 0.5)
 
-			return ((cen + Vector3.new(x_pos, y_pos, z_pos)) - wp) * (x1.k10 * x9.c1)
+			local target_pos = cen + Vector3.new(x_pos, y_pos, z_pos)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

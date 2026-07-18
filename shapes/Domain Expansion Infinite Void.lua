@@ -5,9 +5,19 @@ function M.px(t, c, x6, x9)
 		x6.pre["Domain Expansion Infinite Void"] = table.create(200)
 	end
 	local r = x6.pre["Domain Expansion Infinite Void"]
+	
+	local last_t = r.last_t
+	local phase = r.phase
 	table.clear(r)
+	
+	local current_time = t
+	local dt = current_time - (last_t or current_time)
+	r.last_t = current_time
+	
 	local s = (c.k13 or 10) * x9.c2
-	local ph = t * s
+	r.phase = (phase or 0) + (dt * s)
+	
+	local ph = r.phase
 	r[1] = { ca = math.cos(ph), sa = math.sin(ph) }
 end
 
@@ -24,8 +34,9 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			if pd then
 				ca, sa = pd.ca, pd.sa
 			else
-				local s = (c.k13 or 10) * x9.c2
-				ca, sa = math.cos(t * s), math.sin(t * s)
+				local pr = x6.pre and x6.pre[md]
+				local ph = pr and pr.phase or 0
+				ca, sa = math.cos(ph), math.sin(ph)
 			end
 			local rv
 			if c.k19 then
@@ -40,8 +51,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			if c.k18 then
 				rv = Vector3.new(rv.X, math.abs(rv.Y), rv.Z)
 			end
-			local speed_factor = math.max(1, (c.k13 or 10) / 25)
-			return ((cen + (rv * R)) - wp) * (x1.k10 * x9.c1 * speed_factor)
+			local target_pos = cen + (rv * R)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

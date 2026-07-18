@@ -8,7 +8,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			if not d.v6 then
 				d.v6 = math.random() * math.pi * 2
 			end
-			return ((cen + Vector3.new(math.cos(d.v6 + (t * s)) * R, H, math.sin(d.v6 + (t * s)) * R)) - wp)
+			return ((cen + Vector3.new((function() local dt = t - (d.last_t or t); d.last_t = t; d.phase = (d.phase or 0) + (dt * s); return math.cos(d.v6 + d.phase) end)() * R, H, (function() local dt = t - (d.last_t or t); d.last_t = t; d.phase = (d.phase or 0) + (dt * s); return math.sin(d.v6 + d.phase) end)() * R)) - wp)
 				* (x1.k10 * x9.c1)
 end
 

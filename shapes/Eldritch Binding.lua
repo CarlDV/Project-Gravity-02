@@ -31,7 +31,10 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				d.v4 = math.random()
 			end
 
-			local phase = t * s
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * s)
+			local phase = d.phase
 			local tx, ty, tz = 0, 0, 0
 
 			if d.v1 == 1 then
@@ -106,7 +109,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				tz = shell_r * math.sin(theta) * math.sin(phi + phase * 0.1)
 				ty = H * 0.5 + shell_r * math.cos(theta)
 			end
-			return ((cen + Vector3.new(tx, ty, tz)) - wp) * (x1.k10 * x9.c1)
+			local target_pos = cen + Vector3.new(tx, ty, tz)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

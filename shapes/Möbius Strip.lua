@@ -11,12 +11,16 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			if not d.v1 then
 				d.v1 = (math.random() - 0.5) * 2
 			end
-			local v_ang = (t * s) + d.v6
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * s)
+			local v_ang = d.phase + d.v6
 			local w_offset = d.v1 * width
 			local tx = (R + w_offset * math.cos(v_ang / 2)) * math.cos(v_ang)
 			local tz = (R + w_offset * math.cos(v_ang / 2)) * math.sin(v_ang)
 			local ty = w_offset * math.sin(v_ang / 2)
-			return ((cen + Vector3.new(tx, ty, tz)) - wp) * (x1.k10 * x9.c1)
+			local target_pos = cen + Vector3.new(tx, ty, tz)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

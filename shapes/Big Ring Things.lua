@@ -14,7 +14,10 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			if d.v1 % 2 == 0 then
 				spd = -spd
 			end
-			local a = d.v3 + (t * spd)
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * spd)
+			local a = d.v3 + d.phase
 			local tx, tz = math.cos(a) * (x1.k9 + (d.v1 - 1) * gap), math.sin(a) * (x1.k9 + (d.v1 - 1) * gap)
 			local ty = 0
 			local sw = math.sin(t * (c.k16 or x9.c4) + d.v1) * math.rad(c.k15 or 12)

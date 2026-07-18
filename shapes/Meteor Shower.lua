@@ -25,7 +25,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			local x_pos = d.v1 - (current_fall * (SpreadXZ * 0.5))
 			local z_pos = d.v2 - (current_fall * (SpreadXZ * 0.25))
 
-			return ((cen + Vector3.new(x_pos, y_pos, z_pos)) - wp) * (x1.k10 * x9.c1)
+			local target_pos = cen + Vector3.new(x_pos, y_pos, z_pos)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

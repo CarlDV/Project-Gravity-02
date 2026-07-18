@@ -53,7 +53,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			tz = accumulated_z + ez
 			ty = 50 + level * 20 + math.sin(phase + d.v2) * 5
 
-			return ((cen + Vector3.new(tx, ty, tz)) - wp) * (x1.k10 * x9.c1)
+			local target_pos = cen + Vector3.new(tx, ty, tz)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

@@ -9,12 +9,16 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			if not d.v6 then
 				d.v6 = math.random() * math.pi * 2
 			end
-			local phase = (t * s) + d.v6
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * s)
+			local phase = d.phase + d.v6
 			local cos_q = math.cos(q_knot * phase)
 			local tx = (R + r * cos_q) * math.cos(p_knot * phase)
 			local tz = (R + r * cos_q) * math.sin(p_knot * phase)
 			local ty = r * math.sin(q_knot * phase)
-			return ((cen + Vector3.new(tx, ty, tz)) - wp) * (x1.k10 * x9.c1)
+			local target_pos = cen + Vector3.new(tx, ty, tz)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

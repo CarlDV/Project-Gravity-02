@@ -81,10 +81,10 @@ return function(context)
 		return x1.S[x1.k6] or {}
 	end
 
-	local function px(md, t, c)
+	local function px(md, t, c, x1)
 		local shape = get_shape(md)
 		if shape and shape.px then
-			shape.px(t, c, x6, x9)
+			shape.px(t, c, x6, x9, x1)
 		end
 	end
 
@@ -117,6 +117,29 @@ return function(context)
 		pcall(function()
 			local c = x6.b.Position
 			x6.f = x6.f + 1
+			if x6.last_shape ~= x1.k6 then
+				x6.last_shape = x1.k6
+				for _, d in pairs(x6.a) do
+					d.v1 = nil
+					d.v2 = nil
+					d.v3 = nil
+					d.v4 = nil
+					d.v5 = nil
+					d.v6 = nil
+					d.v7 = nil
+					d.v8 = nil
+					d.v9 = nil
+					d.nx = nil
+					d.ny = nil
+					d.nz = nil
+					d.phase = nil
+					d.phase2 = nil
+					d.last_t = nil
+					d.last_target_pos = nil
+					d.hit_wall = nil
+					d.integral = Vector3.zero
+				end
+			end
 			local dt = x6.n > 5000 and 10 or (x6.n > 2500 and 6 or (x6.n > 1000 and 3 or 1))
 			local et, ft = x1.k7 or dt, time()
 			if x1["SM(ps.lag)"] then
@@ -129,14 +152,14 @@ return function(context)
 				x6.pi_targets = {}
 				if x1.PI_All then
 					for _, pl in ipairs(v2:GetPlayers()) do
-						if pl ~= v8 and pl.Character and pl.Character:FindFirstChild("HumanoidRootPart") then
+						if pl ~= v8 and pl.Character and (pl.Character:FindFirstChild("HumanoidRootPart") or pl.Character:FindFirstChildWhichIsA("BasePart")) then
 							table.insert(x6.pi_targets, pl)
 						end
 					end
 				else
 					if x1.Targets and #x1.Targets > 0 then
 						for _, tgt in ipairs(x1.Targets) do
-							if tgt and tgt.Parent and tgt.Character and tgt.Character:FindFirstChild("HumanoidRootPart") then
+							if tgt and tgt.Parent and tgt.Character and (tgt.Character:FindFirstChild("HumanoidRootPart") or tgt.Character:FindFirstChildWhichIsA("BasePart")) then
 								table.insert(x6.pi_targets, tgt)
 							end
 						end
@@ -174,15 +197,15 @@ return function(context)
 					end
 				end
 			end
-			px(x1.k6, ft, x3())
+			px(x1.k6, ft, x3(), x1)
 			local cur_no_damp = no_damp[x1.k6]
 			
 			local target_positions = {}
 			local valid_targets = 0
 			if #x6.pi_targets > 0 then
 				for _, tgt in ipairs(x6.pi_targets) do
-					if tgt and tgt.Character and tgt.Character:FindFirstChild("HumanoidRootPart") then
-						local root = tgt.Character.HumanoidRootPart
+					local root = tgt and tgt.Character and (tgt.Character:FindFirstChild("HumanoidRootPart") or tgt.Character:FindFirstChildWhichIsA("BasePart"))
+					if root then
 						local pos = root.Position
 						if x1.PredictiveTracking then
 							pos = get_predicted_pos(root, x1.PredictionFactor or 150)
@@ -264,8 +287,9 @@ return function(context)
 				end
 				if tc_mag > c7 then
 					local target_pos_delta = Vector3.new(0, 0.01, 0)
+					local pure_target_pos = nil
 					if cur_shape_mod then
-						target_pos_delta = cur_shape_mod.f2(p, active_c, d, ft, cur_shape_cfg, x1, x6, x9)
+						target_pos_delta, pure_target_pos = cur_shape_mod.f2(p, active_c, d, ft, cur_shape_cfg, x1, x6, x9)
 					end
 					if vert_mult then
 						target_pos_delta = target_pos_delta * vert_mult
@@ -278,6 +302,17 @@ return function(context)
 						target_pos_delta = target_pos_delta + (d.integral * ki)
 					end
 					local tv = target_pos_delta
+					
+					if pure_target_pos then
+						if d.last_target_pos then
+							local target_velocity = (pure_target_pos - d.last_target_pos) / real_dt
+							tv = tv + target_velocity
+						end
+						d.last_target_pos = pure_target_pos
+					else
+						d.last_target_pos = nil
+					end
+					
 					if damping > 0 and not cur_no_damp then
 						tv = tv - (p_vel * damping)
 					end
@@ -293,14 +328,10 @@ return function(context)
 						end
 					end
 					
-					if max_speed and not cur_no_damp then
-						if d.vl.Magnitude > max_speed then
-							d.vl = d.vl.Unit * max_speed
-						end
-					else
-						if d.vl.Magnitude > 3000 then
-							d.vl = d.vl.Unit * 3000
-						end
+					local limit = (max_speed and not cur_no_damp) and max_speed or 3300
+					if pure_target_pos then limit = math.max(limit, 15300) end
+					if d.vl.Magnitude > limit then
+						d.vl = d.vl.Unit * limit
 					end
 					d.lv.VectorVelocity = d.vl
 					
@@ -348,8 +379,8 @@ return function(context)
 		end
 		if x1.TgtActive and x1.Targets and #x1.Targets > 0 then
 			local tgt = x1.Targets[1]
-			if tgt and tgt.Character and tgt.Character:FindFirstChild("HumanoidRootPart") then
-				local root = tgt.Character.HumanoidRootPart
+			local root = tgt and tgt.Character and (tgt.Character:FindFirstChild("HumanoidRootPart") or tgt.Character:FindFirstChildWhichIsA("BasePart"))
+			if root then
 				local pos = root.Position
 				if x1.PredictiveTracking then
 					pos = get_predicted_pos(root, x1.PredictionFactor or 150)
@@ -358,8 +389,8 @@ return function(context)
 				x6.b.AssemblyLinearVelocity = Vector3.zero
 				return
 			end
-		elseif x1.AnchorSelf and v8.Character and v8.Character:FindFirstChild("HumanoidRootPart") then
-			local root = v8.Character.HumanoidRootPart
+		elseif x1.AnchorSelf and v8.Character and (v8.Character:FindFirstChild("HumanoidRootPart") or v8.Character:FindFirstChildWhichIsA("BasePart")) then
+			local root = v8.Character:FindFirstChild("HumanoidRootPart") or v8.Character:FindFirstChildWhichIsA("BasePart")
 			local pos = root.Position
 			if x1.PredictiveTracking then
 				pos = get_predicted_pos(root, x1.PredictionFactor or 150)
@@ -491,6 +522,7 @@ return function(context)
 					pcall(function()
 						if sethiddenproperty then
 							sethiddenproperty(v8, "SimulationRadius", 9e9)
+							sethiddenproperty(v8, "MaximumSimulationRadius", 9e9)
 						elseif setsimulationradius then
 							setsimulationradius(9e9)
 						end
@@ -506,15 +538,38 @@ return function(context)
 				end
 			end)
 		)
+		local anti_fling_cache = setmetatable({}, {__mode = "k"})
 		table.insert(
 			x6.c,
 			v3.Stepped:Connect(function()
 				if x1.AntiFling then
 					for _, p in ipairs(v2:GetPlayers()) do
 						if p ~= v8 and p.Character then
-							for _, part in ipairs(p.Character:GetChildren()) do
-								if part:IsA("BasePart") and part.CanCollide then
-									part.CanCollide = false
+							local parts = anti_fling_cache[p.Character]
+							if not parts then
+								parts = {}
+								for _, part in ipairs(p.Character:GetDescendants()) do
+									if part:IsA("BasePart") then
+										table.insert(parts, part)
+									end
+								end
+								anti_fling_cache[p.Character] = parts
+								pcall(function()
+									p.Character.DescendantAdded:Connect(function(desc)
+										if desc:IsA("BasePart") then
+											table.insert(parts, desc)
+										end
+									end)
+								end)
+							end
+							for i = #parts, 1, -1 do
+								local part = parts[i]
+								if part and part.Parent then
+									if part.CanCollide then
+										part.CanCollide = false
+									end
+								else
+									table.remove(parts, i)
 								end
 							end
 						end

@@ -60,7 +60,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				final_y = math.abs(final_y)
 			end
 
-			return ((cen + Vector3.new(rx, final_y, rz)) - wp) * (x1.k10 * x9.c1)
+			local target_pos = cen + Vector3.new(rx, final_y, rz)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

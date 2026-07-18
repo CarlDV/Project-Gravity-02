@@ -18,7 +18,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			local thickness = (math.random() - 0.5) * disk_height * math.sin(disk_phase * 2) * (event_horizon / rad)
 			local tx = rad * math.cos(disk_phase)
 			local tz = rad * math.sin(disk_phase)
-			return ((cen + Vector3.new(tx, thickness, tz)) - wp) * (x1.k10 * x9.c1)
+			local target_pos = cen + Vector3.new(tx, thickness, tz)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

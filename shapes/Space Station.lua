@@ -15,7 +15,10 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				d.v3 = math.random(1, 3)
 			end
 
-			local phase = (t * s) + d.v2
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * s)
+			local phase = d.phase + d.v2
 			local tx, ty, tz = 0, 0, 0
 
 			if d.v3 == 1 then
@@ -37,7 +40,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				tz = dist * math.sin(spokeAngle + spokeSpin)
 				ty = 0
 			end
-			return ((cen + Vector3.new(tx, ty, tz)) - wp) * (x1.k10 * x9.c1)
+			local target_pos = cen + Vector3.new(tx, ty, tz)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

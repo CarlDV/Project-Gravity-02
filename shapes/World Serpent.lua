@@ -10,7 +10,10 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				d.v1 = math.random()
 			end
 
-			local phase = t * s
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * s)
+			local phase = d.phase
 			local pos_along_body = d.v1 * Length
 
 
@@ -28,7 +31,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			local tz = current_radius * math.sin(angle)
 			local ty = undulation_y
 
-			return ((cen + Vector3.new(tx, ty, tz)) - wp) * (x1.k10 * x9.c1)
+			local target_pos = cen + Vector3.new(tx, ty, tz)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

@@ -29,7 +29,10 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				d.v4 = math.random() * math.pi * 2
 			end
 
-			local phase = t * s
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * s)
+			local phase = d.phase
 			local tx, ty, tz = 0, 0, 0
 			local coil_loops = 4
 			local body_length = coil_loops * math.pi * 2
@@ -97,7 +100,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				tz = spine_r * math.sin(coil_angle)
 				ty = body_y + spine_up + math.sin(prog * 30 + phase * 2) * 2
 			end
-			return ((cen + Vector3.new(tx, ty, tz)) - wp) * (x1.k10 * x9.c1)
+			local target_pos = cen + Vector3.new(tx, ty, tz)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

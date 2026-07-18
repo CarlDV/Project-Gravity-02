@@ -29,7 +29,10 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				d.v4 = math.random() * math.pi * 2
 			end
 
-			local phase = t * s
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * s)
+			local phase = d.phase
 			local tx, ty, tz = 0, 0, 0
 			local TopR = BaseR * 4
 
@@ -75,7 +78,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				tz = eye_r * math.sin(d.v2 + phase * 0.1)
 				ty = H + math.sin(phase + d.v3 * math.pi) * 2
 			end
-			return ((cen + Vector3.new(tx, ty, tz)) - wp) * (x1.k10 * x9.c1)
+			local target_pos = cen + Vector3.new(tx, ty, tz)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {

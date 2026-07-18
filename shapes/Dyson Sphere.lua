@@ -25,7 +25,10 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				end
 			end
 
-			local phase = (t * s)
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * s)
+			local phase = d.phase
 
 			if d.v4 == 1 then
 
@@ -33,7 +36,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				local tx = core_r * math.sin(d.v3) * math.cos(d.v2 + phase * 3)
 				local ty = core_r * math.cos(d.v3)
 				local tz = core_r * math.sin(d.v3) * math.sin(d.v2 + phase * 3)
-				return ((cen + Vector3.new(tx, ty, tz)) - wp) * (x1.k10 * x9.c1)
+				local target_pos = cen + Vector3.new(tx, ty, tz)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 			elseif d.v4 == 2 then
 
 				local p_theta = math.floor(d.v2 * ShellDensity) / ShellDensity
@@ -43,7 +47,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				local tx = R * math.sin(p_phi) * math.cos(rot_theta)
 				local ty = R * math.cos(p_phi)
 				local tz = R * math.sin(p_phi) * math.sin(rot_theta)
-				return ((cen + Vector3.new(tx, ty, tz)) - wp) * (x1.k10 * x9.c1)
+				local target_pos = cen + Vector3.new(tx, ty, tz)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 			else
 
 				local stream_progress = (d.v1 + phase * 1.5) % 1
@@ -56,7 +61,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				local tx = current_r * math.sin(p_phi) * math.cos(rot_theta)
 				local ty = current_r * math.cos(p_phi)
 				local tz = current_r * math.sin(p_phi) * math.sin(rot_theta)
-				return ((cen + Vector3.new(tx, ty, tz)) - wp) * (x1.k10 * x9.c1)
+				local target_pos = cen + Vector3.new(tx, ty, tz)
+			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 			end
 end
 

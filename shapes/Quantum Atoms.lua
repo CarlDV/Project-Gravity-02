@@ -11,7 +11,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			if not d.v6 then
 				d.v6 = math.random() * math.pi * 2
 			end
-			local cx, cz, tilt = math.cos(d.v6 + (t * s)) * R, math.sin(d.v6 + (t * s)) * R, (math.pi / Orbits) * (d.v1 - 1)
+			local cx, cz, tilt = (function() local dt = t - (d.last_t or t); d.last_t = t; d.phase = (d.phase or 0) + (dt * s); return math.cos(d.v6 + d.phase) end)() * R, (function() local dt = t - (d.last_t or t); d.last_t = t; d.phase = (d.phase or 0) + (dt * s); return math.sin(d.v6 + d.phase) end)() * R, (math.pi / Orbits) * (d.v1 - 1)
 			local tx, ty, sp =
 				0 * math.sin(tilt) + cx * math.cos(tilt),
 				0 * math.cos(tilt) - cx * math.sin(tilt),
