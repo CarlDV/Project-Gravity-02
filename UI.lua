@@ -474,8 +474,8 @@ return function(context)
 					x1.AntiFling = v
 					save_settings()
 				end)
-				et(gsc, "SM(ps.lag)", x1["SM(ps.lag)"], function(v)
-					x1["SM(ps.lag)"] = v
+				et(gsc, "Force Smooth (Lags)", x1["Force Smooth (Lags)"], function(v)
+					x1["Force Smooth (Lags)"] = v
 					save_settings()
 				end)
 			end

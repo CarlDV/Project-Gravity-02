@@ -127,6 +127,7 @@ return function(context)
 					d.phase = nil
 					d.phase2 = nil
 					d.last_t = nil
+					d.sys_last_t = nil
 					d.last_target_pos = nil
 					d.hit_wall = nil
 					d.integral = Vector3.zero
@@ -134,7 +135,7 @@ return function(context)
 			end
 			local dt = x6.n > 5000 and 10 or (x6.n > 2500 and 6 or (x6.n > 1000 and 3 or 1))
 			local et, ft = x1.k7 or dt, time()
-			if x1["SM(ps.lag)"] then
+			if x1["Force Smooth (Lags)"] then
 				dt = 1
 				et = 1
 			end
@@ -296,13 +297,18 @@ return function(context)
 					local tv = target_pos_delta
 					
 					if pure_target_pos then
-						if d.last_target_pos then
-							local target_velocity = (pure_target_pos - d.last_target_pos) / real_dt
-							tv = tv + target_velocity
+						if d.last_target_pos and d.sys_last_t then
+							local actual_dt = ft - d.sys_last_t
+							if actual_dt > 0 then
+								local target_velocity = (pure_target_pos - d.last_target_pos) / actual_dt
+								tv = tv + target_velocity
+							end
 						end
 						d.last_target_pos = pure_target_pos
+						d.sys_last_t = ft
 					else
 						d.last_target_pos = nil
+						d.sys_last_t = nil
 					end
 					
 					if damping > 0 and not cur_no_damp then

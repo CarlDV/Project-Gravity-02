@@ -28,7 +28,7 @@ return {
 		PredictiveTracking = true,
 		PredictionFactor = 150,
 		ShowHUD = true,
-		["SM(ps.lag)"] = false,
+		["Force Smooth (Lags)"] = false,
 		Paused = false,
 		Damping = 0.5,
 		Ki = 0.1,
