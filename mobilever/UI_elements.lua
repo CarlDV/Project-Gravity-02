@@ -3,7 +3,7 @@ return function(context)
 	local save_settings = context.save_settings
 	local M = {}
 
-	function M.s(p, t, mn, mx, df, cb, is_int)
+	function M.s(p, t, mn, mx, df, cb, is_int, desc)
 		df = df or mn
 		if is_int or mx - mn > 50 then
 			df = math.floor(df + 0.5)
@@ -12,7 +12,7 @@ return function(context)
 		end
 		local f = Instance.new("Frame", p)
 		f.BackgroundTransparency = 1
-		f.Size = UDim2.new(1, 0, 0, 24)
+		f.Size = UDim2.new(1, 0, 0, desc and 38 or 24)
 
 		local l = Instance.new("TextLabel", f)
 		l.BackgroundTransparency = 1
@@ -37,6 +37,19 @@ return function(context)
 		sc.BackgroundTransparency = 1
 		sc.Position = UDim2.new(0, 0, 0, 14)
 		sc.Size = UDim2.new(1, 0, 0, 4)
+
+		if desc then
+			local d = Instance.new("TextLabel", f)
+			d.BackgroundTransparency = 1
+			d.Position = UDim2.new(0, 0, 0, 22)
+			d.Size = UDim2.new(1, 0, 0, 12)
+			d.Text = desc
+			d.TextColor3 = Color3.fromRGB(120, 120, 130)
+			d.TextXAlignment = 0
+			d.Font = Enum.Font.Gotham
+			d.TextSize = 8
+			d.TextWrapped = true
+		end
 
 		local sb = Instance.new("Frame", sc)
 		sb.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
@@ -110,23 +123,37 @@ return function(context)
 		end)
 	end
 
-	function M.t(p, t, df, cb)
+	function M.t(p, t, df, cb, desc)
 		local f = Instance.new("Frame", p)
 		f.BackgroundTransparency = 1
-		f.Size = UDim2.new(1, 0, 0, 20)
+		f.Size = UDim2.new(1, 0, 0, desc and 34 or 20)
 
 		local l = Instance.new("TextLabel", f)
 		l.BackgroundTransparency = 1
-		l.Size = UDim2.new(0.8, 0, 1, 0)
+		l.Size = UDim2.new(0.8, 0, 0, 12)
 		l.Text = t
 		l.TextColor3 = Color3.fromRGB(180, 180, 180)
 		l.TextXAlignment = 0
 		l.Font = Enum.Font.Gotham
 		l.TextSize = 8
 
+		if desc then
+			local d = Instance.new("TextLabel", f)
+			d.BackgroundTransparency = 1
+			d.Position = UDim2.new(0, 0, 0, 12)
+			d.Size = UDim2.new(1, -28, 0, 20)
+			d.Text = desc
+			d.TextColor3 = Color3.fromRGB(120, 120, 130)
+			d.TextXAlignment = 0
+			d.TextYAlignment = 0
+			d.Font = Enum.Font.Gotham
+			d.TextSize = 8
+			d.TextWrapped = true
+		end
+
 		local bg = Instance.new("Frame", f)
 		bg.BackgroundColor3 = df and Color3.fromRGB(60, 200, 100) or Color3.fromRGB(40, 40, 45)
-		bg.Position = UDim2.new(1, -24, 0.5, -6)
+		bg.Position = UDim2.new(1, -24, 0, 0)
 		bg.Size = UDim2.new(0, 24, 0, 12)
 		Instance.new("UICorner", bg).CornerRadius = UDim.new(1, 0)
 

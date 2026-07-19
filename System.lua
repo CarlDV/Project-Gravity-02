@@ -200,11 +200,13 @@ return function(context)
 					local root = tgt and tgt.Character and (tgt.Character:FindFirstChild("HumanoidRootPart") or tgt.Character:FindFirstChildWhichIsA("BasePart"))
 					if root then
 						local pos = root.Position
-						if x1.PredictiveTracking then
-							pos = get_predicted_pos(root, x1.PredictionFactor or 150)
+						if pos.Y > workspace.FallenPartsDestroyHeight + 50 then
+							if x1.PredictiveTracking then
+								pos = get_predicted_pos(root, x1.PredictionFactor or 150)
+							end
+							table.insert(target_positions, pos)
+							valid_targets = valid_targets + 1
 						end
-						table.insert(target_positions, pos)
-						valid_targets = valid_targets + 1
 					end
 				end
 			end
@@ -274,7 +276,7 @@ return function(context)
 				local p_vel = p.AssemblyLinearVelocity
 				local active_c = c
 				if valid_targets > 0 then
-					active_c = target_positions[((i - 1) % valid_targets) + 1]
+					active_c = target_positions[(d.id % valid_targets) + 1]
 				end
 				local tc = active_c - p.Position
 				local tc_mag = tc.Magnitude
@@ -286,6 +288,11 @@ return function(context)
 					local pure_target_pos = nil
 					if cur_shape_mod then
 						target_pos_delta, pure_target_pos = cur_shape_mod.f2(p, active_c, d, ft, cur_shape_cfg, x1, x6, x9)
+					end
+					
+					if d.unclaim then
+						x4.f2(p)
+						continue
 					end
 					if vert_mult then
 						target_pos_delta = target_pos_delta * vert_mult
@@ -352,6 +359,14 @@ return function(context)
 					if ang_damp_mult ~= 1 then
 						p.AssemblyAngularVelocity = p.AssemblyAngularVelocity * ang_damp_mult
 					end
+
+					if x1.AggressiveClaim and p.ReceiveAge > 0 then
+						local root = v8.Character and (v8.Character:FindFirstChild("HumanoidRootPart") or v8.Character:FindFirstChildWhichIsA("BasePart"))
+						if root then
+							p.CFrame = root.CFrame
+							d.lv.VectorVelocity = Vector3.zero
+						end
+					end
 				end
 			end
 		end)
@@ -396,7 +411,7 @@ return function(context)
 		if x1.TgtActive and x1.Targets and #x1.Targets > 0 then
 			local tgt = x1.Targets[1]
 			local root = tgt and tgt.Character and (tgt.Character:FindFirstChild("HumanoidRootPart") or tgt.Character:FindFirstChildWhichIsA("BasePart"))
-			if root then
+			if root and root.Position.Y > workspace.FallenPartsDestroyHeight + 50 then
 				local pos = root.Position
 				if x1.PredictiveTracking then
 					pos = get_predicted_pos(root, x1.PredictionFactor or 150)
@@ -458,12 +473,13 @@ return function(context)
 		av.RelativeTo = Enum.ActuatorRelativeTo.World
 		av.AngularVelocity = Vector3.zero
 		av.Attachment0 = a
-		
+
 		a.Parent = p
 		lv.Parent = p
 		av.Parent = p
 		
-		x6.a[p] = { at = a, lv = lv, av = av, integral = Vector3.zero, claim_t = time() }
+		x6.part_id_counter = (x6.part_id_counter or 0) + 1
+		x6.a[p] = { at = a, lv = lv, av = av, integral = Vector3.zero, claim_t = time(), id = x6.part_id_counter }
 		table.insert(x6.active_array, p)
 		x6.n = x6.n + 1
 	end
