@@ -12,7 +12,8 @@ return function(context)
 		end
 		local f = Instance.new("Frame", p)
 		f.BackgroundTransparency = 1
-		f.Size = UDim2.new(1, 0, 0, desc and 56 or 42)
+		f.Size = UDim2.new(1, 0, 0, 42)
+		f.AutomaticSize = Enum.AutomaticSize.Y
 
 		local l = Instance.new("TextLabel", f)
 		l.BackgroundTransparency = 1
@@ -42,10 +43,12 @@ return function(context)
 			local d = Instance.new("TextLabel", f)
 			d.BackgroundTransparency = 1
 			d.Position = UDim2.new(0, 0, 0, 38)
-			d.Size = UDim2.new(1, 0, 0, 14)
+			d.Size = UDim2.new(1, 0, 0, 0)
+			d.AutomaticSize = Enum.AutomaticSize.Y
 			d.Text = desc
 			d.TextColor3 = Color3.fromRGB(120, 120, 130)
 			d.TextXAlignment = 0
+			d.TextYAlignment = 0
 			d.Font = Enum.Font.Gotham
 			d.TextSize = 10
 			d.TextWrapped = true
@@ -138,7 +141,8 @@ return function(context)
 	function M.t(p, t, df, cb, desc)
 		local f = Instance.new("Frame", p)
 		f.BackgroundTransparency = 1
-		f.Size = UDim2.new(1, 0, 0, desc and 48 or 32)
+		f.Size = UDim2.new(1, 0, 0, 32)
+		f.AutomaticSize = Enum.AutomaticSize.Y
 
 		local l = Instance.new("TextLabel", f)
 		l.BackgroundTransparency = 1
@@ -153,7 +157,8 @@ return function(context)
 			local d = Instance.new("TextLabel", f)
 			d.BackgroundTransparency = 1
 			d.Position = UDim2.new(0, 0, 0, 20)
-			d.Size = UDim2.new(1, -40, 0, 28)
+			d.Size = UDim2.new(1, -40, 0, 0)
+			d.AutomaticSize = Enum.AutomaticSize.Y
 			d.Text = desc
 			d.TextColor3 = Color3.fromRGB(120, 120, 130)
 			d.TextXAlignment = 0
