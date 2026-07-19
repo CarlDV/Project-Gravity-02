@@ -249,6 +249,12 @@ return function(context)
 					in_transition = false
 				end
 			end
+			
+			local water_level = nil
+			local water_part = workspace:FindFirstChild("WaterLevel")
+			if water_part and water_part:IsA("BasePart") then
+				water_level = water_part.Position.Y + (water_part.Size.Y / 2) + 5
+			end
 
 			for k = #x6.active_array, 1, -1 do
 				local p = x6.active_array[k]
@@ -354,6 +360,12 @@ return function(context)
 					if d.vl.Magnitude > limit then
 						d.vl = d.vl.Unit * limit
 					end
+					
+					if water_level and p.Position.Y < water_level then
+						local depth = water_level - p.Position.Y
+						d.vl = Vector3.new(d.vl.X, math.max(d.vl.Y, 0) + (depth * 5), d.vl.Z)
+					end
+					
 					d.lv.VectorVelocity = d.vl
 					
 					if ang_damp_mult ~= 1 then
@@ -361,7 +373,10 @@ return function(context)
 					end
 
 					if x1.AggressiveClaim and p.ReceiveAge > 0 then
-						p.CFrame = CFrame.new(active_c)
+						local root = v8.Character and (v8.Character:FindFirstChild("HumanoidRootPart") or v8.Character:FindFirstChildWhichIsA("BasePart"))
+						local base_pos = root and root.Position or active_c
+						local offset = Vector3.new(math.sin(d.id) * 20, 15 + (d.id % 15), math.cos(d.id) * 20)
+						p.CFrame = CFrame.new(base_pos + offset)
 						d.lv.VectorVelocity = Vector3.zero
 					end
 				end
