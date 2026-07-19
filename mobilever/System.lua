@@ -369,11 +369,8 @@ return function(context)
 					end
 
 					if x1.AggressiveClaim and p.ReceiveAge > 0 then
-						local root = v8.Character and (v8.Character:FindFirstChild("HumanoidRootPart") or v8.Character:FindFirstChildWhichIsA("BasePart"))
-						if root then
-							p.CFrame = root.CFrame
-							d.lv.VectorVelocity = Vector3.zero
-						end
+						p.CFrame = CFrame.new(active_c)
+						d.lv.VectorVelocity = Vector3.zero
 					end
 				end
 			end

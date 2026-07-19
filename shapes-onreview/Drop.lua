@@ -9,13 +9,11 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	
 	local target_pos = cen
 	
-	-- Unclaim the part only when it actually physically arrives at the center
 	if tc.Magnitude <= drop_dist then
 		d.unclaim = true
 		return Vector3.zero, cen
 	end
 	
-	-- Pull the part to the center using physics so it properly replicates to the server
 	return (target_pos - wp) * speed, target_pos
 end
 
