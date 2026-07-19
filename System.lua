@@ -280,9 +280,8 @@ return function(context)
 					continue
 				end
 				if not x1.AggressiveClaim then
-					local no3_val = nil
-					pcall(function() no3_val = gethiddenproperty(p, 'NetworkOwnerV3') end)
-					if no3_val == -1 or no3_val == 1 or no3_val == 2 or no3_val == 3 then
+					local success, no3_val = pcall(gethiddenproperty, p, 'NetworkOwnerV3')
+					if success and (no3_val == -1 or no3_val == 1 or no3_val == 2 or no3_val == 3) then
 						continue
 					end
 				end
