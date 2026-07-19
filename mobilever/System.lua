@@ -45,6 +45,9 @@ return function(context)
 		if not p:IsA("BasePart") then
 			return true
 		end
+		if p.Anchored then
+			return true
+		end
 		if EXCLUDED_NAMES[p.Name] then
 			return true
 		end

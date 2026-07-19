@@ -1,13 +1,27 @@
 local M = {}
 
 function M.f2(p, cen, d, t, c, x1, x6, x9)
-	p.CFrame = CFrame.new(cen)
+	local wp = p.Position
+	local tc = cen - wp
 	
-	d.unclaim = true
+	local speed = c.k11 or 500
+	local drop_dist = c.k12 or 5
 	
-	return Vector3.zero, cen
+	local target_pos = cen
+	
+	-- Unclaim the part only when it actually physically arrives at the center
+	if tc.Magnitude <= drop_dist then
+		d.unclaim = true
+		return Vector3.zero, cen
+	end
+	
+	-- Pull the part to the center using physics so it properly replicates to the server
+	return (target_pos - wp) * speed, target_pos
 end
 
-M.Controls = {}
+M.Controls = {
+	{ Type = "Slider", Name = "Pull Speed", Min = 50, Max = 2000, Key = "k11" },
+	{ Type = "Slider", Name = "Drop Radius", Min = 1, Max = 20, Key = "k12" }
+}
 
 return M
