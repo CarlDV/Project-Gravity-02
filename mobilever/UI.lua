@@ -338,6 +338,11 @@ return function(context)
 			save_settings()
 		end, "WARNING: Spams CFrames into your character to forcefully steal Network Ownership from other scripts.")
 		
+		et(ac, "Void Protection", x1.VoidProtection, function(v)
+			x1.VoidProtection = v
+			save_settings()
+		end, "Automatically ignores targets that fall into the void to prevent your parts from being destroyed.")
+		
 		if setfpscap then
 			es(ac, "FPS Cap (0=Unc)", 0, 144, x1.FPSCap or 60, function(v)
 				x1.FPSCap = v

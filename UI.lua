@@ -334,6 +334,11 @@ return function(context)
 			save_settings()
 		end, "WARNING: Spams CFrames into your character to forcefully steal Network Ownership from other scripts.")
 		
+		et(ac, "Void Protection", x1.VoidProtection, function(v)
+			x1.VoidProtection = v
+			save_settings()
+		end, "Automatically ignores targets that fall into the void to prevent your parts from being destroyed.")
+		
 		et(ac, "Disable Shadows", x1.Perf_DisableShadows, function(v)
 			x1.Perf_DisableShadows = v
 			ApplyPerfShadows(v)

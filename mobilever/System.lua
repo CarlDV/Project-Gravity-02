@@ -208,7 +208,7 @@ return function(context)
 					local root = tgt and tgt.Character and (tgt.Character:FindFirstChild("HumanoidRootPart") or tgt.Character:FindFirstChildWhichIsA("BasePart"))
 					if root then
 						local pos = root.Position
-						if pos.Y > workspace.FallenPartsDestroyHeight + 50 then
+						if (x1.VoidProtection == false) or (pos.Y > workspace.FallenPartsDestroyHeight + 50) then
 							if x1.PredictiveTracking then
 								pos = get_predicted_pos(root, x1.PredictionFactor or 150)
 							end
@@ -417,7 +417,7 @@ return function(context)
 		if x1.TgtActive and x1.Targets and #x1.Targets > 0 then
 			local tgt = x1.Targets[1]
 			local root = tgt and tgt.Character and (tgt.Character:FindFirstChild("HumanoidRootPart") or tgt.Character:FindFirstChildWhichIsA("BasePart"))
-			if root and root.Position.Y > workspace.FallenPartsDestroyHeight + 50 then
+			if root and ((x1.VoidProtection == false) or (root.Position.Y > workspace.FallenPartsDestroyHeight + 50)) then
 				local pos = root.Position
 				if x1.PredictiveTracking then
 					pos = get_predicted_pos(root, x1.PredictionFactor or 150)
