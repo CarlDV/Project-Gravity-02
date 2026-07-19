@@ -74,9 +74,6 @@ return function(context)
 			end
 			target = target.Parent
 		end
-		if p.Anchored then
-			return true
-		end
 		return false
 	end
 
