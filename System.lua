@@ -485,6 +485,10 @@ return function(context)
 	end
 
 	function x4.f2(p)
+		pcall(function()
+			p.CanCollide = true
+			p.CustomPhysicalProperties = nil
+		end)
 		local d = x6.a[p]
 		if d then
 			if d.at and d.at.Parent then
