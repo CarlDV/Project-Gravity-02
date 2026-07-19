@@ -287,6 +287,13 @@ return function(context)
 				if i % et ~= (x6.f % et) then
 					continue
 				end
+				if x1.Beta_OwnershipOptimize and not x1.AggressiveClaim then
+					local no3_val = nil
+					pcall(function() no3_val = gethiddenproperty(p, 'NetworkOwnerV3') end)
+					if no3_val == -1 or no3_val == 1 or no3_val == 2 or no3_val == 3 then
+						continue
+					end
+				end
 				local p_vel = p.AssemblyLinearVelocity
 				local active_c = c
 				if valid_targets > 0 then

@@ -400,6 +400,19 @@ return function(context)
 			update_color()
 		end, true)
 
+		local beta_label = Instance.new("TextLabel", ac)
+		beta_label.BackgroundTransparency = 1
+		beta_label.Size = UDim2.new(1, 0, 0, 20)
+		beta_label.Text = "--- BETA FEATURES ---"
+		beta_label.TextColor3 = Color3.fromRGB(150, 150, 150)
+		beta_label.Font = Enum.Font.GothamBold
+		beta_label.TextSize = 10
+		
+		et(ac, "Ownership Optimization", x1.Beta_OwnershipOptimize, function(v)
+			x1.Beta_OwnershipOptimize = v
+			save_settings()
+		end, "Skips math for parts you don't own to heavily boost FPS.")
+
 		local ab = eb(c, "Advanced Settings", function()
 			am.Visible = not am.Visible
 		end)
