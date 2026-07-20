@@ -195,12 +195,13 @@ return function(context)
 			
 			local target_positions = {}
 			local valid_targets = 0
+			local fallen_height = workspace.FallenPartsDestroyHeight + 50
 			if #x6.pi_targets > 0 then
 				for _, tgt in ipairs(x6.pi_targets) do
 					local root = tgt and tgt.Character and (tgt.Character:FindFirstChild("HumanoidRootPart") or tgt.Character:FindFirstChildWhichIsA("BasePart"))
 					if root then
 						local pos = root.Position
-						if (x1.VoidProtection == false) or (pos.Y > workspace.FallenPartsDestroyHeight + 50) then
+						if (x1.VoidProtection == false) or (pos.Y > fallen_height) then
 							if x1.PredictiveTracking then
 								pos = get_predicted_pos(root, x1.PredictionFactor or 150)
 							end
@@ -250,11 +251,18 @@ return function(context)
 				end
 			end
 			
-			local water_level = nil
-			local water_part = workspace:FindFirstChild("WaterLevel")
-			if water_part and water_part:IsA("BasePart") then
-				water_level = water_part.Position.Y + (water_part.Size.Y / 2) + 5
+			if x6.f % 60 == 0 or x6.water_level == nil then
+				local water_part = workspace:FindFirstChild("WaterLevel")
+				if water_part and water_part:IsA("BasePart") then
+					x6.water_level = water_part.Position.Y + (water_part.Size.Y / 2) + 5
+				else
+					x6.water_level = false
+				end
 			end
+			local water_level = x6.water_level ~= false and x6.water_level or nil
+			local ghp = gethiddenproperty
+			local workspace_gravity = workspace.Gravity or 196.2
+			local shape_f2 = cur_shape_mod and cur_shape_mod.f2
 
 			for k = #x6.active_array, 1, -1 do
 				local p = x6.active_array[k]
@@ -279,9 +287,12 @@ return function(context)
 				if i % et ~= (x6.f % et) then
 					continue
 				end
-				if not x1.AggressiveClaim then
-					local success, no3_val = pcall(gethiddenproperty, p, 'NetworkOwnerV3')
-					if success and (no3_val == -1 or no3_val == 1 or no3_val == 2 or no3_val == 3) then
+				if not x1.AggressiveClaim and ghp then
+					if d.no3_val == nil or (x6.f % 6) == (d.id % 6) then
+						local success, no3_val = pcall(ghp, p, 'NetworkOwnerV3')
+						d.no3_val = success and no3_val or 0
+					end
+					if d.no3_val == -1 or d.no3_val == 1 or d.no3_val == 2 or d.no3_val == 3 then
 						continue
 					end
 				end
@@ -298,8 +309,8 @@ return function(context)
 				if tc_mag > c7 then
 					local target_pos_delta = Vector3.new(0, 0.01, 0)
 					local pure_target_pos = nil
-					if cur_shape_mod then
-						target_pos_delta, pure_target_pos = cur_shape_mod.f2(p, active_c, d, ft, cur_shape_cfg, x1, x6, x9)
+					if shape_f2 then
+						target_pos_delta, pure_target_pos = shape_f2(p, active_c, d, ft, cur_shape_cfg, x1, x6, x9)
 					end
 					
 					if d.unclaim then
@@ -323,7 +334,7 @@ return function(context)
 						local age = ft - d.claim_t
 						if age < 4 then
 							local p_factor = math.clamp(age / 4, 0, 1)
-							local g_bias = Vector3.new(0, -(workspace.Gravity or 196.2), 0) * (1 - p_factor)
+							local g_bias = Vector3.new(0, -workspace_gravity, 0) * (1 - p_factor)
 							local kick = Vector3.new(0, 60, 0) * math.clamp(1 - (age / 0.8), 0, 1)
 							tv = tv + g_bias + kick
 							liftoff_limit = 8 + ((max_speed or 3300) - 8) * (p_factor ^ 4)
@@ -381,8 +392,10 @@ return function(context)
 					if x1.AggressiveClaim and p.ReceiveAge > 0 then
 						local root = v8.Character and (v8.Character:FindFirstChild("HumanoidRootPart") or v8.Character:FindFirstChildWhichIsA("BasePart"))
 						local base_pos = root and root.Position or active_c
-						local offset = Vector3.new(math.sin(d.id) * 20, 15 + (d.id % 15), math.cos(d.id) * 20)
-						p.CFrame = CFrame.new(base_pos + offset)
+						if not d.claim_offset then
+							d.claim_offset = Vector3.new(math.sin(d.id) * 20, 15 + (d.id % 15), math.cos(d.id) * 20)
+						end
+						p.CFrame = CFrame.new(base_pos + d.claim_offset)
 						d.lv.VectorVelocity = Vector3.zero
 					end
 				end
