@@ -288,7 +288,8 @@ return function(context)
 					continue
 				end
 				if not x1.AggressiveClaim and ghp then
-					if d.no3_val == nil or (x6.f % 6) == (d.id % 6) then
+					if d.no3_val == nil or ft - (d.no3_tick or 0) > 0.15 then
+						d.no3_tick = ft
 						local success, no3_val = pcall(ghp, p, 'NetworkOwnerV3')
 						d.no3_val = success and no3_val or 0
 					end
