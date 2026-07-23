@@ -10,6 +10,13 @@ return function(context)
 	local AUTH_FILE = "ProjectAI/auth.json"
 	local REF_LINK = "https://agentrouter.org/register?aff=4pqF"
 	local DEFAULT_ENDPOINT = "https://ai.davidcsl.me"
+	local AVAILABLE_MODELS = {
+		"glm-5.2",
+		"claude-opus-4-8",
+		"gpt-5.5",
+		"claude-opus-4-7",
+		"claude-opus-4-6"
+	}
 
 	local sessionState = {
 		mode = "free",
@@ -18,8 +25,7 @@ return function(context)
 		endpoint = DEFAULT_ENDPOINT,
 		model = "glm-5.2",
 		history = {},
-		systemPrompt = [[(YOUR MODEL IS GLM-5.2)
-You are an integrated AI assistant and gravity physics controller for Project Gravity.
+		systemPrompt = [[You are an integrated AI assistant and gravity physics controller for Project Gravity.
 
 PROJECT GRAVITY CUSTOM SHAPE PLUGIN SYSTEM DOCS:
 1. File Location: Custom shapes are saved to 'GravityShapes/<ShapeName>.lua'. Use read_custom_shape(name) to view existing shape code, and save_custom_shape(name, code) to create or modify shapes.
@@ -64,7 +70,8 @@ Core Rules:
 		local data = {
 			mode = sessionState.mode,
 			token = sessionState.token,
-			apiKey = sessionState.apiKey
+			apiKey = sessionState.apiKey,
+			model = sessionState.model
 		}
 		pcall(writefile, AUTH_FILE, hs:JSONEncode(data))
 	end
@@ -80,6 +87,7 @@ Core Rules:
 			sessionState.mode = decoded.mode or "free"
 			sessionState.token = decoded.token or ""
 			sessionState.apiKey = decoded.apiKey or ""
+			sessionState.model = decoded.model or "glm-5.2"
 			return (sessionState.mode == "free" and #sessionState.token > 0) or (sessionState.mode == "key" and #sessionState.apiKey > 0)
 		end
 		return false
@@ -508,7 +516,8 @@ Core Rules:
 	local function runAgentLoop(prompt, updateStatus, pushStep, checkAborted)
 		pushStep = pushStep or function() end
 		if #sessionState.history == 0 then
-			table.insert(sessionState.history, { role = "system", content = sessionState.systemPrompt })
+			local sysContent = "(YOUR MODEL IS " .. tostring(sessionState.model):upper() .. ")\n" .. sessionState.systemPrompt
+			table.insert(sessionState.history, { role = "system", content = sysContent })
 		end
 		table.insert(sessionState.history, { role = "user", content = prompt })
 
@@ -960,19 +969,104 @@ Core Rules:
 		title.TextSize = 11
 		title.TextXAlignment = Enum.TextXAlignment.Left
 
-		local modelLbl = Instance.new("TextLabel", header)
-		modelLbl.Position = UDim2.new(0, 68, 0, 0)
-		modelLbl.Size = UDim2.new(0, 42, 1, 0)
-		modelLbl.BackgroundTransparency = 1
-		modelLbl.Text = sessionState.model
-		modelLbl.TextColor3 = Color3.fromRGB(110, 110, 120)
-		modelLbl.Font = Enum.Font.Gotham
-		modelLbl.TextSize = 9
-		modelLbl.TextXAlignment = Enum.TextXAlignment.Left
+		local modelBtn = Instance.new("TextButton", header)
+		modelBtn.Position = UDim2.new(0, 64, 0.5, -9)
+		modelBtn.Size = UDim2.new(0, 70, 0, 18)
+		modelBtn.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
+		modelBtn.Text = sessionState.model .. " v"
+		modelBtn.TextColor3 = Color3.fromRGB(150, 150, 165)
+		modelBtn.Font = Enum.Font.GothamMedium
+		modelBtn.TextSize = 8
+		Instance.new("UICorner", modelBtn).CornerRadius = UDim.new(0, 4)
+		local modelStr = Instance.new("UIStroke", modelBtn)
+		modelStr.Color = Color3.fromRGB(38, 38, 44)
+
+		local mDrop = Instance.new("Frame", chatWindow)
+		mDrop.Position = UDim2.new(0, 62, 0, 30)
+		mDrop.Size = UDim2.new(0, 108, 0, 0)
+		mDrop.BackgroundColor3 = Color3.fromRGB(22, 22, 27)
+		mDrop.ClipsDescendants = true
+		mDrop.ZIndex = 30
+		mDrop.Visible = false
+		Instance.new("UICorner", mDrop).CornerRadius = UDim.new(0, 5)
+		local mDropStr = Instance.new("UIStroke", mDrop)
+		mDropStr.Color = Color3.fromRGB(45, 45, 54)
+
+		local mLayout = Instance.new("UIListLayout", mDrop)
+		mLayout.Padding = UDim.new(0, 2)
+		mLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+		local mPad = Instance.new("UIPadding", mDrop)
+		mPad.PaddingTop = UDim.new(0, 3)
+		mPad.PaddingBottom = UDim.new(0, 3)
+		mPad.PaddingLeft = UDim.new(0, 3)
+		mPad.PaddingRight = UDim.new(0, 3)
+
+		local mOpen = false
+
+		local function refreshModelMenu()
+			for _, ch in ipairs(mDrop:GetChildren()) do
+				if ch:IsA("TextButton") then ch:Destroy() end
+			end
+			for _, modelName in ipairs(AVAILABLE_MODELS) do
+				local isSel = modelName == sessionState.model
+				local optBtn = Instance.new("TextButton", mDrop)
+				optBtn.Size = UDim2.new(1, 0, 0, 20)
+				optBtn.BackgroundColor3 = isSel and Color3.fromRGB(38, 38, 48) or Color3.fromRGB(25, 25, 30)
+				optBtn.BackgroundTransparency = isSel and 0 or 1
+				optBtn.Text = modelName
+				optBtn.TextColor3 = isSel and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 160)
+				optBtn.Font = Enum.Font.GothamMedium
+				optBtn.TextSize = 8
+				optBtn.ZIndex = 31
+				Instance.new("UICorner", optBtn).CornerRadius = UDim.new(0, 3)
+
+				optBtn.MouseEnter:Connect(function()
+					if modelName ~= sessionState.model then
+						v6:Create(optBtn, TweenInfo.new(0.1), { BackgroundTransparency = 0, BackgroundColor3 = Color3.fromRGB(30, 30, 36), TextColor3 = Color3.fromRGB(220, 220, 230) }):Play()
+					end
+				end)
+				optBtn.MouseLeave:Connect(function()
+					if modelName ~= sessionState.model then
+						v6:Create(optBtn, TweenInfo.new(0.1), { BackgroundTransparency = 1, TextColor3 = Color3.fromRGB(150, 150, 160) }):Play()
+					end
+				end)
+
+				optBtn.MouseButton1Click:Connect(function()
+					sessionState.model = modelName
+					modelBtn.Text = sessionState.model .. " v"
+					if #sessionState.history > 0 and sessionState.history[1].role == "system" then
+						sessionState.history[1].content = "(YOUR MODEL IS " .. tostring(sessionState.model):upper() .. ")\n" .. sessionState.systemPrompt
+					end
+					persistSave()
+					mOpen = false
+					v6:Create(mDrop, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(0, 108, 0, 0) }):Play()
+					task.delay(0.15, function() if not mOpen then mDrop.Visible = false end end)
+				end)
+			end
+		end
+
+		modelBtn.MouseEnter:Connect(function()
+			v6:Create(modelBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(32, 32, 38), TextColor3 = Color3.fromRGB(220, 220, 240) }):Play()
+		end)
+		modelBtn.MouseLeave:Connect(function()
+			v6:Create(modelBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(24, 24, 28), TextColor3 = Color3.fromRGB(150, 150, 165) }):Play()
+		end)
+		modelBtn.MouseButton1Click:Connect(function()
+			mOpen = not mOpen
+			if mOpen then
+				refreshModelMenu()
+				mDrop.Visible = true
+				v6:Create(mDrop, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(0, 108, 0, #AVAILABLE_MODELS * 22 + 6) }):Play()
+			else
+				v6:Create(mDrop, TweenInfo.new(0.15, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(0, 108, 0, 0) }):Play()
+				task.delay(0.15, function() if not mOpen then mDrop.Visible = false end end)
+			end
+		end)
 
 		local statusLbl = Instance.new("TextLabel", header)
-		statusLbl.Position = UDim2.new(0, 112, 0, 0)
-		statusLbl.Size = UDim2.new(1, -196, 1, 0)
+		statusLbl.Position = UDim2.new(0, 138, 0, 0)
+		statusLbl.Size = UDim2.new(1, -222, 1, 0)
 		statusLbl.BackgroundTransparency = 1
 		statusLbl.Text = "ready"
 		statusLbl.TextColor3 = Color3.fromRGB(110, 110, 120)
