@@ -241,6 +241,32 @@ return function(context)
 		return b
 	end
 
+	function M.sub_b(p, t, cb)
+		local b = Instance.new("TextButton", p)
+		b.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+		b.Size = UDim2.new(1, 0, 0, 32)
+		b.AutoButtonColor = false
+		b.Text = t
+		b.TextColor3 = Color3.fromRGB(0, 255, 200)
+		b.Font = Enum.Font.GothamMedium
+		b.TextSize = 11
+		Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+
+		local str = Instance.new("UIStroke", b)
+		str.Color = Color3.fromRGB(40, 40, 45)
+		str.Thickness = 1
+
+		b.MouseEnter:Connect(function()
+			v6:Create(b, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(35, 35, 40) }):Play()
+		end)
+		b.MouseLeave:Connect(function()
+			v6:Create(b, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(25, 25, 30) }):Play()
+		end)
+
+		b.MouseButton1Click:Connect(function() cb(b) end)
+		return b
+	end
+
 	function M.h(p, t)
 		local l = Instance.new("TextLabel", p)
 		l.BackgroundTransparency = 1

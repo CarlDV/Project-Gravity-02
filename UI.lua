@@ -117,6 +117,7 @@ return function(context)
 		RestorePerfParticles()
 	end
 	local UI_elements = load_module("UI_elements.lua")(context)
+	local ai_chat_module = load_module("ai_chat.lua")(context)
 	local es, et, eb, eh = UI_elements.s, UI_elements.t, UI_elements.b, UI_elements.h
 
 	local x5 = {}
@@ -395,6 +396,13 @@ return function(context)
 			toggle_window(am, not am.Visible)
 		end)
 		ab.Size = UDim2.new(1, 0, 0, 36)
+
+		local ai_btn = eb(c, "AI Assistant", function()
+			if ai_chat_module and ai_chat_module.toggle then
+				ai_chat_module.toggle(sg)
+			end
+		end)
+		ai_btn.Size = UDim2.new(1, 0, 0, 36)
 
 		local mode_f = Instance.new("Frame", c)
 		mode_f.BackgroundTransparency = 1
