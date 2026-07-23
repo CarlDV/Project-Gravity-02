@@ -606,7 +606,7 @@ Core Rules:
 		passInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 		passInput.Font = Enum.Font.Gotham
 		passInput.TextSize = 12
-		passInput.TextObscured = true
+		pcall(function() passInput.TextObscured = true end)
 		Instance.new("UICorner", passInput).CornerRadius = UDim.new(0, 6)
 
 		local errLbl = Instance.new("TextLabel", bodyServer)

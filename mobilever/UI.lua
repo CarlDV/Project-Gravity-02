@@ -504,6 +504,13 @@ return function(context)
 				save_settings()
 			end)
 
+			local mob_ai_btn = eb(gsc, "AI Assistant", function()
+				if ai_chat_module and ai_chat_module.toggle then
+					ai_chat_module.toggle(sg)
+				end
+			end)
+			mob_ai_btn.Size = UDim2.new(1, 0, 0, 22)
+
 			et(gsc, "Anchor to Self", x1.AnchorSelf, function(v)
 				x1.AnchorSelf = v
 				if v then
