@@ -504,7 +504,7 @@ return function(context)
 				save_settings()
 			end)
 
-			local mob_ai_btn = eb(gsc, "AI Assistant", function()
+			local mob_ai_btn = eb(gsc, "PROJECT GRAVITY AI", function()
 				if ai_chat_module and ai_chat_module.toggle then
 					ai_chat_module.toggle(sg)
 				end

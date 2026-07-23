@@ -397,7 +397,7 @@ return function(context)
 		end)
 		ab.Size = UDim2.new(1, 0, 0, 36)
 
-		local ai_btn = eb(c, "AI Assistant", function()
+		local ai_btn = eb(c, "PROJECT GRAVITY AI", function()
 			if ai_chat_module and ai_chat_module.toggle then
 				ai_chat_module.toggle(sg)
 			end
