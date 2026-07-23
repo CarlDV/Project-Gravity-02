@@ -512,62 +512,68 @@ Core Rules:
 
 		authWindow = Instance.new("CanvasGroup", parentGui)
 		authWindow.Name = "AI_Auth_Modal"
-		authWindow.Size = UDim2.new(0.88, 0, 0.65, 0)
+		authWindow.Size = UDim2.new(0, 230, 0, 180)
 		authWindow.Position = UDim2.new(0.5, 0, 0.5, 0)
 		authWindow.AnchorPoint = Vector2.new(0.5, 0.5)
-		authWindow.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+		authWindow.BackgroundColor3 = Color3.fromRGB(12, 12, 15)
 		authWindow.Active = true
 		authWindow.Draggable = true
 		authWindow.GroupTransparency = 1
 		Instance.new("UICorner", authWindow).CornerRadius = UDim.new(0, 10)
 		local str = Instance.new("UIStroke", authWindow)
-		str.Color = Color3.fromRGB(40, 40, 45)
+		str.Color = Color3.fromRGB(45, 45, 52)
 		str.Thickness = 1
 
 		local sizeLimiter = Instance.new("UISizeConstraint", authWindow)
-		sizeLimiter.MinSize = Vector2.new(260, 280)
-		sizeLimiter.MaxSize = Vector2.new(340, 360)
+		sizeLimiter.MinSize = Vector2.new(200, 160)
+		sizeLimiter.MaxSize = Vector2.new(250, 200)
 
 		local header = Instance.new("Frame", authWindow)
-		header.Size = UDim2.new(1, 0, 0, 45)
+		header.Size = UDim2.new(1, 0, 0, 32)
 		header.BackgroundTransparency = 1
 
 		local title = Instance.new("TextLabel", header)
-		title.Position = UDim2.new(0, 16, 0, 0)
-		title.Size = UDim2.new(1, -60, 1, 0)
+		title.Position = UDim2.new(0, 12, 0, 0)
+		title.Size = UDim2.new(1, -40, 1, 0)
+		title.BackgroundTransparency = 1
 		title.Text = "PROJECT GRAVITY AI"
 		title.TextColor3 = Color3.fromRGB(255, 255, 255)
 		title.Font = Enum.Font.GothamBlack
-		title.TextSize = 12
+		title.TextSize = 9
 		title.TextXAlignment = Enum.TextXAlignment.Left
 
 		local closeBtn = Instance.new("TextButton", header)
-		closeBtn.Position = UDim2.new(1, -36, 0.5, -12)
-		closeBtn.Size = UDim2.new(0, 24, 0, 24)
-		closeBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-		closeBtn.Text = "✕"
-		closeBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+		closeBtn.Position = UDim2.new(1, -24, 0, 6)
+		closeBtn.Size = UDim2.new(0, 18, 0, 18)
+		closeBtn.BackgroundTransparency = 1
+		closeBtn.Text = "X"
+		closeBtn.TextColor3 = Color3.fromRGB(140, 140, 150)
 		closeBtn.Font = Enum.Font.GothamBold
-		closeBtn.TextSize = 12
-		Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 5)
+		closeBtn.TextSize = 11
 
+		closeBtn.MouseEnter:Connect(function()
+			v6:Create(closeBtn, TweenInfo.new(0.15), { TextColor3 = Color3.fromRGB(255, 255, 255) }):Play()
+		end)
+		closeBtn.MouseLeave:Connect(function()
+			v6:Create(closeBtn, TweenInfo.new(0.15), { TextColor3 = Color3.fromRGB(140, 140, 150) }):Play()
+		end)
 		closeBtn.MouseButton1Click:Connect(function()
 			animateWindow(authWindow, false)
 		end)
 
 		local tabRow = Instance.new("Frame", authWindow)
-		tabRow.Position = UDim2.new(0, 16, 0, 45)
-		tabRow.Size = UDim2.new(1, -32, 0, 32)
-		tabRow.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+		tabRow.Position = UDim2.new(0, 10, 0, 32)
+		tabRow.Size = UDim2.new(1, -20, 0, 24)
+		tabRow.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 		Instance.new("UICorner", tabRow).CornerRadius = UDim.new(0, 6)
 
 		local btnKey = Instance.new("TextButton", tabRow)
 		btnKey.Size = UDim2.new(0.5, 0, 1, 0)
-		btnKey.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+		btnKey.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 		btnKey.Text = "API Key"
 		btnKey.TextColor3 = Color3.fromRGB(255, 255, 255)
 		btnKey.Font = Enum.Font.GothamMedium
-		btnKey.TextSize = 11
+		btnKey.TextSize = 9
 		Instance.new("UICorner", btnKey).CornerRadius = UDim.new(0, 6)
 
 		local btnServer = Instance.new("TextButton", tabRow)
@@ -575,28 +581,28 @@ Core Rules:
 		btnServer.Size = UDim2.new(0.5, 0, 1, 0)
 		btnServer.BackgroundTransparency = 1
 		btnServer.Text = "Server Login"
-		btnServer.TextColor3 = Color3.fromRGB(150, 150, 150)
+		btnServer.TextColor3 = Color3.fromRGB(140, 140, 150)
 		btnServer.Font = Enum.Font.GothamMedium
-		btnServer.TextSize = 11
+		btnServer.TextSize = 9
 		Instance.new("UICorner", btnServer).CornerRadius = UDim.new(0, 6)
 
 		local bodyKey = Instance.new("Frame", authWindow)
-		bodyKey.Position = UDim2.new(0, 16, 0, 90)
-		bodyKey.Size = UDim2.new(1, -32, 1, -100)
+		bodyKey.Position = UDim2.new(0, 10, 0, 62)
+		bodyKey.Size = UDim2.new(1, -20, 1, -68)
 		bodyKey.BackgroundTransparency = 1
 		bodyKey.Visible = true
 
 		local refBtn = Instance.new("TextButton", bodyKey)
-		refBtn.Position = UDim2.new(0, 0, 0, 0)
-		refBtn.Size = UDim2.new(1, 0, 0, 34)
-		refBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+		refBtn.Position = UDim2.new(0, 0, 0, 4)
+		refBtn.Size = UDim2.new(1, 0, 0, 24)
+		refBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 		refBtn.Text = "🔗 GET API KEY (AGENTROUTER)"
-		refBtn.TextColor3 = Color3.fromRGB(0, 255, 200)
-		refBtn.Font = Enum.Font.GothamBold
-		refBtn.TextSize = 10
-		Instance.new("UICorner", refBtn).CornerRadius = UDim.new(0, 6)
+		refBtn.TextColor3 = Color3.fromRGB(0, 230, 190)
+		refBtn.Font = Enum.Font.GothamMedium
+		refBtn.TextSize = 8
+		Instance.new("UICorner", refBtn).CornerRadius = UDim.new(0, 5)
 		local refStr = Instance.new("UIStroke", refBtn)
-		refStr.Color = Color3.fromRGB(45, 45, 50)
+		refStr.Color = Color3.fromRGB(38, 38, 44)
 
 		refBtn.MouseButton1Click:Connect(function()
 			local clipFn = setclipboard or toclipboard or (syn and syn.write_clipboard)
@@ -610,92 +616,117 @@ Core Rules:
 		end)
 
 		local keyInput = Instance.new("TextBox", bodyKey)
-		keyInput.Position = UDim2.new(0, 0, 0, 42)
-		keyInput.Size = UDim2.new(1, 0, 0, 36)
-		keyInput.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+		keyInput.Position = UDim2.new(0, 0, 0, 34)
+		keyInput.Size = UDim2.new(1, 0, 0, 26)
+		keyInput.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 		keyInput.PlaceholderText = "Paste API Key (sk-...)"
-		keyInput.PlaceholderColor3 = Color3.fromRGB(120, 120, 130)
+		keyInput.PlaceholderColor3 = Color3.fromRGB(110, 110, 120)
 		keyInput.Text = sessionState.apiKey
 		keyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 		keyInput.Font = Enum.Font.Gotham
-		keyInput.TextSize = 11
-		Instance.new("UICorner", keyInput).CornerRadius = UDim.new(0, 6)
+		keyInput.TextSize = 9
+		Instance.new("UICorner", keyInput).CornerRadius = UDim.new(0, 5)
+		local keyInputStr = Instance.new("UIStroke", keyInput)
+		keyInputStr.Color = Color3.fromRGB(38, 38, 44)
 
 		local saveKeyBtn = Instance.new("TextButton", bodyKey)
-		saveKeyBtn.Position = UDim2.new(0, 0, 0, 92)
-		saveKeyBtn.Size = UDim2.new(1, 0, 0, 36)
-		saveKeyBtn.BackgroundColor3 = Color3.fromRGB(60, 200, 100)
+		saveKeyBtn.Position = UDim2.new(0, 0, 0, 66)
+		saveKeyBtn.Size = UDim2.new(1, 0, 0, 26)
+		saveKeyBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 		saveKeyBtn.Text = "SAVE API KEY"
-		saveKeyBtn.TextColor3 = Color3.fromRGB(15, 15, 18)
-		saveKeyBtn.Font = Enum.Font.GothamBold
-		saveKeyBtn.TextSize = 11
-		Instance.new("UICorner", saveKeyBtn).CornerRadius = UDim.new(0, 6)
+		saveKeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		saveKeyBtn.Font = Enum.Font.GothamMedium
+		saveKeyBtn.TextSize = 9
+		Instance.new("UICorner", saveKeyBtn).CornerRadius = UDim.new(0, 5)
+		local saveStr = Instance.new("UIStroke", saveKeyBtn)
+		saveStr.Color = Color3.fromRGB(50, 50, 58)
+
+		saveKeyBtn.MouseEnter:Connect(function()
+			v6:Create(saveKeyBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(40, 40, 48) }):Play()
+		end)
+		saveKeyBtn.MouseLeave:Connect(function()
+			v6:Create(saveKeyBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(30, 30, 36) }):Play()
+		end)
 
 		local bodyServer = Instance.new("Frame", authWindow)
-		bodyServer.Position = UDim2.new(0, 16, 0, 90)
-		bodyServer.Size = UDim2.new(1, -32, 1, -100)
+		bodyServer.Position = UDim2.new(0, 10, 0, 62)
+		bodyServer.Size = UDim2.new(1, -20, 1, -68)
 		bodyServer.BackgroundTransparency = 1
 		bodyServer.Visible = false
 
 		local userInput = Instance.new("TextBox", bodyServer)
-		userInput.Size = UDim2.new(1, 0, 0, 34)
-		userInput.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+		userInput.Position = UDim2.new(0, 0, 0, 4)
+		userInput.Size = UDim2.new(1, 0, 0, 24)
+		userInput.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 		userInput.PlaceholderText = "Username"
-		userInput.PlaceholderColor3 = Color3.fromRGB(120, 120, 130)
+		userInput.PlaceholderColor3 = Color3.fromRGB(110, 110, 120)
 		userInput.Text = ""
 		userInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 		userInput.Font = Enum.Font.Gotham
-		userInput.TextSize = 11
-		Instance.new("UICorner", userInput).CornerRadius = UDim.new(0, 6)
+		userInput.TextSize = 9
+		Instance.new("UICorner", userInput).CornerRadius = UDim.new(0, 5)
+		local uStr = Instance.new("UIStroke", userInput)
+		uStr.Color = Color3.fromRGB(38, 38, 44)
 
 		local passInput = Instance.new("TextBox", bodyServer)
-		passInput.Position = UDim2.new(0, 0, 0, 40)
-		passInput.Size = UDim2.new(1, 0, 0, 34)
-		passInput.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+		passInput.Position = UDim2.new(0, 0, 0, 32)
+		passInput.Size = UDim2.new(1, 0, 0, 24)
+		passInput.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 		passInput.PlaceholderText = "Password"
-		passInput.PlaceholderColor3 = Color3.fromRGB(120, 120, 130)
+		passInput.PlaceholderColor3 = Color3.fromRGB(110, 110, 120)
 		passInput.Text = ""
 		passInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 		passInput.Font = Enum.Font.Gotham
-		passInput.TextSize = 11
-		Instance.new("UICorner", passInput).CornerRadius = UDim.new(0, 6)
+		passInput.TextSize = 9
+		Instance.new("UICorner", passInput).CornerRadius = UDim.new(0, 5)
+		local pStr = Instance.new("UIStroke", passInput)
+		pStr.Color = Color3.fromRGB(38, 38, 44)
 
 		local errLbl = Instance.new("TextLabel", bodyServer)
-		errLbl.Position = UDim2.new(0, 0, 0, 78)
-		errLbl.Size = UDim2.new(1, 0, 0, 16)
+		errLbl.Position = UDim2.new(0, 0, 0, 58)
+		errLbl.Size = UDim2.new(1, 0, 0, 12)
 		errLbl.BackgroundTransparency = 1
 		errLbl.Text = ""
 		errLbl.TextColor3 = Color3.fromRGB(255, 90, 90)
 		errLbl.Font = Enum.Font.Gotham
-		errLbl.TextSize = 9
+		errLbl.TextSize = 8
 		errLbl.TextXAlignment = Enum.TextXAlignment.Left
 
 		local loginBtn = Instance.new("TextButton", bodyServer)
-		loginBtn.Position = UDim2.new(0, 0, 0, 98)
-		loginBtn.Size = UDim2.new(1, 0, 0, 36)
-		loginBtn.BackgroundColor3 = Color3.fromRGB(60, 200, 100)
+		loginBtn.Position = UDim2.new(0, 0, 0, 72)
+		loginBtn.Size = UDim2.new(1, 0, 0, 26)
+		loginBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 		loginBtn.Text = "LOGIN TO SERVER"
-		loginBtn.TextColor3 = Color3.fromRGB(15, 15, 18)
-		loginBtn.Font = Enum.Font.GothamBold
-		loginBtn.TextSize = 11
-		Instance.new("UICorner", loginBtn).CornerRadius = UDim.new(0, 6)
+		loginBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		loginBtn.Font = Enum.Font.GothamMedium
+		loginBtn.TextSize = 9
+		Instance.new("UICorner", loginBtn).CornerRadius = UDim.new(0, 5)
+		local logBtnStr = Instance.new("UIStroke", loginBtn)
+		logBtnStr.Color = Color3.fromRGB(50, 50, 58)
+
+		loginBtn.MouseEnter:Connect(function()
+			v6:Create(loginBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(40, 40, 48) }):Play()
+		end)
+		loginBtn.MouseLeave:Connect(function()
+			v6:Create(loginBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(30, 30, 36) }):Play()
+		end)
 
 		btnServer.MouseButton1Click:Connect(function()
-			btnServer.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+			btnServer.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 			btnServer.BackgroundTransparency = 0
 			btnServer.TextColor3 = Color3.fromRGB(255, 255, 255)
 			btnKey.BackgroundTransparency = 1
-			btnKey.TextColor3 = Color3.fromRGB(150, 150, 150)
+			btnKey.TextColor3 = Color3.fromRGB(140, 140, 150)
 			bodyServer.Visible = true
 			bodyKey.Visible = false
 		end)
 
 		btnKey.MouseButton1Click:Connect(function()
-			btnKey.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+			btnKey.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 			btnKey.BackgroundTransparency = 0
 			btnKey.TextColor3 = Color3.fromRGB(255, 255, 255)
 			btnServer.BackgroundTransparency = 1
-			btnServer.TextColor3 = Color3.fromRGB(150, 150, 150)
+			btnServer.TextColor3 = Color3.fromRGB(140, 140, 150)
 			bodyKey.Visible = true
 			bodyServer.Visible = false
 		end)
@@ -776,7 +807,7 @@ Core Rules:
 
 		local statusLbl = Instance.new("TextLabel", header)
 		statusLbl.Position = UDim2.new(0, 140, 0, 0)
-		statusLbl.Size = UDim2.new(1, -240, 1, 0)
+		statusLbl.Size = UDim2.new(1, -230, 1, 0)
 		statusLbl.BackgroundTransparency = 1
 		statusLbl.Text = "ready"
 		statusLbl.TextColor3 = Color3.fromRGB(120, 120, 130)
@@ -785,13 +816,13 @@ Core Rules:
 		statusLbl.TextXAlignment = Enum.TextXAlignment.Right
 
 		local logoutBtn = Instance.new("TextButton", header)
-		logoutBtn.Position = UDim2.new(1, -92, 0.5, -10)
-		logoutBtn.Size = UDim2.new(0, 58, 0, 20)
+		logoutBtn.Position = UDim2.new(1, -85, 0.5, -9)
+		logoutBtn.Size = UDim2.new(0, 54, 0, 18)
 		logoutBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
 		logoutBtn.Text = "LOGOUT"
 		logoutBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
 		logoutBtn.Font = Enum.Font.GothamMedium
-		logoutBtn.TextSize = 9
+		logoutBtn.TextSize = 8
 		Instance.new("UICorner", logoutBtn).CornerRadius = UDim.new(0, 4)
 		local logStr = Instance.new("UIStroke", logoutBtn)
 		logStr.Color = Color3.fromRGB(50, 40, 40)
@@ -809,15 +840,20 @@ Core Rules:
 		end)
 
 		local closeBtn = Instance.new("TextButton", header)
-		closeBtn.Position = UDim2.new(1, -28, 0.5, -10)
-		closeBtn.Size = UDim2.new(0, 20, 0, 20)
-		closeBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-		closeBtn.Text = "✕"
-		closeBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+		closeBtn.Position = UDim2.new(1, -22, 0, 11)
+		closeBtn.Size = UDim2.new(0, 18, 0, 18)
+		closeBtn.BackgroundTransparency = 1
+		closeBtn.Text = "X"
+		closeBtn.TextColor3 = Color3.fromRGB(140, 140, 150)
 		closeBtn.Font = Enum.Font.GothamBold
 		closeBtn.TextSize = 11
-		Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 4)
 
+		closeBtn.MouseEnter:Connect(function()
+			v6:Create(closeBtn, TweenInfo.new(0.15), { TextColor3 = Color3.fromRGB(255, 255, 255) }):Play()
+		end)
+		closeBtn.MouseLeave:Connect(function()
+			v6:Create(closeBtn, TweenInfo.new(0.15), { TextColor3 = Color3.fromRGB(140, 140, 150) }):Play()
+		end)
 		closeBtn.MouseButton1Click:Connect(function()
 			animateWindow(chatWindow, false)
 		end)
