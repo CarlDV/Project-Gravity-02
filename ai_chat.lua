@@ -429,7 +429,7 @@ Core Rules:
 		return #res > 35 and (res:sub(1, 35) .. "...") or res
 	end
 
-	local function runAgentLoop(prompt, updateStatus, pushStep)
+	local function runAgentLoop(prompt, updateStatus, pushStep, checkAborted)
 		pushStep = pushStep or function() end
 		if #sessionState.history == 0 then
 			table.insert(sessionState.history, { role = "system", content = sessionState.systemPrompt })
@@ -449,6 +449,10 @@ Core Rules:
 		local streak = 0
 
 		while count < 30 do
+			if checkAborted and checkAborted() then
+				updateStatus("aborted")
+				return "Generation stopped by user."
+			end
 			count += 1
 			updateStatus("Thinking...")
 
@@ -493,6 +497,10 @@ Core Rules:
 					pushStep("think", choiceMsg.content)
 				end
 				for _, call in ipairs(choiceMsg.tool_calls) do
+					if checkAborted and checkAborted() then
+						updateStatus("aborted")
+						return "Generation stopped by user."
+					end
 					local name = call["function"].name
 					local argsRaw = call["function"].arguments or "{}"
 					local okArgs, argsParsed = pcall(function() return hs:JSONDecode(argsRaw) end)
@@ -867,38 +875,38 @@ Core Rules:
 		headerLine.BorderSizePixel = 0
 
 		local title = Instance.new("TextLabel", header)
-		title.Position = UDim2.new(0, 10, 0, 0)
-		title.Size = UDim2.new(0, 64, 1, 0)
+		title.Position = UDim2.new(0, 8, 0, 0)
+		title.Size = UDim2.new(0, 58, 1, 0)
 		title.BackgroundTransparency = 1
 		title.Text = "project ai"
 		title.TextColor3 = Color3.fromRGB(255, 255, 255)
 		title.Font = Enum.Font.GothamMedium
-		title.TextSize = 12
+		title.TextSize = 11
 		title.TextXAlignment = Enum.TextXAlignment.Left
 
 		local modelLbl = Instance.new("TextLabel", header)
-		modelLbl.Position = UDim2.new(0, 74, 0, 0)
-		modelLbl.Size = UDim2.new(0, 50, 1, 0)
+		modelLbl.Position = UDim2.new(0, 68, 0, 0)
+		modelLbl.Size = UDim2.new(0, 42, 1, 0)
 		modelLbl.BackgroundTransparency = 1
 		modelLbl.Text = sessionState.model
 		modelLbl.TextColor3 = Color3.fromRGB(110, 110, 120)
 		modelLbl.Font = Enum.Font.Gotham
-		modelLbl.TextSize = 10
+		modelLbl.TextSize = 9
 		modelLbl.TextXAlignment = Enum.TextXAlignment.Left
 
 		local statusLbl = Instance.new("TextLabel", header)
-		statusLbl.Position = UDim2.new(0, 126, 0, 0)
-		statusLbl.Size = UDim2.new(1, -205, 1, 0)
+		statusLbl.Position = UDim2.new(0, 112, 0, 0)
+		statusLbl.Size = UDim2.new(1, -196, 1, 0)
 		statusLbl.BackgroundTransparency = 1
 		statusLbl.Text = "ready"
 		statusLbl.TextColor3 = Color3.fromRGB(110, 110, 120)
 		statusLbl.Font = Enum.Font.Gotham
-		statusLbl.TextSize = 10
+		statusLbl.TextSize = 9
 		statusLbl.TextXAlignment = Enum.TextXAlignment.Right
 
 		local logoutBtn = Instance.new("TextButton", header)
-		logoutBtn.Position = UDim2.new(1, -92, 0.5, -9)
-		logoutBtn.Size = UDim2.new(0, 46, 0, 18)
+		logoutBtn.Position = UDim2.new(1, -82, 0.5, -9)
+		logoutBtn.Size = UDim2.new(0, 42, 0, 18)
 		logoutBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 		logoutBtn.Text = "Logout"
 		logoutBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
@@ -921,8 +929,8 @@ Core Rules:
 		end)
 
 		local minBtn = Instance.new("TextButton", header)
-		minBtn.Position = UDim2.new(1, -40, 0, 6)
-		minBtn.Size = UDim2.new(0, 16, 0, 18)
+		minBtn.Position = UDim2.new(1, -36, 0, 6)
+		minBtn.Size = UDim2.new(0, 14, 0, 18)
 		minBtn.BackgroundTransparency = 1
 		minBtn.Text = "-"
 		minBtn.TextColor3 = Color3.fromRGB(140, 140, 150)
@@ -940,8 +948,8 @@ Core Rules:
 		end)
 
 		local closeBtn = Instance.new("TextButton", header)
-		closeBtn.Position = UDim2.new(1, -22, 0, 6)
-		closeBtn.Size = UDim2.new(0, 18, 0, 18)
+		closeBtn.Position = UDim2.new(1, -20, 0, 6)
+		closeBtn.Size = UDim2.new(0, 14, 0, 18)
 		closeBtn.BackgroundTransparency = 1
 		closeBtn.Text = "X"
 		closeBtn.TextColor3 = Color3.fromRGB(140, 140, 150)
@@ -981,7 +989,7 @@ Core Rules:
 
 		local inputTxt = Instance.new("TextBox", footer)
 		inputTxt.Position = UDim2.new(0, 6, 0, 0)
-		inputTxt.Size = UDim2.new(1, -40, 1, 0)
+		inputTxt.Size = UDim2.new(1, -44, 1, 0)
 		inputTxt.BackgroundTransparency = 1
 		inputTxt.PlaceholderText = "Ask AI or command engine..."
 		inputTxt.PlaceholderColor3 = Color3.fromRGB(110, 110, 120)
@@ -992,8 +1000,8 @@ Core Rules:
 		inputTxt.ClearTextOnFocus = false
 
 		local sendBtn = Instance.new("TextButton", footer)
-		sendBtn.Position = UDim2.new(1, -32, 0.5, -9)
-		sendBtn.Size = UDim2.new(0, 28, 0, 18)
+		sendBtn.Position = UDim2.new(1, -36, 0.5, -9)
+		sendBtn.Size = UDim2.new(0, 32, 0, 18)
 		sendBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 		sendBtn.Text = "GO"
 		sendBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -1004,6 +1012,7 @@ Core Rules:
 		sendStr.Color = Color3.fromRGB(50, 50, 58)
 
 		local isBusy = false
+		local currentAbortFlag = false
 
 		local function addBubble(sender, text)
 			local isUser = sender == "You"
@@ -1060,12 +1069,25 @@ Core Rules:
 		addBubble("System", "AI Agent connected. Command physics or search.")
 
 		local function handleSend()
+			if isBusy then
+				currentAbortFlag = true
+				isBusy = false
+				statusLbl.Text = "ready"
+				sendBtn.Text = "GO"
+				sendBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+				sendStr.Color = Color3.fromRGB(50, 50, 58)
+				return
+			end
+
 			local prompt = inputTxt.Text:match("^%s*(.-)%s*$")
-			if prompt == "" or isBusy then return end
+			if prompt == "" then return end
 
 			inputTxt.Text = ""
 			isBusy = true
-			sendBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+			currentAbortFlag = false
+			sendBtn.Text = "STOP"
+			sendBtn.BackgroundColor3 = Color3.fromRGB(150, 40, 40)
+			sendStr.Color = Color3.fromRGB(180, 50, 50)
 
 			addBubble("You", prompt)
 			local aiLbl, tagLbl = addBubble("AI", ".")
@@ -1081,8 +1103,11 @@ Core Rules:
 
 			task.spawn(function()
 				local okRun, reply = pcall(runAgentLoop, prompt, function(st)
-					statusLbl.Text = st:lower()
+					if not currentAbortFlag then
+						statusLbl.Text = st:lower()
+					end
 				end, function(kind, val)
+					if currentAbortFlag then return end
 					if kind == "call" then
 						tagLbl.Text = "[" .. tostring(val) .. "]"
 						tagLbl.Visible = true
@@ -1090,12 +1115,22 @@ Core Rules:
 						tagLbl.Text = "[ thinking ]"
 						tagLbl.Visible = true
 					end
+				end, function()
+					return currentAbortFlag
 				end)
 
 				isBusy = false
+				sendBtn.Text = "GO"
+				sendBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
+				sendStr.Color = Color3.fromRGB(50, 50, 58)
 				statusLbl.Text = "ready"
-				sendBtn.BackgroundColor3 = Color3.fromRGB(60, 200, 100)
 				tagLbl.Visible = false
+
+				if currentAbortFlag then
+					aiLbl.Text = "Generation stopped by user."
+					scrollFeed.CanvasPosition = Vector2.new(0, 9999)
+					return
+				end
 
 				local resText = okRun and tostring(reply or "No response.") or ("Error: " .. tostring(reply))
 				resText = resText:gsub("```%w*", ""):gsub("```", ""):gsub("`", ""):gsub("%*%*", "")
@@ -1103,12 +1138,15 @@ Core Rules:
 				local len = #resText
 				local step = math.max(1, math.floor(len / 30))
 				for idx = 1, len, step do
+					if currentAbortFlag then break end
 					aiLbl.Text = resText:sub(1, idx)
 					scrollFeed.CanvasPosition = Vector2.new(0, 9999)
 					task.wait(0.015)
 				end
-				aiLbl.Text = resText
-				scrollFeed.CanvasPosition = Vector2.new(0, 9999)
+				if not currentAbortFlag then
+					aiLbl.Text = resText
+					scrollFeed.CanvasPosition = Vector2.new(0, 9999)
+				end
 			end)
 		end
 
