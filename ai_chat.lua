@@ -21,10 +21,36 @@ return function(context)
 		systemPrompt = [[(YOUR MODEL IS GLM-5.2)
 You are an integrated AI assistant and gravity physics controller for Project Gravity.
 
+PROJECT GRAVITY CUSTOM SHAPE PLUGIN SYSTEM DOCS:
+1. File Location: Custom shapes are saved to 'GravityShapes/<ShapeName>.lua' using the save_custom_shape tool.
+2. Shape Module Contract:
+```lua
+local M = {}
+-- Optional: pre-computation per frame
+function M.px(t, c, x6, x9, x1)
+    if not x6.pre["ShapeName"] then x6.pre["ShapeName"] = {} end
+end
+-- Required: per-part physics loop
+function M.f2(p, cen, d, t, c, x1, x6, x9)
+    -- p: BasePart, cen: Vector3 center, d: per-part state table (e.g. d.spot = math.random()*math.pi*2)
+    -- t: elapsed time, c: UI controls table (indexed by Key e.g. c.k11)
+    local target_pos = cen + Vector3.new(0, 10, 0)
+    -- IMPORTANT: Return force vector AND target_pos as 2nd argument for anti-jitter smoothing!
+    return (target_pos - p.Position) * 5000, target_pos
+end
+-- UI Controls Table (Slider or Toggle)
+M.Controls = {
+    { Type = "Slider", Name = "Radius", Min = 5, Max = 100, Key = "k11" },
+    { Type = "Toggle", Name = "Cut In Half", Key = "k12" }
+}
+return M
+```
+
 Core Rules:
 - Always execute appropriate tools for physics or code requests.
+- When creating custom shapes, strictly follow the plugin docs above and call save_custom_shape(name, code).
+- Use save_script only for general non-shape Luau scripts.
 - Keep all responses concise and under 250 characters.
-- You can control the physics engine directly using adjust_gravity.
 - CRITICAL: DO NOT USE EMOJIS IN YOUR RESPONSES. NEVER USE ANY EMOJIS. OUTPUT PLAIN TEXT ONLY.]]
 	}
 
@@ -223,6 +249,27 @@ Core Rules:
 		return ok and ("Saved to: " .. path) or ("Save failed: " .. tostring(err))
 	end
 
+	toolHandlers.save_custom_shape = function(args)
+		if type(writefile) ~= "function" then return "writefile unavailable" end
+		local code = tostring(args.code or "")
+		if code == "" then return "Code empty" end
+		local rawName = tostring(args.name or "CustomShape"):gsub("[/\\]", ""):match("^%s*(.-)%s*$")
+		if rawName == "" then rawName = "CustomShape" end
+		if not rawName:lower():match("%.lua$") then rawName = rawName .. ".lua" end
+
+		if type(makefolder) == "function" then
+			pcall(function()
+				if type(isfolder) == "function" and not isfolder("GravityShapes") then
+					makefolder("GravityShapes")
+				end
+			end)
+		end
+
+		local path = "GravityShapes/" .. rawName
+		local ok, err = pcall(writefile, path, code)
+		return ok and ("Custom shape saved successfully to: " .. path) or ("Save failed: " .. tostring(err))
+	end
+
 	toolHandlers.adjust_gravity = function(args)
 		local shapeName = args.shape and tostring(args.shape) or nil
 		local speed = tonumber(args.speed)
@@ -323,11 +370,29 @@ Core Rules:
 			type = "function",
 			["function"] = {
 				name = "save_script",
-				description = "Save Luau script to workspace file.",
+				description = "Save general Luau script to workspace file.",
 				parameters = {
 					type = "object",
-					properties = { code = { type = "string" }, name = { type = "string" } },
-					required = { "code" }
+					properties = {
+						code = { type = "string", description = "Luau source code to save." },
+						name = { type = "string", description = "File name (e.g. 'my_script.lua')." }
+					},
+					required = { "code", "name" }
+				}
+			}
+		},
+		{
+			type = "function",
+			["function"] = {
+				name = "save_custom_shape",
+				description = "Save a custom shape module into the 'GravityShapes/' directory for Project Gravity.",
+				parameters = {
+					type = "object",
+					properties = {
+						code = { type = "string", description = "The complete custom shape module code implementing M.f2 and M.Controls." },
+						name = { type = "string", description = "The shape name (e.g. 'Spiral Galaxy')." }
+					},
+					required = { "code", "name" }
 				}
 			}
 		},
