@@ -22,7 +22,7 @@ return function(context)
 You are an integrated AI assistant and gravity physics controller for Project Gravity.
 
 PROJECT GRAVITY CUSTOM SHAPE PLUGIN SYSTEM DOCS:
-1. File Location: Custom shapes are saved to 'GravityShapes/<ShapeName>.lua' using the save_custom_shape tool.
+1. File Location: Custom shapes are saved to 'GravityShapes/<ShapeName>.lua'. Use read_custom_shape(name) to view existing shape code, and save_custom_shape(name, code) to create or modify shapes.
 2. Shape Module Contract:
 ```lua
 local M = {}
@@ -48,7 +48,8 @@ return M
 
 Core Rules:
 - Always execute appropriate tools for physics or code requests.
-- When creating custom shapes, strictly follow the plugin docs above and call save_custom_shape(name, code).
+- To create a new shape: call save_custom_shape(name, code).
+- To modify an existing shape: call read_custom_shape(name), edit the logic, then save_custom_shape(name, new_code).
 - Use save_script only for general non-shape Luau scripts.
 - Keep all responses concise and under 250 characters.
 - CRITICAL: DO NOT USE EMOJIS IN YOUR RESPONSES. NEVER USE ANY EMOJIS. OUTPUT PLAIN TEXT ONLY.]]
@@ -257,6 +258,8 @@ Core Rules:
 		if rawName == "" then rawName = "CustomShape" end
 		if not rawName:lower():match("%.lua$") then rawName = rawName .. ".lua" end
 
+		local shapeCleanName = rawName:gsub("%.lua$", ""):gsub("%.txt$", "")
+
 		if type(makefolder) == "function" then
 			pcall(function()
 				if type(isfolder) == "function" and not isfolder("GravityShapes") then
@@ -267,7 +270,66 @@ Core Rules:
 
 		local path = "GravityShapes/" .. rawName
 		local ok, err = pcall(writefile, path, code)
-		return ok and ("Custom shape saved successfully to: " .. path) or ("Save failed: " .. tostring(err))
+		if not ok then
+			return "Save failed: " .. tostring(err)
+		end
+
+		local local_shapes = context.local_shapes
+		local loaded_shapes = context.loaded_shapes
+		local x2 = context.x2
+
+		if local_shapes then
+			local_shapes[shapeCleanName] = path
+		end
+		if loaded_shapes then
+			loaded_shapes[shapeCleanName] = nil
+		end
+
+		if x2 then
+			if not x2[shapeCleanName] then
+				x2[shapeCleanName] = {}
+			end
+			local loadFn = loadstring or (getgenv and getgenv().loadstring)
+			if loadFn then
+				local func = loadFn(code)
+				if func then
+					local s, shape_mod = pcall(func)
+					if s and type(shape_mod) == "table" and shape_mod.Controls then
+						for _, ctrl in ipairs(shape_mod.Controls) do
+							if type(ctrl) == "table" and ctrl.Key then
+								local default_val = ctrl.Default
+								if default_val == nil then default_val = ctrl.Min or 0 end
+								if ctrl.Div then default_val = default_val / ctrl.Div end
+								x2[shapeCleanName][ctrl.Key] = default_val
+							end
+						end
+					end
+				end
+			end
+		end
+
+		return "Custom shape '" .. shapeCleanName .. "' saved and hot-reloaded into GravityShapes successfully."
+	end
+
+	toolHandlers.read_custom_shape = function(args)
+		if type(readfile) ~= "function" then return "readfile unavailable" end
+		local rawName = tostring(args.name or ""):gsub("[/\\]", ""):match("^%s*(.-)%s*$")
+		if rawName == "" then return "Shape name empty" end
+		local shapeCleanName = rawName:gsub("%.lua$", ""):gsub("%.txt$", "")
+		local fileName = shapeCleanName .. ".lua"
+
+		local path = "GravityShapes/" .. fileName
+		local local_shapes = context.local_shapes
+		if local_shapes and local_shapes[shapeCleanName] then
+			path = local_shapes[shapeCleanName]
+		end
+
+		local ok, code = pcall(readfile, path)
+		if ok and code then
+			return code
+		else
+			return "Failed to read shape file '" .. path .. "': " .. tostring(code)
+		end
 	end
 
 	toolHandlers.adjust_gravity = function(args)
@@ -385,7 +447,7 @@ Core Rules:
 			type = "function",
 			["function"] = {
 				name = "save_custom_shape",
-				description = "Save a custom shape module into the 'GravityShapes/' directory for Project Gravity.",
+				description = "Save or overwrite a custom shape module in 'GravityShapes/'.",
 				parameters = {
 					type = "object",
 					properties = {
@@ -393,6 +455,20 @@ Core Rules:
 						name = { type = "string", description = "The shape name (e.g. 'Spiral Galaxy')." }
 					},
 					required = { "code", "name" }
+				}
+			}
+		},
+		{
+			type = "function",
+			["function"] = {
+				name = "read_custom_shape",
+				description = "Read the Luau source code of an existing shape module from 'GravityShapes/'.",
+				parameters = {
+					type = "object",
+					properties = {
+						name = { type = "string", description = "The shape module name (e.g. 'Black Hole', 'Celestial Ribbon')." }
+					},
+					required = { "name" }
 				}
 			}
 		},
@@ -1132,8 +1208,11 @@ Core Rules:
 					return
 				end
 
-				local resText = okRun and tostring(reply or "No response.") or ("Error: " .. tostring(reply))
+				local resText = okRun and tostring(reply or "Task complete.") or ("Error: " .. tostring(reply))
 				resText = resText:gsub("```%w*", ""):gsub("```", ""):gsub("`", ""):gsub("%*%*", "")
+				if resText:match("^%s*$") then
+					resText = "Task complete."
+				end
 
 				local len = #resText
 				local step = math.max(1, math.floor(len / 30))
