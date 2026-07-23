@@ -24,7 +24,8 @@ You are an integrated AI assistant and gravity physics controller for Project Gr
 Core Rules:
 - Always execute appropriate tools for physics or code requests.
 - Keep all responses concise and under 250 characters.
-- You can control the physics engine directly using adjust_gravity.]]
+- You can control the physics engine directly using adjust_gravity.
+- CRITICAL: DO NOT USE EMOJIS IN YOUR RESPONSES. NEVER USE ANY EMOJIS. OUTPUT PLAIN TEXT ONLY.]]
 	}
 
 	local function persistSave()
@@ -596,7 +597,7 @@ Core Rules:
 		refBtn.Position = UDim2.new(0, 0, 0, 4)
 		refBtn.Size = UDim2.new(1, 0, 0, 24)
 		refBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-		refBtn.Text = "🔗 GET API KEY (AGENTROUTER)"
+		refBtn.Text = "GET API KEY (AGENTROUTER)"
 		refBtn.TextColor3 = Color3.fromRGB(0, 230, 190)
 		refBtn.Font = Enum.Font.GothamMedium
 		refBtn.TextSize = 8
@@ -608,8 +609,8 @@ Core Rules:
 			local clipFn = setclipboard or toclipboard or (syn and syn.write_clipboard)
 			if clipFn then
 				pcall(clipFn, REF_LINK)
-				refBtn.Text = "✓ LINK COPIED TO CLIPBOARD"
-				task.delay(2, function() refBtn.Text = "🔗 GET API KEY (AGENTROUTER)" end)
+				refBtn.Text = "LINK COPIED TO CLIPBOARD"
+				task.delay(2, function() refBtn.Text = "GET API KEY (AGENTROUTER)" end)
 			else
 				refBtn.Text = REF_LINK
 			end
@@ -775,57 +776,72 @@ Core Rules:
 
 		chatWindow = Instance.new("CanvasGroup", parentGui)
 		chatWindow.Name = "AI_Chat_Panel"
-		chatWindow.Size = UDim2.new(0.88, 0, 0.70, 0)
+		chatWindow.Size = UDim2.new(0, 300, 0, 240)
 		chatWindow.Position = UDim2.new(0.5, 0, 0.5, 0)
 		chatWindow.AnchorPoint = Vector2.new(0.5, 0.5)
-		chatWindow.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+		chatWindow.BackgroundColor3 = Color3.fromRGB(12, 12, 15)
 		chatWindow.Active = true
 		chatWindow.Draggable = true
 		chatWindow.GroupTransparency = 1
-		Instance.new("UICorner", chatWindow).CornerRadius = UDim.new(0, 10)
+		Instance.new("UICorner", chatWindow).CornerRadius = UDim.new(0, 8)
 		local str = Instance.new("UIStroke", chatWindow)
-		str.Color = Color3.fromRGB(40, 40, 45)
+		str.Color = Color3.fromRGB(45, 45, 52)
 		str.Thickness = 1
 
 		local sizeLimiter = Instance.new("UISizeConstraint", chatWindow)
-		sizeLimiter.MinSize = Vector2.new(260, 260)
-		sizeLimiter.MaxSize = Vector2.new(380, 520)
+		sizeLimiter.MinSize = Vector2.new(240, 180)
+		sizeLimiter.MaxSize = Vector2.new(340, 270)
 
 		local header = Instance.new("Frame", chatWindow)
-		header.Size = UDim2.new(1, 0, 0, 40)
-		header.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+		header.Size = UDim2.new(1, 0, 0, 30)
+		header.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+		local headerLine = Instance.new("Frame", header)
+		headerLine.Position = UDim2.new(0, 0, 1, -1)
+		headerLine.Size = UDim2.new(1, 0, 0, 1)
+		headerLine.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+		headerLine.BorderSizePixel = 0
 
 		local title = Instance.new("TextLabel", header)
-		title.Position = UDim2.new(0, 12, 0, 0)
-		title.Size = UDim2.new(0, 130, 1, 0)
+		title.Position = UDim2.new(0, 10, 0, 0)
+		title.Size = UDim2.new(0, 64, 1, 0)
 		title.BackgroundTransparency = 1
-		title.Text = "PROJECT GRAVITY AI"
+		title.Text = "project ai"
 		title.TextColor3 = Color3.fromRGB(255, 255, 255)
-		title.Font = Enum.Font.GothamBlack
-		title.TextSize = 10
+		title.Font = Enum.Font.GothamMedium
+		title.TextSize = 12
 		title.TextXAlignment = Enum.TextXAlignment.Left
 
+		local modelLbl = Instance.new("TextLabel", header)
+		modelLbl.Position = UDim2.new(0, 74, 0, 0)
+		modelLbl.Size = UDim2.new(0, 50, 1, 0)
+		modelLbl.BackgroundTransparency = 1
+		modelLbl.Text = sessionState.model
+		modelLbl.TextColor3 = Color3.fromRGB(110, 110, 120)
+		modelLbl.Font = Enum.Font.Gotham
+		modelLbl.TextSize = 10
+		modelLbl.TextXAlignment = Enum.TextXAlignment.Left
+
 		local statusLbl = Instance.new("TextLabel", header)
-		statusLbl.Position = UDim2.new(0, 140, 0, 0)
-		statusLbl.Size = UDim2.new(1, -230, 1, 0)
+		statusLbl.Position = UDim2.new(0, 126, 0, 0)
+		statusLbl.Size = UDim2.new(1, -205, 1, 0)
 		statusLbl.BackgroundTransparency = 1
 		statusLbl.Text = "ready"
-		statusLbl.TextColor3 = Color3.fromRGB(120, 120, 130)
+		statusLbl.TextColor3 = Color3.fromRGB(110, 110, 120)
 		statusLbl.Font = Enum.Font.Gotham
-		statusLbl.TextSize = 9
+		statusLbl.TextSize = 10
 		statusLbl.TextXAlignment = Enum.TextXAlignment.Right
 
 		local logoutBtn = Instance.new("TextButton", header)
-		logoutBtn.Position = UDim2.new(1, -85, 0.5, -9)
-		logoutBtn.Size = UDim2.new(0, 54, 0, 18)
-		logoutBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-		logoutBtn.Text = "LOGOUT"
+		logoutBtn.Position = UDim2.new(1, -74, 0.5, -9)
+		logoutBtn.Size = UDim2.new(0, 46, 0, 18)
+		logoutBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+		logoutBtn.Text = "Logout"
 		logoutBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
 		logoutBtn.Font = Enum.Font.GothamMedium
 		logoutBtn.TextSize = 8
 		Instance.new("UICorner", logoutBtn).CornerRadius = UDim.new(0, 4)
 		local logStr = Instance.new("UIStroke", logoutBtn)
-		logStr.Color = Color3.fromRGB(50, 40, 40)
+		logStr.Color = Color3.fromRGB(45, 35, 35)
 
 		logoutBtn.MouseButton1Click:Connect(function()
 			sessionState.mode = ""
@@ -840,7 +856,7 @@ Core Rules:
 		end)
 
 		local closeBtn = Instance.new("TextButton", header)
-		closeBtn.Position = UDim2.new(1, -22, 0, 11)
+		closeBtn.Position = UDim2.new(1, -24, 0, 6)
 		closeBtn.Size = UDim2.new(0, 18, 0, 18)
 		closeBtn.BackgroundTransparency = 1
 		closeBtn.Text = "X"
@@ -859,47 +875,49 @@ Core Rules:
 		end)
 
 		local scrollFeed = Instance.new("ScrollingFrame", chatWindow)
-		scrollFeed.Position = UDim2.new(0, 8, 0, 46)
-		scrollFeed.Size = UDim2.new(1, -16, 1, -92)
+		scrollFeed.Position = UDim2.new(0, 7, 0, 34)
+		scrollFeed.Size = UDim2.new(1, -14, 1, -68)
 		scrollFeed.BackgroundTransparency = 1
 		scrollFeed.ScrollBarThickness = 2
-		scrollFeed.ScrollBarImageColor3 = Color3.fromRGB(50, 50, 55)
+		scrollFeed.ScrollBarImageColor3 = Color3.fromRGB(45, 45, 52)
 		scrollFeed.AutomaticCanvasSize = Enum.AutomaticSize.Y
 		scrollFeed.CanvasSize = UDim2.new(0, 0, 0, 0)
 
 		local feedLayout = Instance.new("UIListLayout", scrollFeed)
-		feedLayout.Padding = UDim.new(0, 6)
+		feedLayout.Padding = UDim.new(0, 5)
 		feedLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 		local footer = Instance.new("Frame", chatWindow)
-		footer.Position = UDim2.new(0, 8, 1, -40)
-		footer.Size = UDim2.new(1, -16, 0, 32)
-		footer.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
-		Instance.new("UICorner", footer).CornerRadius = UDim.new(0, 6)
+		footer.Position = UDim2.new(0, 7, 1, -30)
+		footer.Size = UDim2.new(1, -14, 0, 24)
+		footer.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+		Instance.new("UICorner", footer).CornerRadius = UDim.new(0, 5)
 		local footerStr = Instance.new("UIStroke", footer)
-		footerStr.Color = Color3.fromRGB(40, 40, 45)
+		footerStr.Color = Color3.fromRGB(38, 38, 44)
 
 		local inputTxt = Instance.new("TextBox", footer)
-		inputTxt.Position = UDim2.new(0, 8, 0, 0)
-		inputTxt.Size = UDim2.new(1, -48, 1, 0)
+		inputTxt.Position = UDim2.new(0, 6, 0, 0)
+		inputTxt.Size = UDim2.new(1, -40, 1, 0)
 		inputTxt.BackgroundTransparency = 1
 		inputTxt.PlaceholderText = "Ask AI or command engine..."
-		inputTxt.PlaceholderColor3 = Color3.fromRGB(120, 120, 130)
+		inputTxt.PlaceholderColor3 = Color3.fromRGB(110, 110, 120)
 		inputTxt.Text = ""
 		inputTxt.TextColor3 = Color3.fromRGB(255, 255, 255)
 		inputTxt.Font = Enum.Font.Gotham
-		inputTxt.TextSize = 11
+		inputTxt.TextSize = 10
 		inputTxt.ClearTextOnFocus = false
 
 		local sendBtn = Instance.new("TextButton", footer)
-		sendBtn.Position = UDim2.new(1, -36, 0.5, -12)
-		sendBtn.Size = UDim2.new(0, 30, 0, 24)
-		sendBtn.BackgroundColor3 = Color3.fromRGB(60, 200, 100)
+		sendBtn.Position = UDim2.new(1, -32, 0.5, -9)
+		sendBtn.Size = UDim2.new(0, 28, 0, 18)
+		sendBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 36)
 		sendBtn.Text = "GO"
-		sendBtn.TextColor3 = Color3.fromRGB(15, 15, 18)
-		sendBtn.Font = Enum.Font.GothamBold
-		sendBtn.TextSize = 11
+		sendBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		sendBtn.Font = Enum.Font.GothamMedium
+		sendBtn.TextSize = 9
 		Instance.new("UICorner", sendBtn).CornerRadius = UDim.new(0, 4)
+		local sendStr = Instance.new("UIStroke", sendBtn)
+		sendStr.Color = Color3.fromRGB(50, 50, 58)
 
 		local isBusy = false
 
