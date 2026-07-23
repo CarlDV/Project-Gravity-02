@@ -832,7 +832,7 @@ Core Rules:
 		statusLbl.TextXAlignment = Enum.TextXAlignment.Right
 
 		local logoutBtn = Instance.new("TextButton", header)
-		logoutBtn.Position = UDim2.new(1, -74, 0.5, -9)
+		logoutBtn.Position = UDim2.new(1, -92, 0.5, -9)
 		logoutBtn.Size = UDim2.new(0, 46, 0, 18)
 		logoutBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 		logoutBtn.Text = "Logout"
@@ -855,8 +855,27 @@ Core Rules:
 			end)
 		end)
 
+		local minBtn = Instance.new("TextButton", header)
+		minBtn.Position = UDim2.new(1, -40, 0, 6)
+		minBtn.Size = UDim2.new(0, 16, 0, 18)
+		minBtn.BackgroundTransparency = 1
+		minBtn.Text = "-"
+		minBtn.TextColor3 = Color3.fromRGB(140, 140, 150)
+		minBtn.Font = Enum.Font.GothamBold
+		minBtn.TextSize = 13
+
+		minBtn.MouseEnter:Connect(function()
+			v6:Create(minBtn, TweenInfo.new(0.15), { TextColor3 = Color3.fromRGB(255, 255, 255) }):Play()
+		end)
+		minBtn.MouseLeave:Connect(function()
+			v6:Create(minBtn, TweenInfo.new(0.15), { TextColor3 = Color3.fromRGB(140, 140, 150) }):Play()
+		end)
+		minBtn.MouseButton1Click:Connect(function()
+			animateWindow(chatWindow, false)
+		end)
+
 		local closeBtn = Instance.new("TextButton", header)
-		closeBtn.Position = UDim2.new(1, -24, 0, 6)
+		closeBtn.Position = UDim2.new(1, -22, 0, 6)
 		closeBtn.Size = UDim2.new(0, 18, 0, 18)
 		closeBtn.BackgroundTransparency = 1
 		closeBtn.Text = "X"
@@ -1034,7 +1053,34 @@ Core Rules:
 		animateWindow(chatWindow, true)
 	end
 
+	local circleWidget = nil
+	function windowController.ensureFloatingWidget(parentGui)
+		if circleWidget and circleWidget.Parent then return circleWidget end
+		circleWidget = Instance.new("TextButton", parentGui)
+		circleWidget.Name = "AI_Circle_Toggle"
+		circleWidget.Size = UDim2.new(0, 36, 0, 36)
+		circleWidget.Position = UDim2.new(1, -48, 0.5, -18)
+		circleWidget.BackgroundColor3 = Color3.fromRGB(12, 12, 15)
+		circleWidget.Text = "AI"
+		circleWidget.TextColor3 = Color3.fromRGB(255, 255, 255)
+		circleWidget.Font = Enum.Font.GothamBold
+		circleWidget.TextSize = 11
+		circleWidget.Active = true
+		circleWidget.Draggable = true
+		circleWidget.ZIndex = 100
+		Instance.new("UICorner", circleWidget).CornerRadius = UDim.new(0.5, 0)
+		local str = Instance.new("UIStroke", circleWidget)
+		str.Color = Color3.fromRGB(45, 45, 52)
+		str.Thickness = 1
+
+		circleWidget.MouseButton1Click:Connect(function()
+			windowController.toggle(parentGui)
+		end)
+		return circleWidget
+	end
+
 	function windowController.toggle(parentGui)
+		windowController.ensureFloatingWidget(parentGui)
 		local isAuthenticated = persistLoad()
 		if isAuthenticated then
 			windowController.openChat(parentGui)
