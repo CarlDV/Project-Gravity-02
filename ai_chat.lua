@@ -512,8 +512,9 @@ Core Rules:
 
 		authWindow = Instance.new("CanvasGroup", parentGui)
 		authWindow.Name = "AI_Auth_Modal"
-		authWindow.Size = UDim2.new(0, 320, 0, 340)
-		authWindow.Position = UDim2.new(0.5, -160, 0.5, -170)
+		authWindow.Size = UDim2.new(0.88, 0, 0.65, 0)
+		authWindow.Position = UDim2.new(0.5, 0, 0.5, 0)
+		authWindow.AnchorPoint = Vector2.new(0.5, 0.5)
 		authWindow.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
 		authWindow.Active = true
 		authWindow.Draggable = true
@@ -522,6 +523,10 @@ Core Rules:
 		local str = Instance.new("UIStroke", authWindow)
 		str.Color = Color3.fromRGB(40, 40, 45)
 		str.Thickness = 1
+
+		local sizeLimiter = Instance.new("UISizeConstraint", authWindow)
+		sizeLimiter.MinSize = Vector2.new(260, 280)
+		sizeLimiter.MaxSize = Vector2.new(340, 360)
 
 		local header = Instance.new("Frame", authWindow)
 		header.Size = UDim2.new(1, 0, 0, 45)
@@ -738,8 +743,9 @@ Core Rules:
 
 		chatWindow = Instance.new("CanvasGroup", parentGui)
 		chatWindow.Name = "AI_Chat_Panel"
-		chatWindow.Size = UDim2.new(0, 310, 0, 360)
-		chatWindow.Position = UDim2.new(0, 360, 0.5, -180)
+		chatWindow.Size = UDim2.new(0.88, 0, 0.70, 0)
+		chatWindow.Position = UDim2.new(0.5, 0, 0.5, 0)
+		chatWindow.AnchorPoint = Vector2.new(0.5, 0.5)
 		chatWindow.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
 		chatWindow.Active = true
 		chatWindow.Draggable = true
@@ -750,8 +756,8 @@ Core Rules:
 		str.Thickness = 1
 
 		local sizeLimiter = Instance.new("UISizeConstraint", chatWindow)
-		sizeLimiter.MinSize = Vector2.new(250, 240)
-		sizeLimiter.MaxSize = Vector2.new(420, 550)
+		sizeLimiter.MinSize = Vector2.new(260, 260)
+		sizeLimiter.MaxSize = Vector2.new(380, 520)
 
 		local header = Instance.new("Frame", chatWindow)
 		header.Size = UDim2.new(1, 0, 0, 40)
