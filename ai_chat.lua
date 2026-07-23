@@ -960,8 +960,8 @@ Core Rules:
 		headerLine.BorderSizePixel = 0
 
 		local title = Instance.new("TextLabel", header)
-		title.Position = UDim2.new(0, 8, 0, 0)
-		title.Size = UDim2.new(0, 58, 1, 0)
+		title.Position = UDim2.new(0, 6, 0, 0)
+		title.Size = UDim2.new(0, 52, 1, 0)
 		title.BackgroundTransparency = 1
 		title.Text = "project ai"
 		title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -970,8 +970,8 @@ Core Rules:
 		title.TextXAlignment = Enum.TextXAlignment.Left
 
 		local modelBtn = Instance.new("TextButton", header)
-		modelBtn.Position = UDim2.new(0, 64, 0.5, -9)
-		modelBtn.Size = UDim2.new(0, 70, 0, 18)
+		modelBtn.Position = UDim2.new(0, 60, 0.5, -9)
+		modelBtn.Size = UDim2.new(0, 68, 0, 18)
 		modelBtn.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
 		modelBtn.Text = sessionState.model .. " v"
 		modelBtn.TextColor3 = Color3.fromRGB(150, 150, 165)
@@ -982,7 +982,7 @@ Core Rules:
 		modelStr.Color = Color3.fromRGB(38, 38, 44)
 
 		local mDrop = Instance.new("Frame", chatWindow)
-		mDrop.Position = UDim2.new(0, 62, 0, 30)
+		mDrop.Position = UDim2.new(0, 58, 0, 30)
 		mDrop.Size = UDim2.new(0, 108, 0, 0)
 		mDrop.BackgroundColor3 = Color3.fromRGB(22, 22, 27)
 		mDrop.ClipsDescendants = true
@@ -1064,9 +1064,39 @@ Core Rules:
 			end
 		end)
 
+		local clrBtn = Instance.new("TextButton", header)
+		clrBtn.Position = UDim2.new(0, 131, 0.5, -9)
+		clrBtn.Size = UDim2.new(0, 34, 0, 18)
+		clrBtn.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
+		clrBtn.Text = "Clear"
+		clrBtn.TextColor3 = Color3.fromRGB(150, 150, 165)
+		clrBtn.Font = Enum.Font.GothamMedium
+		clrBtn.TextSize = 8
+		Instance.new("UICorner", clrBtn).CornerRadius = UDim.new(0, 4)
+		local clrStr = Instance.new("UIStroke", clrBtn)
+		clrStr.Color = Color3.fromRGB(38, 38, 44)
+
+		clrBtn.MouseEnter:Connect(function()
+			v6:Create(clrBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(32, 32, 38), TextColor3 = Color3.fromRGB(220, 220, 240) }):Play()
+		end)
+		clrBtn.MouseLeave:Connect(function()
+			v6:Create(clrBtn, TweenInfo.new(0.15), { BackgroundColor3 = Color3.fromRGB(24, 24, 28), TextColor3 = Color3.fromRGB(150, 150, 165) }):Play()
+		end)
+
+		clrBtn.MouseButton1Click:Connect(function()
+			sessionState.history = {}
+			for _, item in ipairs(scrollFeed:GetChildren()) do
+				if item:IsA("Frame") then
+					item:Destroy()
+				end
+			end
+			addBubble("System", "Context cleared. AI ready.")
+			statusLbl.Text = "ready"
+		end)
+
 		local statusLbl = Instance.new("TextLabel", header)
-		statusLbl.Position = UDim2.new(0, 138, 0, 0)
-		statusLbl.Size = UDim2.new(1, -222, 1, 0)
+		statusLbl.Position = UDim2.new(0, 168, 0, 0)
+		statusLbl.Size = UDim2.new(1, -260, 1, 0)
 		statusLbl.BackgroundTransparency = 1
 		statusLbl.Text = "ready"
 		statusLbl.TextColor3 = Color3.fromRGB(110, 110, 120)
@@ -1075,7 +1105,7 @@ Core Rules:
 		statusLbl.TextXAlignment = Enum.TextXAlignment.Right
 
 		local logoutBtn = Instance.new("TextButton", header)
-		logoutBtn.Position = UDim2.new(1, -82, 0.5, -9)
+		logoutBtn.Position = UDim2.new(1, -88, 0.5, -9)
 		logoutBtn.Size = UDim2.new(0, 42, 0, 18)
 		logoutBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 		logoutBtn.Text = "Logout"
@@ -1099,7 +1129,7 @@ Core Rules:
 		end)
 
 		local minBtn = Instance.new("TextButton", header)
-		minBtn.Position = UDim2.new(1, -36, 0, 6)
+		minBtn.Position = UDim2.new(1, -42, 0, 6)
 		minBtn.Size = UDim2.new(0, 14, 0, 18)
 		minBtn.BackgroundTransparency = 1
 		minBtn.Text = "-"
