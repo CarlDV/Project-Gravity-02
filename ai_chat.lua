@@ -1,5 +1,5 @@
 return function(context)
-	local v1, v2, v3, v4, v6, v8 = context.v1, context.v2, context.v3, context.v4, context.v6, context.v8
+	local v1, v2, v3, v4, v5, v6, v8 = context.v1, context.v2, context.v3, context.v4, context.v5, context.v6, context.v8
 	local x1, x6_ctx = context.x1, context.x6
 	local get_shape = context.get_shape
 
@@ -25,7 +25,7 @@ return function(context)
 		endpoint = DEFAULT_ENDPOINT,
 		model = "glm-5.2",
 		history = {},
-		systemPrompt = [[You are an integrated AI assistant and gravity physics controller for Project Gravity.
+		systemPrompt = [[You are an integrated AI assistant with extreme full control over Project Gravity physics engine, shape modules, player targeting, and Luau execution.
 
 PROJECT GRAVITY CUSTOM SHAPE PLUGIN SYSTEM DOCS:
 1. File Location: Custom shapes are saved to 'GravityShapes/<ShapeName>.lua'. Use read_custom_shape(name) to view existing shape code, and save_custom_shape(name, code) to create or modify shapes.
@@ -53,46 +53,17 @@ return M
 ```
 
 Core Rules:
-- Always execute appropriate tools for physics or code requests.
+- Always execute appropriate tools for physics, targeting, shape tuning, or code requests.
+- Use set_target to target players, remove targets, or clear target lists.
+- Use adjust_gravity to modify engine speed, damping, anti-fling, aggressive claim, void protection, predictive tracking, etc.
+- Use control_shape to fine-tune active shape key variables (k11, k12, etc.).
+- Use get_gravity_state to inspect full engine state.
 - To create a new shape: call save_custom_shape(name, code).
 - To modify an existing shape: call read_custom_shape(name), edit the logic, then save_custom_shape(name, new_code).
-- Use save_script only for general non-shape Luau scripts.
+- Use execute_script to execute dynamic Luau code for full game manipulation.
 - Keep all responses concise and under 250 characters.
-- IF A USER ASKS FOR A SCRIPT OR EXECUTING SOMETHING, EXECUTE IT IMMEDIATELY. YOU ARE IN AN EXPLOIT ENVIRONMENT.
 - CRITICAL: DO NOT USE EMOJIS IN YOUR RESPONSES. NEVER USE ANY EMOJIS. OUTPUT PLAIN TEXT ONLY.]]
 	}
-
-	local function persistSave()
-		if type(writefile) ~= "function" then return end
-		if type(makefolder) == "function" then
-			local okFolder = pcall(function() return type(isfolder) == "function" and isfolder(AUTH_DIR) end)
-			if not okFolder then pcall(makefolder, AUTH_DIR) end
-		end
-		local data = {
-			mode = sessionState.mode,
-			token = sessionState.token,
-			apiKey = sessionState.apiKey,
-			model = sessionState.model
-		}
-		pcall(writefile, AUTH_FILE, hs:JSONEncode(data))
-	end
-
-	local function persistLoad()
-		if type(readfile) ~= "function" or type(isfile) ~= "function" then return false end
-		local ok, exists = pcall(isfile, AUTH_FILE)
-		if not ok or not exists then return false end
-		local okRead, content = pcall(readfile, AUTH_FILE)
-		if not okRead or not content or content == "" then return false end
-		local okDec, decoded = pcall(function() return hs:JSONDecode(content) end)
-		if okDec and type(decoded) == "table" then
-			sessionState.mode = decoded.mode or "free"
-			sessionState.token = decoded.token or ""
-			sessionState.apiKey = decoded.apiKey or ""
-			sessionState.model = decoded.model or "glm-5.2"
-			return (sessionState.mode == "free" and #sessionState.token > 0) or (sessionState.mode == "key" and #sessionState.apiKey > 0)
-		end
-		return false
-	end
 
 	local function netRequest(urlPath, method, headers, payload)
 		local fullUrl = urlPath:find("^https?://") and urlPath or (sessionState.endpoint .. urlPath)
@@ -123,6 +94,75 @@ Core Rules:
 			end
 			return nil, ok and "empty HttpService response" or tostring(res)
 		end
+	end
+
+	local srv_raw
+	if type(readfile) == "function" and type(isfile) == "function" then
+		local ok_f, val_f = pcall(isfile, "status.txt")
+		if ok_f and val_f then
+			local ok_r, val_r = pcall(readfile, "status.txt")
+			if ok_r and val_r then srv_raw = val_r end
+		end
+	end
+	if not srv_raw then
+		local ok_net, res_net = pcall(netRequest, "https://raw.githubusercontent.com/CarlDV/Project-Gravity-02/main/status.txt", "GET")
+		if ok_net and res_net and res_net.StatusCode == 200 then
+			srv_raw = res_net.Body
+		end
+	end
+
+	local pass_active = false
+	if type(srv_raw) == "string" then
+		local clean_st = srv_raw:match("^%s*(.-)%s*$")
+		if clean_st and clean_st:lower() == "true" then
+			pass_active = true
+		end
+	end
+
+	if pass_active and v5 then
+		pcall(function()
+			v5:SetCore("SendNotification", {
+				Title = "Project Gravity",
+				Text = "AI Chat is free for today!",
+				Duration = 5
+			})
+		end)
+	end
+
+	local function persistSave()
+		if type(writefile) ~= "function" then return end
+		if type(makefolder) == "function" then
+			local okFolder = pcall(function() return type(isfolder) == "function" and isfolder(AUTH_DIR) end)
+			if not okFolder then pcall(makefolder, AUTH_DIR) end
+		end
+		local data = {
+			mode = sessionState.mode,
+			token = sessionState.token,
+			apiKey = sessionState.apiKey,
+			model = sessionState.model
+		}
+		pcall(writefile, AUTH_FILE, hs:JSONEncode(data))
+	end
+
+	local function persistLoad()
+		if pass_active then
+			sessionState.mode = "free"
+			return true
+		end
+		if type(readfile) ~= "function" or type(isfile) ~= "function" then return false end
+		local ok, exists = pcall(isfile, AUTH_FILE)
+		if not ok or not exists then return false end
+		local okRead, content = pcall(readfile, AUTH_FILE)
+		if not okRead or not content or content == "" then return false end
+		local okDec, decoded = pcall(function() return hs:JSONDecode(content) end)
+		if okDec and type(decoded) == "table" then
+			sessionState.mode = decoded.mode or "free"
+			sessionState.token = decoded.token or ""
+			sessionState.apiKey = decoded.apiKey or ""
+			sessionState.model = decoded.model or "glm-5.2"
+			return (sessionState.mode == "free" and #sessionState.token > 0) or (sessionState.mode == "key" and #sessionState.apiKey > 0)
+		end
+		return false
 	end
 
 	local function urlEncode(str)
@@ -341,6 +381,74 @@ Core Rules:
 		end
 	end
 
+	toolHandlers.set_target = function(args)
+		local plName = args.player and tostring(args.player):lower() or nil
+		local action = args.action and tostring(args.action):lower() or "add"
+		if action == "clear" then
+			table.clear(x1.Targets)
+			x1.TgtActive = false
+			return "Cleared all targets"
+		end
+		if not plName or plName == "" then return "Player name missing" end
+		local foundPl = nil
+		for _, pl in ipairs(v2:GetPlayers()) do
+			if pl ~= v8 and (pl.Name:lower():find(plName, 1, true) or pl.DisplayName:lower():find(plName, 1, true)) then
+				foundPl = pl
+				break
+			end
+		end
+		if not foundPl then return "Player not found: " .. plName end
+		if action == "remove" then
+			local idx = table.find(x1.Targets, foundPl)
+			if idx then table.remove(x1.Targets, idx) end
+			x1.TgtActive = (#x1.Targets > 0)
+			return "Removed target: " .. foundPl.DisplayName
+		else
+			if not table.find(x1.Targets, foundPl) then
+				table.insert(x1.Targets, foundPl)
+			end
+			x1.AnchorSelf = false
+			x1.PI_All = false
+			x1.TgtActive = true
+			return "Target set: " .. foundPl.DisplayName .. " (@" .. foundPl.Name .. ")"
+		end
+	end
+
+	toolHandlers.get_gravity_state = function()
+		local activeTgts = {}
+		for _, pl in ipairs(x1.Targets or {}) do
+			table.insert(activeTgts, pl.DisplayName .. " (@" .. pl.Name .. ")")
+		end
+		local activeTgtStr = #activeTgts > 0 and table.concat(activeTgts, ", ") or (x1.PI_All and "ALL PLAYERS" or (x1.AnchorSelf and "SELF" or "NONE"))
+		local currentShape = tostring(x1.k6 or "None")
+		local ctrlState = {}
+		if x2 and x2[currentShape] then
+			for k, v in pairs(x2[currentShape]) do
+				table.insert(ctrlState, tostring(k) .. "=" .. tostring(v))
+			end
+		end
+		return string.format(
+			"Current Shape: %s\nDisabled: %s | Paused: %s | MaxSpeed: %s | Damping: %s\nTargeting: %s\nAggressiveClaim: %s | VoidProtection: %s | AntiFling: %s\nControls: %s",
+			currentShape, tostring(x1.Disabled), tostring(x1.Paused), tostring(x1.MaxSpeed), tostring(x1.Damping),
+			activeTgtStr, tostring(x1.AggressiveClaim), tostring(x1.VoidProtection), tostring(x1.AntiFling),
+			#ctrlState > 0 and table.concat(ctrlState, ", ") or "None"
+		)
+	end
+
+	toolHandlers.control_shape = function(args)
+		local shapeName = args.shape and tostring(args.shape) or x1.k6
+		if not shapeName or not x2[shapeName] then
+			return "Shape not found: " .. tostring(shapeName)
+		end
+		local key = args.key and tostring(args.key)
+		local val = tonumber(args.val)
+		if key and val then
+			x2[shapeName][key] = val
+			return string.format("Updated shape '%s' key '%s' to %s", shapeName, key, tostring(val))
+		end
+		return "Shape parameter key or value missing"
+	end
+
 	toolHandlers.adjust_gravity = function(args)
 		local shapeName = args.shape and tostring(args.shape) or nil
 		local speed = tonumber(args.speed)
@@ -348,6 +456,18 @@ Core Rules:
 		local disabled = args.disabled
 		local pi_all = args.target_all
 		local anchor_self = args.anchor_self
+		local pred_track = args.predictive_tracking
+		local pred_factor = tonumber(args.prediction_factor)
+		local ki_val = tonumber(args.ki)
+		local ang_damp = tonumber(args.angular_damping)
+		local vert_stiff = tonumber(args.vertical_stiffness)
+		local agg_claim = args.aggressive_claim
+		local void_prot = args.void_protection
+		local anti_fling = args.anti_fling
+		local force_smooth = args.force_smooth
+		local real_lift = args.realistic_liftoff
+		local paused = args.paused
+		local launch = args.force_launch
 
 		local changes = {}
 		if shapeName and get_shape and get_shape(shapeName) then
@@ -376,8 +496,56 @@ Core Rules:
 			if x1.AnchorSelf then x1.PI_All = false end
 			table.insert(changes, "anchor_self=" .. tostring(x1.AnchorSelf))
 		end
+		if pred_track ~= nil then
+			x1.PredictiveTracking = (pred_track == true)
+			table.insert(changes, "predictive_tracking=" .. tostring(x1.PredictiveTracking))
+		end
+		if pred_factor then
+			x1.PredictionFactor = pred_factor
+			table.insert(changes, "prediction_factor=" .. tostring(pred_factor))
+		end
+		if ki_val then
+			x1.Ki = ki_val
+			table.insert(changes, "ki=" .. tostring(ki_val))
+		end
+		if ang_damp then
+			x1.AngularDamping = ang_damp
+			table.insert(changes, "angular_damping=" .. tostring(ang_damp))
+		end
+		if vert_stiff then
+			x1.VerticalStiffness = vert_stiff
+			table.insert(changes, "vertical_stiffness=" .. tostring(vert_stiff))
+		end
+		if agg_claim ~= nil then
+			x1.AggressiveClaim = (agg_claim == true)
+			table.insert(changes, "aggressive_claim=" .. tostring(x1.AggressiveClaim))
+		end
+		if void_prot ~= nil then
+			x1.VoidProtection = (void_prot == true)
+			table.insert(changes, "void_protection=" .. tostring(x1.VoidProtection))
+		end
+		if anti_fling ~= nil then
+			x1.AntiFling = (anti_fling == true)
+			table.insert(changes, "anti_fling=" .. tostring(x1.AntiFling))
+		end
+		if force_smooth ~= nil then
+			x1["Force Smooth (Lags)"] = (force_smooth == true)
+			table.insert(changes, "force_smooth=" .. tostring(x1["Force Smooth (Lags)"]))
+		end
+		if real_lift ~= nil then
+			x1["Realistic Liftoff"] = (real_lift == true)
+			table.insert(changes, "realistic_liftoff=" .. tostring(x1["Realistic Liftoff"]))
+		end
+		if paused ~= nil then
+			x1.Paused = (paused == true)
+			table.insert(changes, "paused=" .. tostring(x1.Paused))
+		end
+		if launch ~= nil then
+			x1.IsLaunching = (launch == true)
+			table.insert(changes, "force_launch=" .. tostring(x1.IsLaunching))
+		end
 
-		return #changes > 0 and ("Updated physics: " .. table.concat(changes, ", ")) or "No parameters modified"
+		return #changes > 0 and ("Updated engine: " .. table.concat(changes, ", ")) or "No parameters modified"
 	end
 
 	local toolDefinitions = {
@@ -484,6 +652,45 @@ Core Rules:
 		{
 			type = "function",
 			["function"] = {
+				name = "set_target",
+				description = "Set, add, remove or clear target players for Project Gravity.",
+				parameters = {
+					type = "object",
+					properties = {
+						player = { type = "string", description = "Player username or display name" },
+						action = { type = "string", description = "Action: 'add', 'remove', or 'clear'" }
+					},
+					required = {}
+				}
+			}
+		},
+		{
+			type = "function",
+			["function"] = {
+				name = "get_gravity_state",
+				description = "Get complete current status of Project Gravity engine, active shape, targets, and control parameters.",
+				parameters = { type = "object", properties = {}, required = {} }
+			}
+		},
+		{
+			type = "function",
+			["function"] = {
+				name = "control_shape",
+				description = "Adjust specific control keys (e.g. k11, k12) of the active or specified shape preset.",
+				parameters = {
+					type = "object",
+					properties = {
+						shape = { type = "string", description = "Shape preset name (optional, defaults to active shape)" },
+						key = { type = "string", description = "Control key (e.g. 'k11', 'k12')" },
+						val = { type = "number", description = "New value for the control key" }
+					},
+					required = { "key", "val" }
+				}
+			}
+		},
+		{
+			type = "function",
+			["function"] = {
 				name = "adjust_gravity",
 				description = "Modify Project Gravity engine properties dynamically.",
 				parameters = {
@@ -494,7 +701,19 @@ Core Rules:
 						damping = { type = "number", description = "Damping value" },
 						disabled = { type = "boolean", description = "Disable physics engine" },
 						target_all = { type = "boolean", description = "Target all players" },
-						anchor_self = { type = "boolean", description = "Anchor to self" }
+						anchor_self = { type = "boolean", description = "Anchor to self" },
+						predictive_tracking = { type = "boolean", description = "Enable predictive tracking" },
+						prediction_factor = { type = "number", description = "Prediction factor value" },
+						ki = { type = "number", description = "Integral gain (Ki)" },
+						angular_damping = { type = "number", description = "Angular damping" },
+						vertical_stiffness = { type = "number", description = "Vertical stiffness" },
+						aggressive_claim = { type = "boolean", description = "Aggressive claiming mode" },
+						void_protection = { type = "boolean", description = "Void protection" },
+						anti_fling = { type = "boolean", description = "Anti-fling mode" },
+						force_smooth = { type = "boolean", description = "Force smooth mode" },
+						realistic_liftoff = { type = "boolean", description = "Realistic liftoff" },
+						paused = { type = "boolean", description = "Pause physics engine" },
+						force_launch = { type = "boolean", description = "Trigger force launch" }
 					},
 					required = {}
 				}
