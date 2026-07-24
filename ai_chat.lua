@@ -119,13 +119,64 @@ Core Rules:
 		end
 	end
 
-	if pass_active and v5 then
-		pcall(function()
-			v5:SetCore("SendNotification", {
-				Title = "Project Gravity",
-				Text = "AI Chat is free for today!",
-				Duration = 5
+	if pass_active then
+		task.spawn(function()
+			local pg = (gethui and gethui()) or (syn and syn.protect_gui and game:GetService("CoreGui")) or (v8 and v8:FindFirstChild("PlayerGui"))
+			if not pg then return end
+			local sg = Instance.new("ScreenGui")
+			sg.Name = "G_Notif_" .. math.random(100, 999)
+			sg.DisplayOrder = 9999
+			if syn and syn.protect_gui and pg == game:GetService("CoreGui") then
+				syn.protect_gui(sg)
+			end
+			sg.Parent = pg
+
+			local card = Instance.new("CanvasGroup", sg)
+			card.Size = UDim2.new(0, 210, 0, 42)
+			card.Position = UDim2.new(0.5, -105, 0, -50)
+			card.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+			card.GroupTransparency = 1
+			Instance.new("UICorner", card).CornerRadius = UDim.new(0, 6)
+
+			local stroke = Instance.new("UIStroke", card)
+			stroke.Color = Color3.fromRGB(45, 45, 52)
+			stroke.Thickness = 1
+
+			local titleLbl = Instance.new("TextLabel", card)
+			titleLbl.Position = UDim2.new(0, 10, 0, 6)
+			titleLbl.Size = UDim2.new(1, -20, 0, 14)
+			titleLbl.BackgroundTransparency = 1
+			titleLbl.Text = "PROJECT GRAVITY"
+			titleLbl.TextColor3 = Color3.fromRGB(0, 230, 180)
+			titleLbl.Font = Enum.Font.GothamBold
+			titleLbl.TextSize = 9
+			titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+			local msgLbl = Instance.new("TextLabel", card)
+			msgLbl.Position = UDim2.new(0, 10, 0, 20)
+			msgLbl.Size = UDim2.new(1, -20, 0, 16)
+			msgLbl.BackgroundTransparency = 1
+			msgLbl.Text = "AI Chat is free for today"
+			msgLbl.TextColor3 = Color3.fromRGB(220, 220, 230)
+			msgLbl.Font = Enum.Font.GothamMedium
+			msgLbl.TextSize = 10
+			msgLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+			v6:Create(card, TweenInfo.new(0.4, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {
+				Position = UDim2.new(0.5, -105, 0, 16),
+				GroupTransparency = 0
+			}):Play()
+
+			task.wait(4)
+
+			local tw = v6:Create(card, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {
+				Position = UDim2.new(0.5, -105, 0, -50),
+				GroupTransparency = 1
 			})
+			tw.Completed:Connect(function()
+				sg:Destroy()
+			end)
+			tw:Play()
 		end)
 	end
 
