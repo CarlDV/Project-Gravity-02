@@ -12,16 +12,25 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local u, v = d.u, d.v
 	local lx, ly, lz = 0, 0, 0
 
-	if f == 1 then lx, ly, lz = 1, u, v
-	elseif f == 2 then lx, ly, lz = -1, u, v
-	elseif f == 3 then lx, ly, lz = u, 1, v
-	elseif f == 4 then lx, ly, lz = u, -1, v
-	elseif f == 5 then lx, ly, lz = u, v, 1
-	else lx, ly, lz = u, v, -1
-	end
+	local cut = (c.k13 == true)
 
-	if c.k13 and ly < 0 then
-		ly = 0
+	if f == 1 then
+		local yu = cut and (u * 0.5 + 0.5) or u
+		lx, ly, lz = 1, yu, v
+	elseif f == 2 then
+		local yu = cut and (u * 0.5 + 0.5) or u
+		lx, ly, lz = -1, yu, v
+	elseif f == 3 then
+		lx, ly, lz = u, 1, v
+	elseif f == 4 then
+		local yval = cut and 0 or -1
+		lx, ly, lz = u, yval, v
+	elseif f == 5 then
+		local yv = cut and (v * 0.5 + 0.5) or v
+		lx, ly, lz = u, yv, 1
+	else
+		local yv = cut and (v * 0.5 + 0.5) or v
+		lx, ly, lz = u, yv, -1
 	end
 
 	local rad = c.k11 or 40
