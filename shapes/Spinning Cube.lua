@@ -2,51 +2,50 @@ local M = {}
 
 function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local wp = p.Position
-	if not d.u then
+	if not d.f then
+		d.f = math.random(1, 6)
 		d.u = math.random() * 2 - 1
 		d.v = math.random() * 2 - 1
-		d.w = math.random() * 2 - 1
+	end
+
+	local f = d.f
+	local u, v = d.u, d.v
+	local lx, ly, lz = 0, 0, 0
+
+	if f == 1 then lx, ly, lz = 1, u, v
+	elseif f == 2 then lx, ly, lz = -1, u, v
+	elseif f == 3 then lx, ly, lz = u, 1, v
+	elseif f == 4 then lx, ly, lz = u, -1, v
+	elseif f == 5 then lx, ly, lz = u, v, 1
+	else lx, ly, lz = u, v, -1
+	end
+
+	if c.k13 and ly < 0 then
+		ly = 0
 	end
 
 	local rad = c.k11 or 40
-	local spd = (c.k12 or 50) * 0.1
+	lx, ly, lz = lx * rad, ly * rad, lz * rad
 
+	local spd = (c.k12 or 200) * 0.05
 	local dt = t - (d.last_t or t)
 	d.last_t = t
 	d.phase = (d.phase or 0) + (dt * spd)
 
-	local fu = (c.k13 and d.u < 0) and -d.u or d.u
-	local fv = d.v
-	local fw = d.w
-
-	local lx = fu * rad
-	local ly = fv * rad
-	local lz = fw * rad
-
 	local ax = d.phase
-	local ay = d.phase * 1.2
-	local az = d.phase * 0.8
-
 	local cx, sx = math.cos(ax), math.sin(ax)
-	local cy, sy = math.cos(ay), math.sin(ay)
-	local cz, sz = math.cos(az), math.sin(az)
 
-	local y1 = ly * cx - lz * sx
-	local z1 = ly * sx + lz * cx
+	local ry = ly * cx - lz * sx
+	local rz = ly * sx + lz * cx
+	local rx = lx
 
-	local x2 = lx * cy + z1 * sy
-	local z2 = -lx * sy + z1 * cy
-
-	local x3 = x2 * cz - y1 * sz
-	local y3 = x2 * sz + y1 * cz
-
-	local target_pos = cen + Vector3.new(x3, y3, z2)
+	local target_pos = cen + Vector3.new(rx, ry, rz)
 	return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {
 	{ Type = "Slider", Name = "Radius", Min = 5, Max = 300, Key = "k11" },
-	{ Type = "Slider", Name = "Spin Speed", Min = 0, Max = 200, Key = "k12", Div = 10 },
+	{ Type = "Slider", Name = "Spin Speed", Min = 0, Max = 400, Key = "k12", Div = 10 },
 	{ Type = "Toggle", Name = "Cut In Half", Key = "k13" }
 }
 
