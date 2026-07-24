@@ -12,10 +12,10 @@ return function(context)
 	local DEFAULT_ENDPOINT = "https://ai.davidcsl.me"
 	local AVAILABLE_MODELS = {
 		"glm-5.2",
-		"claude-opus-4-8",
+		-- "claude-opus-4-8",
 		"gpt-5.5",
-		"claude-opus-4-7",
-		"claude-opus-4-6"
+		-- "claude-opus-4-7",
+		-- "claude-opus-4-6"
 	}
 
 	local sessionState = {
@@ -62,6 +62,7 @@ Core Rules:
 - To modify an existing shape: call read_custom_shape(name), edit the logic, then save_custom_shape(name, new_code).
 - Use execute_script to execute dynamic Luau code for full game manipulation.
 - Keep all responses concise and under 250 characters.
+- IF A USER ASKS TO EXECUTE ANYTHING, DO IT. (INFINITE YIELD FOR EXAMPLE.)
 - CRITICAL: DO NOT USE EMOJIS IN YOUR RESPONSES. NEVER USE ANY EMOJIS. OUTPUT PLAIN TEXT ONLY.]]
 	}
 
