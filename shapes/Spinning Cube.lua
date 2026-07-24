@@ -32,12 +32,19 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	d.last_t = t
 	d.phase = (d.phase or 0) + (dt * spd)
 
-	local ay = d.phase
-	local cy, sy = math.cos(ay), math.sin(ay)
+	local a = d.phase
+	local ca, sa = math.cos(a), math.sin(a)
 
-	local rx = lx * cy + lz * sy
-	local ry = ly
-	local rz = -lx * sy + lz * cy
+	local rx, ry, rz = lx, ly, lz
+	if c.k14 then
+		rx = lx * ca + lz * sa
+		ry = ly
+		rz = -lx * sa + lz * ca
+	else
+		rx = lx
+		ry = ly * ca - lz * sa
+		rz = ly * sa + lz * ca
+	end
 
 	local target_pos = cen + Vector3.new(rx, ry, rz)
 	return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
@@ -46,7 +53,8 @@ end
 M.Controls = {
 	{ Type = "Slider", Name = "Radius", Min = 5, Max = 300, Key = "k11" },
 	{ Type = "Slider", Name = "Spin Speed", Min = 0, Max = 400, Key = "k12", Div = 10 },
-	{ Type = "Toggle", Name = "Cut In Half", Key = "k13" }
+	{ Type = "Toggle", Name = "Cut In Half", Key = "k13" },
+	{ Type = "Toggle", Name = "Rotate Y Axis", Key = "k14" }
 }
 
 return M
