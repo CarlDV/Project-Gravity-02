@@ -159,7 +159,7 @@ Core Rules:
 			msgLbl.Position = UDim2.new(0, 10, 0, 20)
 			msgLbl.Size = UDim2.new(1, -20, 0, 16)
 			msgLbl.BackgroundTransparency = 1
-			msgLbl.Text = "AI Chat is free for today"
+			msgLbl.Text = "AI Chat is free until further notice."
 			msgLbl.TextColor3 = Color3.fromRGB(220, 220, 230)
 			msgLbl.Font = Enum.Font.GothamMedium
 			msgLbl.TextSize = 10
