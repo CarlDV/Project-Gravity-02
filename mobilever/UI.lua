@@ -535,6 +535,7 @@ return function(context)
 
 			x6.disable_btn = et(gsc, "Disable Gravity", x1.Disabled, function(v)
 				x1.Disabled = v
+				x6.actuators_enabled = nil
 				save_settings()
 				if x6.b then
 					x6.b.Transparency = v and 1 or 0.8
@@ -544,7 +545,10 @@ return function(context)
 				end
 				for _, d in pairs(x6.a) do
 					if d.lv then
-						d.lv.MaxForce = v and 0 or x1.k4
+						d.lv.MaxForce = 0
+					end
+					if d.av then
+						d.av.MaxTorque = 0
 					end
 				end
 			end)
@@ -1337,6 +1341,7 @@ return function(context)
 
 		btn_dis.MouseButton1Click:Connect(function()
 			x1.Disabled = not x1.Disabled
+			x6.actuators_enabled = nil
 			btn_dis.BackgroundColor3 = x1.Disabled and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(60, 60, 60)
 			if x6.disable_btn then x6.disable_btn.BackgroundColor3 = btn_dis.BackgroundColor3 end
 			
@@ -1348,8 +1353,8 @@ return function(context)
 				end
 			end
 			for _, d in pairs(x6.a) do
-				if d.lv then d.lv.MaxForce = v and 0 or x1.k4 end
-				if d.av then d.av.MaxTorque = v and 0 or math.huge end
+				if d.lv then d.lv.MaxForce = 0 end
+				if d.av then d.av.MaxTorque = 0 end
 			end
 		end)
 

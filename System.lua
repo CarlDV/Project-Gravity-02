@@ -10,6 +10,9 @@ return function(context)
 	local ANTI_SLEEP = Vector3.new(0, 0.01, 0)
 	local ZERO_VECTOR = Vector3.zero
 	local LIGHT_PHYSICS = PhysicalProperties.new(0.001, 0, 0, 0, 0)
+	local LOCAL_OWNER_V3 = 5
+	local MAX_PENDING_OWNERSHIP = 4096
+	local OWNERSHIP_RETRY_INTERVAL = 0.1
 
 	function x7.n(t, x, d)
 		pcall(function()
@@ -85,17 +88,60 @@ return function(context)
 
 	local no_damp = { ["Slingshot"] = true, ["Point Impact"] = true, ["Deflect"] = true }
 
+	local function read_owner_v3(p)
+		local ghp = gethiddenproperty
+		if not ghp then
+			return nil
+		end
+		local success, owner_v3 = pcall(ghp, p, "NetworkOwnerV3")
+		return success and owner_v3 or nil
+	end
+
+	local function owns_part(p, ghp)
+		if not ghp then
+			return false
+		end
+		local success, owner_v3 = pcall(ghp, p, "NetworkOwnerV3")
+		return success and owner_v3 == LOCAL_OWNER_V3
+	end
+
+	local function defer_until_owned(p)
+		if x6.ownership_pending_set[p] then
+			return
+		end
+		local pending = x6.ownership_pending
+		if pending.tail - pending.head + 1 >= MAX_PENDING_OWNERSHIP then
+			return
+		end
+		pending.tail = pending.tail + 1
+		pending.items[pending.tail] = p
+		x6.ownership_pending_set[p] = true
+	end
+
+	local function set_actuators_enabled(d, enabled)
+		if d.lv then d.lv.MaxForce = enabled and x1.k4 or 0 end
+		if d.av then d.av.MaxTorque = enabled and math.huge or 0 end
+	end
+
+	local function sync_actuator_state()
+		local enabled = not x1.Disabled and not x1.Paused
+		if x6.actuators_enabled == enabled then
+			return
+		end
+		x6.actuators_enabled = enabled
+		local ghp = gethiddenproperty
+		for p, d in pairs(x6.a) do
+			set_actuators_enabled(d, enabled and owns_part(p, ghp))
+		end
+	end
+
 	local function f3(real_dt)
 		real_dt = real_dt or (1/60)
+		sync_actuator_state()
 		if not x6.b or x1.Disabled then
 			return
 		end
 		if x1.Paused then
-			for _, d in pairs(x6.a) do
-				if d.lv then
-					d.lv.VectorVelocity = ANTI_SLEEP
-				end
-			end
 			return
 		end
 		pcall(function()
@@ -276,7 +322,6 @@ return function(context)
 			local ghp = gethiddenproperty
 			local workspace_gravity = workspace.Gravity or 196.2
 			local shape_f2 = cur_shape_mod and cur_shape_mod.f2
-			local is_drop_shape = cur_shape_mod and cur_shape_mod.Drop
 			local aggressive_root = nil
 			if x1.AggressiveClaim and v8.Character then
 				aggressive_root = v8.Character:FindFirstChild("HumanoidRootPart") or v8.Character:FindFirstChildWhichIsA("BasePart")
@@ -301,20 +346,16 @@ return function(context)
 					x6.n = math.max(0, x6.n - 1)
 					continue
 				end
+				if not owns_part(p, ghp) then
+					defer_until_owned(p)
+					x4.f2(p, false, k)
+					continue
+				end
 				i = i + 1
 				if i % et ~= update_bucket then
 					continue
 				end
-				if not is_drop_shape and not x1.AggressiveClaim and ghp then
-					if d.no3_val == nil or ft - (d.no3_tick or 0) > 0.15 then
-						d.no3_tick = ft
-						local success, no3_val = pcall(ghp, p, 'NetworkOwnerV3')
-						d.no3_val = success and no3_val or 0
-					end
-					if d.no3_val == -1 or d.no3_val == 1 or d.no3_val == 2 or d.no3_val == 3 then
-						continue
-					end
-				end
+				set_actuators_enabled(d, true)
 				local active_c = c
 				if valid_targets > 0 then
 					active_c = target_positions[(d.id % valid_targets) + 1]
@@ -322,10 +363,10 @@ return function(context)
 				local p_pos = p.Position
 				local tc = active_c - p_pos
 				local distance_sq = tc:Dot(tc)
-				if distance_sq > k1_sq and not is_drop_shape then
+				if distance_sq > k1_sq then
 					continue
 				end
-				if distance_sq > c7_sq or is_drop_shape then
+				if distance_sq > c7_sq then
 					local target_pos_delta = ANTI_SLEEP
 					local pure_target_pos = nil
 					if shape_f2 then
@@ -426,8 +467,12 @@ return function(context)
 	end
 
 	function x4.ProcessQueue()
+		if x1.Disabled or x1.Paused then
+			return
+		end
 		local queue = x6.claim_queue
-		if #queue == 0 then
+		local pending = x6.ownership_pending
+		if #queue == 0 and pending.head > pending.tail then
 			return
 		end
 		local start = os.clock()
@@ -445,10 +490,52 @@ return function(context)
 					table.insert(queue, child)
 				end
 				if instance:IsA("BasePart") then
-					if x4.f1(instance) then
+					local did_claim, reason = x4.f1(instance)
+					if did_claim then
 						claimed = claimed + 1
+					elseif reason == "unowned" then
+						defer_until_owned(instance)
 					end
 				end
+			end
+		end
+
+		if #queue == 0 and os.clock() >= (x6.ownership_retry_at or 0) then
+			x6.ownership_retry_at = os.clock() + OWNERSHIP_RETRY_INTERVAL
+			local last_for_pass = pending.tail
+			local attempts = 0
+			while pending.head <= last_for_pass and attempts < 8 and os.clock() - start <= 0.001 do
+				local p = pending.items[pending.head]
+				pending.items[pending.head] = nil
+				pending.head = pending.head + 1
+				x6.ownership_pending_set[p] = nil
+				attempts = attempts + 1
+				if p and p:IsDescendantOf(v4) then
+					local did_claim, reason = x4.f1(p)
+					if did_claim then
+						claimed = claimed + 1
+					elseif reason == "unowned" then
+						defer_until_owned(p)
+					end
+				end
+			end
+			if pending.head > pending.tail then
+				table.clear(pending.items)
+				pending.head = 1
+				pending.tail = 0
+			elseif pending.head > MAX_PENDING_OWNERSHIP then
+				local compacted = {}
+				local count = 0
+				for index = pending.head, pending.tail do
+					local p = pending.items[index]
+					if p then
+						count = count + 1
+						compacted[count] = p
+					end
+				end
+				pending.items = compacted
+				pending.head = 1
+				pending.tail = count
 			end
 		end
 	end
@@ -496,7 +583,10 @@ return function(context)
 
 	function x4.f1(p)
 		if not p:IsA("BasePart") or x7.e(p) or x6.a[p] then
-			return false
+			return false, "excluded"
+		end
+		if read_owner_v3(p) ~= LOCAL_OWNER_V3 then
+			return false, "unowned"
 		end
 		local old_attachment = p:FindFirstChild("GRV_ATT")
 		local old_linear_velocity = p:FindFirstChild("GRV_LV")
@@ -516,14 +606,14 @@ return function(context)
 		
 		local lv = Instance.new("LinearVelocity")
 		lv.Name = "GRV_LV"
-		lv.MaxForce = x1.k4
+		lv.MaxForce = (not x1.Disabled and not x1.Paused) and x1.k4 or 0
 		lv.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
 		lv.RelativeTo = Enum.ActuatorRelativeTo.World
 		lv.Attachment0 = a
 		
 		local av = Instance.new("AngularVelocity")
 		av.Name = "GRV_AV"
-		av.MaxTorque = math.huge
+		av.MaxTorque = (not x1.Disabled and not x1.Paused) and math.huge or 0
 		av.RelativeTo = Enum.ActuatorRelativeTo.World
 		av.AngularVelocity = Vector3.zero
 		av.Attachment0 = a
@@ -549,7 +639,7 @@ return function(context)
 		return true
 	end
 
-	function x4.f2(p, drop_release, active_index)
+	function x4.f2(p, stop_velocity, active_index)
 		local d = x6.a[p]
 		pcall(function()
 			if d then
@@ -557,7 +647,7 @@ return function(context)
 				p.Anchored = d.original_anchored
 				p.CustomPhysicalProperties = d.original_properties
 			end
-			if drop_release then
+			if stop_velocity then
 				p.AssemblyLinearVelocity = Vector3.zero
 				p.AssemblyAngularVelocity = Vector3.zero
 			end
@@ -760,6 +850,11 @@ return function(context)
 		end
 		table.clear(x6.run_connections or {})
 		table.clear(x6.claim_queue)
+		table.clear(x6.ownership_pending.items)
+		x6.ownership_pending.head = 1
+		x6.ownership_pending.tail = 0
+		table.clear(x6.ownership_pending_set)
+		x6.ownership_retry_at = 0
 		x6.o = false
 		x5.st()
 		x7.n("Sys", "Stopped", 2)
@@ -785,6 +880,7 @@ return function(context)
 		v7:BindAction("P", function(_, s)
 			if s == Enum.UserInputState.Begin then
 				x1.Paused = not x1.Paused
+				sync_actuator_state()
 				x7.n("Sys", x1.Paused and "Paused" or "Resumed", 2)
 			end
 		end, false, Enum.KeyCode.P)
@@ -803,14 +899,7 @@ return function(context)
 							x6.b.Visual.Enabled = not v
 						end
 					end
-					for _, d in pairs(x6.a) do
-						if d.lv then
-							d.lv.MaxForce = v and 0 or x1.k4
-						end
-						if d.av then
-							d.av.MaxTorque = v and 0 or math.huge
-						end
-					end
+					sync_actuator_state()
 				end
 			end
 		end, false, Enum.KeyCode.L)
