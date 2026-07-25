@@ -1,63 +1,54 @@
 local M = {}
 
 function M.px(t, c, x6, x9)
-	if not x6.pre["Celestial Ribbon"] then
-		x6.pre["Celestial Ribbon"] = table.create(200)
-	end
-	if not x6.pre["Celestial Ribbon_B"] then
-		x6.pre["Celestial Ribbon_B"] = table.create(200)
-	end
 	if not x6.pre["Celestial Ribbon_meta"] then
 		x6.pre["Celestial Ribbon_meta"] = { phase = 0, last_t = t }
 	end
 	local meta = x6.pre["Celestial Ribbon_meta"]
+	local dragon_count
+	if type(c.k19) == "number" then
+		dragon_count = math.clamp(math.floor(c.k19), 1, 8)
+	else
+		dragon_count = c.k19 and 2 or 1
+	end
 	local s, w, h, l = (c.k13 or 10) * x9.c2, (c.k11 or 8), c.k14 or 50, (c.k16 or x9.c5) * 100
 	local dt = t - meta.last_t
 	meta.last_t = t
 	meta.phase = meta.phase + dt * s
 
-	local r = x6.pre["Celestial Ribbon"]
-	local r2 = x6.pre["Celestial Ribbon_B"]
-	table.clear(r)
-	table.clear(r2)
 	local res = 200
 	local R = (c.k17 or 150)
-	for i = 1, res do
-		local pc = (i - 1) / (res - 1)
-		local ph = meta.phase - (pc * (l * x9.c2))
-		
-		local function get_pos(phi)
-			return Vector3.new(math.cos(phi) * R, math.sin(phi * 0.577) * h, math.sin(phi * 1.618) * R)
+	for dragon_index = 1, dragon_count do
+		local key = "Celestial Ribbon_" .. dragon_index
+		local spine = x6.pre[key]
+		if not spine then
+			spine = table.create(res)
+			x6.pre[key] = spine
 		end
-		
-		local p_cur = get_pos(ph)
-		local p_next = get_pos(ph - 0.05)
-		local T = (p_next - p_cur).Unit
-		if T.Magnitude ~= T.Magnitude then T = Vector3.xAxis end
-
-		local Rv = T:Cross(Vector3.yAxis)
-		if Rv.Magnitude < 0.001 then Rv = Vector3.xAxis end
-		Rv = Rv.Unit
-		
-		local trn = Rv * math.cos(ph * 0.5) + (T:Cross(Rv)) * math.sin(ph * 0.5)
-		r[i] = { p = p_cur, t = trn.Unit, ph = ph }
-
-		local ph2 = ph + 2.37
-		local function get_pos2(phi)
-			return Vector3.new(math.cos(phi * 1.247) * R, math.sin(phi * 0.693) * h, math.sin(phi * 0.831) * R)
+		for i = 1, res do
+			local pc = (i - 1) / (res - 1)
+			local ph = meta.phase - (pc * (l * x9.c2)) + ((dragon_index - 1) * 2.37)
+			local frequency = dragon_index == 1 and 1 or 1.247 + ((dragon_index - 2) * 0.113)
+			local height_frequency = dragon_index == 1 and 0.577 or 0.693 + ((dragon_index - 2) * 0.071)
+			local depth_frequency = dragon_index == 1 and 1.618 or 0.831 + ((dragon_index - 2) * 0.127)
+			local next_ph = ph - 0.05
+			local p_cur = Vector3.new(math.cos(ph * frequency) * R, math.sin(ph * height_frequency) * h, math.sin(ph * depth_frequency) * R)
+			local p_next = Vector3.new(math.cos(next_ph * frequency) * R, math.sin(next_ph * height_frequency) * h, math.sin(next_ph * depth_frequency) * R)
+			local T = (p_next - p_cur).Unit
+			if T.Magnitude ~= T.Magnitude then T = Vector3.xAxis end
+			local Rv = T:Cross(Vector3.yAxis)
+			if Rv.Magnitude < 0.001 then Rv = Vector3.xAxis end
+			Rv = Rv.Unit
+			local trn = Rv * math.cos(ph * 0.5) + (T:Cross(Rv)) * math.sin(ph * 0.5)
+			local node = spine[i]
+			if node then
+				node.p = p_cur
+				node.t = trn.Unit
+				node.ph = ph
+			else
+				spine[i] = { p = p_cur, t = trn.Unit, ph = ph }
+			end
 		end
-		
-		local p_cur2 = get_pos2(ph2)
-		local p_next2 = get_pos2(ph2 - 0.05)
-		local T2 = (p_next2 - p_cur2).Unit
-		if T2.Magnitude ~= T2.Magnitude then T2 = Vector3.xAxis end
-
-		local Rv2 = T2:Cross(Vector3.yAxis)
-		if Rv2.Magnitude < 0.001 then Rv2 = Vector3.xAxis end
-		Rv2 = Rv2.Unit
-		
-		local trn2 = Rv2 * math.cos(ph2 * 0.5) + (T2:Cross(Rv2)) * math.sin(ph2 * 0.5)
-		r2[i] = { p = p_cur2, t = trn2.Unit, ph = ph2 }
 	end
 end
 
@@ -69,14 +60,18 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		d.v7 = math.random() - 0.5
 		d.v6 = math.random()
 	end
-	if c.k19 and not d.v9 then
-		d.v9 = math.random(0, 1)
+	local dragon_count
+	if type(c.k19) == "number" then
+		dragon_count = math.clamp(math.floor(c.k19), 1, 8)
+	else
+		dragon_count = c.k19 and 2 or 1
+	end
+	if not d.v9 or d.v10 ~= dragon_count then
+		d.v9 = math.random(1, dragon_count)
+		d.v10 = dragon_count
 	end
 
-	local spine_key = md
-	if c.k19 and d.v9 == 1 then
-		spine_key = md .. "_B"
-	end
+	local spine_key = md .. "_" .. d.v9
 
 	local p_data = x6.pre and x6.pre[spine_key]
 	local fin
@@ -88,22 +83,17 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			+ (c.k18 and (node.t * math.sin(node.ph * 8)) * (w * 2.0) or Vector3.zero)
 	else
 		local s, h, l = (c.k13 or 10) * x9.c2, c.k14 or 50, (c.k16 or x9.c5) * 100
-		local isB = c.k19 and d.v9 == 1
 		local dt = t - (d.last_t or t)
 		d.last_t = t
 		d.phase = (d.phase or 0) + dt * s
-		local ph = d.phase - (d.v6 * (l * x9.c2)) + (isB and 2.37 or 0)
+		local ph = d.phase - (d.v6 * (l * x9.c2)) + ((d.v9 - 1) * 2.37)
 		local R = (c.k17 or 150)
-		local function get_pos_fallback(phi, is_b)
-			if is_b then
-				return Vector3.new(math.cos(phi * 1.247) * R, math.sin(phi * 0.693) * h, math.sin(phi * 0.831) * R)
-			else
-				return Vector3.new(math.cos(phi) * R, math.sin(phi * 0.577) * h, math.sin(phi * 1.618) * R)
-			end
-		end
-
-		local p_cur = get_pos_fallback(ph, isB)
-		local p_next = get_pos_fallback(ph - 0.05, isB)
+		local frequency = d.v9 == 1 and 1 or 1.247 + ((d.v9 - 2) * 0.113)
+		local height_frequency = d.v9 == 1 and 0.577 or 0.693 + ((d.v9 - 2) * 0.071)
+		local depth_frequency = d.v9 == 1 and 1.618 or 0.831 + ((d.v9 - 2) * 0.127)
+		local next_ph = ph - 0.05
+		local p_cur = Vector3.new(math.cos(ph * frequency) * R, math.sin(ph * height_frequency) * h, math.sin(ph * depth_frequency) * R)
+		local p_next = Vector3.new(math.cos(next_ph * frequency) * R, math.sin(next_ph * height_frequency) * h, math.sin(next_ph * depth_frequency) * R)
 		local T = (p_next - p_cur).Unit
 		if T.Magnitude ~= T.Magnitude then T = Vector3.xAxis end
 
@@ -129,7 +119,7 @@ M.Controls = {
 	{ Type = "Slider", Name = "Height Limit", Min = 0, Max = 200, Key = "k14" },
 	{ Type = "Slider", Name = "Move Area", Min = 50, Max = 800, Key = "k17" },
 	{ Type = "Toggle", Name = "Enable Slither", Key = "k18" },
-	{ Type = "Toggle", Name = "Dual Dragons", Key = "k19" }
+	{ Type = "Slider", Name = "Dragon Count", Min = 1, Max = 8, Key = "k19", Default = 2, IntOnly = true, LegacyToggle = true }
 }
 
 return M

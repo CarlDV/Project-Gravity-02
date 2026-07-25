@@ -767,6 +767,10 @@ return function(context)
 						local current_val = s[ctrl.Key]
 						local p_frame = ctrl.Parent == "gsc" and gsc or sc
 						if ctrl.Type == "Slider" then
+							if ctrl.LegacyToggle and type(current_val) == "boolean" then
+								current_val = current_val and 2 or 1
+								s[ctrl.Key] = current_val
+							end
 							if current_val == nil then
 								if ctrl.Default ~= nil then
 									current_val = ctrl.Default
