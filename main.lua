@@ -366,9 +366,6 @@ local x6 = {
 	ex_timer = 0,
 	esp_timer = 0,
 	claim_queue = {},
-	ownership_pending = { head = 1, tail = 0, items = {} },
-	ownership_pending_set = setmetatable({}, {__mode = "k"}),
-	ownership_retry_at = 0,
 	active_array = {},
 	run_connections = {},
 	pre = {},
@@ -443,10 +440,6 @@ local function destroy()
 		pcall(function() x6.run_connections[i]:Disconnect() end)
 		x6.run_connections[i] = nil
 	end
-	table.clear(x6.ownership_pending.items)
-	x6.ownership_pending.head = 1
-	x6.ownership_pending.tail = 0
-	table.clear(x6.ownership_pending_set)
 	for p, d in pairs(x6.a) do
 		if d then
 			pcall(function()

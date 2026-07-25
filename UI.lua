@@ -509,7 +509,6 @@ return function(context)
 
 			x6.disable_btn = et(gsc, "Disable Gravity", x1.Disabled, function(v)
 				x1.Disabled = v
-				x6.actuators_enabled = nil
 				save_settings()
 				if x6.b then
 					x6.b.Transparency = v and 1 or 0.8
@@ -519,10 +518,7 @@ return function(context)
 				end
 				for _, d in pairs(x6.a) do
 					if d.lv then
-						d.lv.MaxForce = 0
-					end
-					if d.av then
-						d.av.MaxTorque = 0
+						d.lv.MaxForce = v and 0 or x1.k4
 					end
 				end
 			end)
