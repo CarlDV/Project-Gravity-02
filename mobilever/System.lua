@@ -297,7 +297,7 @@ return function(context)
 				if i % et ~= (x6.f % et) then
 					continue
 				end
-				if not x1.AggressiveClaim and ghp then
+				if not is_drop_shape and not x1.AggressiveClaim and ghp then
 					if d.no3_val == nil or ft - (d.no3_tick or 0) > 0.15 then
 						d.no3_tick = ft
 						local success, no3_val = pcall(ghp, p, 'NetworkOwnerV3')
@@ -325,7 +325,7 @@ return function(context)
 					end
 					
 					if d.unclaim then
-						x4.f2(p, true)
+						x4.f2(p, true, k)
 						continue
 					end
 					if vert_mult then
@@ -535,14 +535,13 @@ return function(context)
 		x6.n = x6.n + 1
 	end
 
-	function x4.f2(p, relinquish_ownership)
+	function x4.f2(p, drop_release, active_index)
 		pcall(function()
 			p.CanCollide = true
 			p.CustomPhysicalProperties = nil
-			if relinquish_ownership then
+			if drop_release then
 				p.AssemblyLinearVelocity = Vector3.zero
 				p.AssemblyAngularVelocity = Vector3.zero
-				p:SetNetworkOwner(nil)
 			end
 		end)
 		local d = x6.a[p]
@@ -558,7 +557,10 @@ return function(context)
 			end
 			x6.a[p] = nil
 		end
-		local idx = table.find(x6.active_array, p)
+		local idx = active_index
+		if not idx or x6.active_array[idx] ~= p then
+			idx = table.find(x6.active_array, p)
+		end
 		if idx then
 			local last = #x6.active_array
 			if idx ~= last then
