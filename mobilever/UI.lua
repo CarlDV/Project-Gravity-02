@@ -197,6 +197,10 @@ return function(context)
 		hud_l.TextSize = 9
 		hud_l.TextColor3 = Color3.fromRGB(255, 255, 255)
 
+		local hud_target, hud_state
+		local HUD_ACTIVE = Color3.fromRGB(80, 255, 150)
+		local HUD_PAUSED = Color3.fromRGB(255, 180, 80)
+		local HUD_DISABLED = Color3.fromRGB(255, 80, 80)
 		table.insert(
 			x6.c,
 			v3.RenderStepped:Connect(function()
@@ -205,10 +209,11 @@ return function(context)
 				end
 				local tgt = x1.Tgt and (x1.Tgt.DisplayName or x1.Tgt.Name) or "None"
 				local state = x1.Disabled and "DISABLED" or (x1.Paused and "PAUSED" or "ACTIVE")
-				local col = x1.Disabled and Color3.fromRGB(255, 80, 80)
-					or (x1.Paused and Color3.fromRGB(255, 180, 80) or Color3.fromRGB(80, 255, 150))
-				hud_l.Text = string.format("TARGET: %s  |  STATUS: %s", tgt:upper(), state)
-				hud_l.TextColor3 = col
+				if tgt ~= hud_target or state ~= hud_state then
+					hud_target, hud_state = tgt, state
+					hud_l.Text = string.format("TARGET: %s  |  STATUS: %s", tgt:upper(), state)
+					hud_l.TextColor3 = x1.Disabled and HUD_DISABLED or (x1.Paused and HUD_PAUSED or HUD_ACTIVE)
+				end
 			end)
 		)
 

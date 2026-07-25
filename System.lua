@@ -7,6 +7,9 @@ return function(context)
 
 	local x4, x8 = {}, {}
 	local x7 = {}
+	local ANTI_SLEEP = Vector3.new(0, 0.01, 0)
+	local ZERO_VECTOR = Vector3.zero
+	local LIGHT_PHYSICS = PhysicalProperties.new(0.001, 0, 0, 0, 0)
 
 	function x7.n(t, x, d)
 		pcall(function()
@@ -69,17 +72,6 @@ return function(context)
 		return false
 	end
 
-	local function x3()
-		return x1.S[x1.k6] or {}
-	end
-
-	local function px(md, t, c, x1)
-		local shape = get_shape(md)
-		if shape and shape.px then
-			shape.px(t, c, x6, x9, x1)
-		end
-	end
-
 	local function get_predicted_pos(root, factor)
 		local pos = root.Position
 		local vel = root.AssemblyLinearVelocity
@@ -101,7 +93,7 @@ return function(context)
 		if x1.Paused then
 			for _, d in pairs(x6.a) do
 				if d.lv then
-					d.lv.VectorVelocity = Vector3.new(0, 0.01, 0)
+					d.lv.VectorVelocity = ANTI_SLEEP
 				end
 			end
 			return
@@ -136,18 +128,22 @@ return function(context)
 			end
 			local dt = x6.n > 5000 and 10 or (x6.n > 2500 and 6 or (x6.n > 1000 and 3 or 1))
 			local et, ft = x1.k7 or dt, time()
-			if x1["Force Smooth (Lags)"] then
+			local force_smooth = x1["Force Smooth (Lags)"]
+			if force_smooth then
 				dt = 1
 				et = 1
 			end
 			local i = 0
+			local update_bucket = x6.f % et
 			if ft > x6.pi_timer then
 				x6.pi_timer = ft + 1
 				x6.pi_targets = {}
+				local target_set = {}
 				if x1.PI_All then
 					for _, pl in ipairs(v2:GetPlayers()) do
 						if pl ~= v8 and pl.Character and (pl.Character:FindFirstChild("HumanoidRootPart") or pl.Character:FindFirstChildWhichIsA("BasePart")) then
 							table.insert(x6.pi_targets, pl)
+							target_set[pl] = true
 						end
 					end
 				else
@@ -155,6 +151,7 @@ return function(context)
 						for _, tgt in ipairs(x1.Targets) do
 							if tgt and tgt.Parent and tgt.Character and (tgt.Character:FindFirstChild("HumanoidRootPart") or tgt.Character:FindFirstChildWhichIsA("BasePart")) then
 								table.insert(x6.pi_targets, tgt)
+								target_set[tgt] = true
 							end
 						end
 					end
@@ -163,7 +160,7 @@ return function(context)
 				for _, pl in ipairs(v2:GetPlayers()) do
 					if pl.Character and pl.Character:FindFirstChild("Head") then
 						local head = pl.Character.Head
-						local is_tgt = table.find(x6.pi_targets, pl) ~= nil
+						local is_tgt = target_set[pl] == true
 						local marker = head:FindFirstChild("GravityTargetMarker")
 						
 						if is_tgt and not marker then
@@ -191,10 +188,26 @@ return function(context)
 					end
 				end
 			end
-			px(x1.k6, ft, x3(), x1)
-			local cur_no_damp = no_damp[x1.k6]
-			
-			local target_positions = {}
+			local shape_name = x1.k6
+			local cur_shape_mod = get_shape(shape_name)
+			local cur_shape_cfg = x1.S[shape_name] or {}
+			if cur_shape_mod and cur_shape_mod.px then
+				cur_shape_mod.px(ft, cur_shape_cfg, x6, x9, x1)
+			end
+			if x1.k6 ~= shape_name then
+				shape_name = x1.k6
+				cur_shape_mod = get_shape(shape_name)
+				cur_shape_cfg = x1.S[shape_name] or {}
+			end
+			local cur_no_damp = no_damp[shape_name]
+
+			local target_positions = x6.target_positions
+			if not target_positions then
+				target_positions = {}
+				x6.target_positions = target_positions
+			else
+				table.clear(target_positions)
+			end
 			local valid_targets = 0
 			local fallen_height = workspace.FallenPartsDestroyHeight + 50
 			if #x6.pi_targets > 0 then
@@ -212,11 +225,10 @@ return function(context)
 					end
 				end
 			end
-			local cur_shape_mod = get_shape(x1.k6)
-			local cur_shape_cfg = x1.S[x1.k6] or {}
-
 			local k1 = x1.k1
 			local c7 = x9.c7
+			local k1_sq = k1 * k1
+			local c7_sq = c7 * c7
 			local ki = x1.Ki or 0
 			local damping = x1.Damping or 0
 			local max_speed = x1.MaxSpeed
@@ -224,12 +236,12 @@ return function(context)
 			local vert_mult = vert_stiff ~= 1 and Vector3.new(1, vert_stiff, 1) or nil
 			local dt_mult = real_dt * 60 * dt
 
-			local smoothing = (x1.k6 == "Point Impact" and 1) or x1.k8
-			if x1.DramaMode and x1.k6 == "Point Impact" then
+			local smoothing = (shape_name == "Point Impact" and 1) or x1.k8
+			if x1.DramaMode and shape_name == "Point Impact" then
 				smoothing = 1
 			end
 			local sm_alpha = smoothing >= 1 and 1 or (1 - math.exp(-dt_mult * -math.log(math.max(0.001, 1 - smoothing))))
-			if x1["Force Smooth (Lags)"] then
+			if force_smooth then
 				sm_alpha = 1
 			end
 
@@ -265,6 +277,10 @@ return function(context)
 			local workspace_gravity = workspace.Gravity or 196.2
 			local shape_f2 = cur_shape_mod and cur_shape_mod.f2
 			local is_drop_shape = cur_shape_mod and cur_shape_mod.Drop
+			local aggressive_root = nil
+			if x1.AggressiveClaim and v8.Character then
+				aggressive_root = v8.Character:FindFirstChild("HumanoidRootPart") or v8.Character:FindFirstChildWhichIsA("BasePart")
+			end
 
 			for k = #x6.active_array, 1, -1 do
 				local p = x6.active_array[k]
@@ -286,7 +302,7 @@ return function(context)
 					continue
 				end
 				i = i + 1
-				if i % et ~= (x6.f % et) then
+				if i % et ~= update_bucket then
 					continue
 				end
 				if not is_drop_shape and not x1.AggressiveClaim and ghp then
@@ -299,18 +315,18 @@ return function(context)
 						continue
 					end
 				end
-				local p_vel = p.AssemblyLinearVelocity
 				local active_c = c
 				if valid_targets > 0 then
 					active_c = target_positions[(d.id % valid_targets) + 1]
 				end
-				local tc = active_c - p.Position
-				local tc_mag = tc.Magnitude
-				if tc_mag > k1 and not is_drop_shape then
+				local p_pos = p.Position
+				local tc = active_c - p_pos
+				local distance_sq = tc:Dot(tc)
+				if distance_sq > k1_sq and not is_drop_shape then
 					continue
 				end
-				if tc_mag > c7 or is_drop_shape then
-					local target_pos_delta = Vector3.new(0, 0.01, 0)
+				if distance_sq > c7_sq or is_drop_shape then
+					local target_pos_delta = ANTI_SLEEP
 					local pure_target_pos = nil
 					if shape_f2 then
 						target_pos_delta, pure_target_pos = shape_f2(p, active_c, d, ft, cur_shape_cfg, x1, x6, x9)
@@ -359,8 +375,8 @@ return function(context)
 						d.sys_last_t = nil
 					end
 					
-					if damping > 0 and not cur_no_damp and not x1["Force Smooth (Lags)"] then
-						tv = tv - (p_vel * damping)
+					if damping > 0 and not cur_no_damp and not force_smooth then
+						tv = tv - (p.AssemblyLinearVelocity * damping)
 					end
 
 
@@ -377,13 +393,17 @@ return function(context)
 					local limit = (max_speed and not cur_no_damp) and max_speed or 3300
 					if pure_target_pos then limit = math.max(limit, 15300) end
 					if liftoff_limit then limit = math.min(limit, liftoff_limit) end
-					if d.vl.Magnitude > limit then
-						d.vl = d.vl.Unit * limit
+					local velocity_mag = d.vl.Magnitude
+					if velocity_mag > limit then
+						d.vl = d.vl * (limit / velocity_mag)
 					end
 					
-					if water_level and p.Position.Y < water_level then
-						local depth = water_level - p.Position.Y
-						d.vl = Vector3.new(d.vl.X, math.max(d.vl.Y, 0) + (depth * 5), d.vl.Z)
+					if water_level then
+						local current_y = p.Position.Y
+						if current_y < water_level then
+							local depth = water_level - current_y
+							d.vl = Vector3.new(d.vl.X, math.max(d.vl.Y, 0) + (depth * 5), d.vl.Z)
+						end
 					end
 					
 					d.lv.VectorVelocity = d.vl
@@ -393,13 +413,12 @@ return function(context)
 					end
 
 					if x1.AggressiveClaim and p.ReceiveAge > 0 then
-						local root = v8.Character and (v8.Character:FindFirstChild("HumanoidRootPart") or v8.Character:FindFirstChildWhichIsA("BasePart"))
-						local base_pos = root and root.Position or active_c
+						local base_pos = aggressive_root and aggressive_root.Position or active_c
 						if not d.claim_offset then
 							d.claim_offset = Vector3.new(math.sin(d.id) * 20, 15 + (d.id % 15), math.cos(d.id) * 20)
 						end
 						p.CFrame = CFrame.new(base_pos + d.claim_offset)
-						d.lv.VectorVelocity = Vector3.zero
+						d.lv.VectorVelocity = ZERO_VECTOR
 					end
 				end
 			end
@@ -489,7 +508,7 @@ return function(context)
 		end
 		p.CanCollide = false
 		p.Anchored = false
-		p.CustomPhysicalProperties = PhysicalProperties.new(0.001, 0, 0, 0, 0)
+		p.CustomPhysicalProperties = LIGHT_PHYSICS
 		
 		local a = Instance.new("Attachment")
 		a.Name = "GRV_ATT"
@@ -626,11 +645,12 @@ return function(context)
 								end
 								anti_fling_cache[p.Character] = parts
 								pcall(function()
-									p.Character.DescendantAdded:Connect(function(desc)
+									local conn = p.Character.DescendantAdded:Connect(function(desc)
 										if desc:IsA("BasePart") then
 											table.insert(parts, desc)
 										end
 									end)
+									table.insert(x6.c, conn)
 								end)
 							end
 							for i = #parts, 1, -1 do
