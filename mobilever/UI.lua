@@ -128,15 +128,6 @@ return function(context)
 	x5.b = eb
 	x5.h = eh
 
-	local stable_shapes = {
-		["Cursed Technique Red"] = true,
-		["Galactic Web"] = true,
-		["Celestial Ribbon"] = true,
-		["Big Ring Things"] = true,
-		["Point Impact"] = true,
-		["Domain Expansion Infinite Void"] = true
-	}
-
 	function x5.st()
 		if x5.g and x5.g.Parent and x5.up then
 			x5.up()
@@ -889,10 +880,6 @@ return function(context)
 				if fa ~= fb then
 					return fa > fb
 				end
-				local sa, sb = stable_shapes[a] and 1 or 0, stable_shapes[b] and 1 or 0
-				if sa ~= sb then
-					return sa > sb
-				end
 				return a < b
 			end)
 
@@ -901,19 +888,11 @@ return function(context)
 					continue
 				end
 
-				local is_stable = stable_shapes[mn]
 				local f = Instance.new("Frame", dlst)
 				f.Size = UDim2.new(1, -16, 0, 24)
 				f.BackgroundColor3 = mn == x1.k6 and Color3.fromRGB(40, 40, 180) or Color3.fromRGB(25, 25, 30)
 				f.ZIndex = 12
-				Instance.new("UICorner", f).CornerRadius = is_stable and UDim.new(1, 0) or UDim.new(0, 4)
-				
-				if not is_stable then
-					local fs = Instance.new("UIStroke", f)
-					fs.Color = Color3.fromRGB(200, 80, 80)
-					fs.Thickness = 1
-					fs.Transparency = 0.5
-				end
+				Instance.new("UICorner", f).CornerRadius = UDim.new(0, 4)
 
 				local ib = Instance.new("TextButton", f)
 				ib.Size = UDim2.new(1, -40, 1, 0)

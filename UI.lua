@@ -127,15 +127,6 @@ return function(context)
 	x5.b = eb
 	x5.h = eh
 
-	local stable_shapes = {
-		["Cursed Technique Red"] = true,
-		["Galactic Web"] = true,
-		["Celestial Ribbon"] = true,
-		["Big Ring Things"] = true,
-		["Point Impact"] = true,
-		["Domain Expansion Infinite Void"] = true
-	}
-
 	function x5.st()
 		if x5.g and x5.g.Parent and x5.up then
 			x5.up()
@@ -981,10 +972,6 @@ return function(context)
 				if fa ~= fb then
 					return fa > fb
 				end
-				local sa, sb = stable_shapes[a] and 1 or 0, stable_shapes[b] and 1 or 0
-				if sa ~= sb then
-					return sa > sb
-				end
 				return a < b
 			end)
 
@@ -993,18 +980,10 @@ return function(context)
 					continue
 				end
 
-				local is_stable = stable_shapes[mn]
 				local f = Instance.new("Frame", dlst)
 				f.Size = UDim2.new(1, -16, 0, 40)
 				f.BackgroundColor3 = mn == x1.k6 and Color3.fromRGB(40, 40, 180) or Color3.fromRGB(25, 25, 30)
-				Instance.new("UICorner", f).CornerRadius = is_stable and UDim.new(1, 0) or UDim.new(0, 6)
-
-				if not is_stable then
-					local fs = Instance.new("UIStroke", f)
-					fs.Color = Color3.fromRGB(200, 80, 80)
-					fs.Thickness = 1
-					fs.Transparency = 0.5
-				end
+				Instance.new("UICorner", f).CornerRadius = UDim.new(0, 6)
 
 				local ib = Instance.new("TextButton", f)
 				ib.Size = UDim2.new(1, -40, 1, 0)
@@ -1142,7 +1121,7 @@ return function(context)
 		tut_text.BackgroundTransparency = 1
 		tut_text.Position = UDim2.new(0, 20, 0, 50)
 		tut_text.Size = UDim2.new(1, -40, 1, -70)
-		tut_text.Text = "• Core Controls: Press 'E' to reposition the gravitational center. Press 'Q' to wipe all parts and reset.\n\n• Targeting: Click 'Select Target' to focus the gravitational pull onto a specific player.\n\n• Hotkeys: Press 'P' to instantly Pause physics (freezing parts). Press 'L' to toggle Disable mode.\n\n• Modes: The Mode Selector allows you to morph between different geometrical formations. Stable shapes feature clean capsules, while unstable ones feature red strokes.\n\n• Configuration: Scroll down the main menu to tune the shape config (radius, spin, etc.). Open 'Advanced Settings' to tweak global physics limits."
+		tut_text.Text = "• Core Controls: Press 'E' to reposition the gravitational center. Press 'Q' to wipe all parts and reset.\n\n• Targeting: Click 'Select Target' to focus the gravitational pull onto a specific player.\n\n• Hotkeys: Press 'P' to instantly Pause physics (freezing parts). Press 'L' to toggle Disable mode.\n\n• Modes: The Mode Selector allows you to morph between different geometrical formations.\n\n• Configuration: Scroll down the main menu to tune the shape config (radius, spin, etc.). Open 'Advanced Settings' to tweak global physics limits."
 		tut_text.TextColor3 = Color3.fromRGB(200, 200, 205)
 		tut_text.Font = Enum.Font.GothamMedium
 		tut_text.TextSize = 13
