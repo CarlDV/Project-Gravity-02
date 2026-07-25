@@ -138,7 +138,7 @@ return function(context)
 	}
 
 	function x5.st()
-		if x5.g and x5.up then
+		if x5.g and x5.g.Parent and x5.up then
 			x5.up()
 			return
 		end
@@ -1225,14 +1225,15 @@ return function(context)
 			RestoreAllPerf()
 			if context.x4 and context.x4.f5 then
 				context.x4.f5()
-			else
-				sg:Destroy()
 			end
+			if sg.Parent then sg:Destroy() end
 		end)
 		
 		pcall(function()
 			sg.Destroying:Connect(function()
 				RestoreAllPerf()
+				if x5.g == sg then x5.g = nil end
+				if x6.sg == sg then x6.sg = nil end
 			end)
 		end)
 

@@ -427,32 +427,29 @@ return function(context)
 
 	function x4.ProcessQueue()
 		local queue = x6.claim_queue
-		local qi = x6.queue_idx or 1
-		local qn = #queue
-		if qi > qn then
-			if qn > 0 then
-				table.clear(queue)
-				x6.queue_idx = 1
-			end
+		if #queue == 0 then
 			return
 		end
 		local start = os.clock()
-		local loops = 0
-		while qi <= qn do
-			loops = loops + 1
-			if loops % 20 == 0 and os.clock() - start > 0.0015 then
+		local processed = 0
+		local claimed = 0
+		while #queue > 0 do
+			if processed >= 100 or claimed >= 8 or os.clock() - start > 0.001 then
 				break
 			end
-			local p = queue[qi]
-			qi = qi + 1
-			if p and p:IsA("BasePart") and p:IsDescendantOf(v4) then
-				x4.f1(p)
+			local instance = queue[#queue]
+			queue[#queue] = nil
+			processed = processed + 1
+			if instance and instance:IsDescendantOf(v4) then
+				for _, child in ipairs(instance:GetChildren()) do
+					table.insert(queue, child)
+				end
+				if instance:IsA("BasePart") then
+					if x4.f1(instance) then
+						claimed = claimed + 1
+					end
+				end
 			end
-		end
-		x6.queue_idx = qi
-		if qi > qn then
-			table.clear(queue)
-			x6.queue_idx = 1
 		end
 	end
 
@@ -499,13 +496,17 @@ return function(context)
 
 	function x4.f1(p)
 		if not p:IsA("BasePart") or x7.e(p) or x6.a[p] then
-			return
+			return false
 		end
-		for _, c in ipairs(p:GetChildren()) do
-			if c:IsA("BodyMover") or c:IsA("Constraint") or c:IsA("Attachment") then
-				c:Destroy()
-			end
-		end
+		local old_attachment = p:FindFirstChild("GRV_ATT")
+		local old_linear_velocity = p:FindFirstChild("GRV_LV")
+		local old_angular_velocity = p:FindFirstChild("GRV_AV")
+		if old_attachment then old_attachment:Destroy() end
+		if old_linear_velocity then old_linear_velocity:Destroy() end
+		if old_angular_velocity then old_angular_velocity:Destroy() end
+		local original_can_collide = p.CanCollide
+		local original_anchored = p.Anchored
+		local original_properties = p.CustomPhysicalProperties
 		p.CanCollide = false
 		p.Anchored = false
 		p.CustomPhysicalProperties = LIGHT_PHYSICS
@@ -532,21 +533,35 @@ return function(context)
 		av.Parent = p
 		
 		x6.part_id_counter = (x6.part_id_counter or 0) + 1
-		x6.a[p] = { at = a, lv = lv, av = av, integral = Vector3.zero, claim_t = time(), id = x6.part_id_counter }
+		x6.a[p] = {
+			at = a,
+			lv = lv,
+			av = av,
+			integral = Vector3.zero,
+			claim_t = time(),
+			id = x6.part_id_counter,
+			original_can_collide = original_can_collide,
+			original_anchored = original_anchored,
+			original_properties = original_properties,
+		}
 		table.insert(x6.active_array, p)
 		x6.n = x6.n + 1
+		return true
 	end
 
 	function x4.f2(p, drop_release, active_index)
+		local d = x6.a[p]
 		pcall(function()
-			p.CanCollide = true
-			p.CustomPhysicalProperties = nil
+			if d then
+				p.CanCollide = d.original_can_collide
+				p.Anchored = d.original_anchored
+				p.CustomPhysicalProperties = d.original_properties
+			end
 			if drop_release then
 				p.AssemblyLinearVelocity = Vector3.zero
 				p.AssemblyAngularVelocity = Vector3.zero
 			end
 		end)
-		local d = x6.a[p]
 		if d then
 			if d.at and d.at.Parent then
 				d.at:Destroy()
@@ -703,18 +718,16 @@ return function(context)
 				{ Size = x1.k2 * 1.2 }
 			)
 			:Play()
-		local descendants = v4:GetDescendants()
-		for i, v in ipairs(descendants) do
-			if v:IsA("BasePart") then
-				table.insert(x6.claim_queue, v)
-			end
-			if i % 5000 == 0 then
-				task.wait()
+		table.clear(x6.claim_queue)
+		for _, child in ipairs(v4:GetChildren()) do
+			if child ~= f then
+				table.insert(x6.claim_queue, child)
 			end
 		end
 
+		x6.run_connections = x6.run_connections or {}
 		table.insert(
-			x6.c,
+			x6.run_connections,
 			v4.DescendantAdded:Connect(function(v)
 				if v:IsA("BasePart") then
 					table.insert(x6.claim_queue, v)
@@ -725,7 +738,7 @@ return function(context)
 		x7.n("Sys", "Started", 3)
 		x5.st()
 		table.insert(
-			x6.c,
+			x6.run_connections,
 			v3.Heartbeat:Connect(function(real_dt)
 				f3(real_dt)
 				f4(real_dt)
@@ -739,30 +752,16 @@ return function(context)
 			x6.b.Parent:Destroy()
 			x6.b = nil
 		end
-		if x6.sg then
-			x6.sg:Destroy()
-			x6.sg = nil
+		while #x6.active_array > 0 do
+			x4.f2(x6.active_array[#x6.active_array], false, #x6.active_array)
 		end
-		for p, _ in pairs(x6.a) do
-			x4.f2(p)
+		for _, connection in ipairs(x6.run_connections or {}) do
+			connection:Disconnect()
 		end
-		for _, c in ipairs(x6.c) do
-			c:Disconnect()
-		end
-		x6.c = {}
-		if x6.f1_connections then
-			for _, c in ipairs(x6.f1_connections) do
-				if c then c:Disconnect() end
-			end
-			table.clear(x6.f1_connections)
-		end
-		x6.a = {}
+		table.clear(x6.run_connections or {})
+		table.clear(x6.claim_queue)
 		x6.o = false
-		v7:UnbindAction("C")
-		v7:UnbindAction("R")
-		if x5.g then
-			x5.g:Destroy()
-		end
+		x5.st()
 		x7.n("Sys", "Stopped", 2)
 	end
 
@@ -839,18 +838,7 @@ return function(context)
 		local sculptor_binder = load_module("System_sculptor.lua")(context, x7)
 		sculptor_binder()
 
-		x7.n("Rdy", "System Initialized", 5)
-		
-		task.spawn(function()
-			local spawnPos = Vector3.new(0, 50, 0)
-			pcall(function()
-				local root = v8.Character and (v8.Character:FindFirstChild("HumanoidRootPart") or v8.Character:FindFirstChildWhichIsA("BasePart"))
-				if root then
-					spawnPos = root.Position + (root.CFrame.LookVector * 15) + Vector3.new(0, 10, 0)
-				end
-			end)
-			x4.f4(spawnPos)
-		end)
+		x7.n("Rdy", "Press 'E'", 5)
 	end
 
 	return { x4 = x4, x8 = x8 }

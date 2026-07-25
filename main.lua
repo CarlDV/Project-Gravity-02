@@ -367,6 +367,7 @@ local x6 = {
 	esp_timer = 0,
 	claim_queue = {},
 	active_array = {},
+	run_connections = {},
 	pre = {},
 	pre_buffer = table.create(200),
 	sculptor_selected = setmetatable({}, {__mode = "k"}),
@@ -435,9 +436,22 @@ local function destroy()
 		pcall(function() x6.c[i]:Disconnect() end)
 		x6.c[i] = nil
 	end
-	for _, d in pairs(x6.a) do
-		if d and d.lv then
-			pcall(function() d.lv:Destroy() end)
+	for i = #x6.run_connections, 1, -1 do
+		pcall(function() x6.run_connections[i]:Disconnect() end)
+		x6.run_connections[i] = nil
+	end
+	for p, d in pairs(x6.a) do
+		if d then
+			pcall(function()
+				if p and p.Parent then
+					p.CanCollide = d.original_can_collide
+					p.Anchored = d.original_anchored
+					p.CustomPhysicalProperties = d.original_properties
+				end
+				if d.at then d.at:Destroy() end
+				if d.lv then d.lv:Destroy() end
+				if d.av then d.av:Destroy() end
+			end)
 		end
 	end
 	x6.a = setmetatable({}, {__mode = "k"})
