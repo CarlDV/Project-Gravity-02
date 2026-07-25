@@ -11,9 +11,11 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	
 	local speed = c.k11 or 50
 	local radius = c.k12 or 2
-	
-	d.v1 = d.v1 + (speed * 0.05)
-	d.v2 = d.v2 + (speed * 0.03)
+	local dt = t - (d.last_t or t)
+	d.last_t = t
+
+	d.v1 = d.v1 + (dt * speed * 3)
+	d.v2 = d.v2 + (dt * speed * 1.8)
 	
 	-- Spherical coordinates for a super dense, rapidly spinning ball
 	local tx = math.sin(d.v1) * math.cos(d.v2) * radius

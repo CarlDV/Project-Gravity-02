@@ -16,42 +16,30 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			local function proj_4d(x, y, z, w, rot)
 				local nw = w * math.cos(rot) - x * math.sin(rot)
 				local nx = w * math.sin(rot) + x * math.cos(rot)
-				local perspective = size / (size - nw * 0.5)
+				local projection_distance = math.max(size, outer_size * 1.5)
+				local perspective = projection_distance / (projection_distance - nw * 0.5)
 				return nx * perspective, y * perspective, z * perspective
 			end
 
-			local points = {
-				{ -1, -1, -1 },
-				{ 1, -1, -1 },
-				{ -1, 1, -1 },
-				{ 1, 1, -1 },
-				{ -1, -1, 1 },
-				{ 1, -1, 1 },
-				{ -1, 1, 1 },
-				{ 1, 1, 1 },
-			}
-
 			local edge = d.v1
-			local from, to
-			if edge < 12 then
-				from = points[(edge % 4) * 2 + 1]
-				to = points[(edge % 4) * 2 + 2]
-			elseif edge < 24 then
-				from = points[((edge - 12) % 4) * 2 + 1]
-				to = points[((edge - 12) % 4) * 2 + 2]
-			else
-				from = points[(edge - 24) + 1]
-				to = points[(edge - 24) + 1]
+			local direction = math.floor(edge / 8) + 1
+			local vertex = edge % 8
+			local from = { -1, -1, -1, -1 }
+			local bit_index = 0
+			for dimension = 1, 4 do
+				if dimension ~= direction then
+					from[dimension] = math.floor(vertex / (2 ^ bit_index)) % 2 == 1 and 1 or -1
+					bit_index = bit_index + 1
+				end
 			end
+			local to = { from[1], from[2], from[3], from[4] }
+			to[direction] = 1
 
-			local dt = t - (d.last_t or t)
-			d.last_t = t
-			d.phase = (d.phase or 0) + (dt * s)
 			local lerp = (math.sin(d.phase + d.v1) + 1) / 2
 			local lx = from[1] + (to[1] - from[1]) * lerp
 			local ly = from[2] + (to[2] - from[2]) * lerp
 			local lz = from[3] + (to[3] - from[3]) * lerp
-			local lw = (edge >= 12 and edge < 24) and 1 or -1
+			local lw = from[4] + (to[4] - from[4]) * lerp
 
 			local rx, ry, rz = proj_4d(lx * outer_size, ly * outer_size, lz * outer_size, lw * outer_size, target_rot)
 			local target_pos = cen + Vector3.new(rx, ry, rz)

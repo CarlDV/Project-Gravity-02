@@ -19,7 +19,10 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		d.v4 = math.random() * math.pi * 2
 	end
 
-	local phase = t * Speed + d.v4
+	local dt = t - (d.last_t or t)
+	d.last_t = t
+	d.phase = (d.phase or 0) + (dt * Speed)
+	local phase = d.phase + d.v4
 	local r = Spread * d.v2 * (0.6 + 0.4 * math.sin(phase * 0.5))
 
 	local px = r * math.sin(d.v3) * math.cos(d.v1)

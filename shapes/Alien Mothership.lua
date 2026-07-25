@@ -24,6 +24,12 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			if not d.v4 then
 				d.v4 = math.random() * math.pi * 2
 			end
+			if not d.v5 then
+				d.v5 = math.random() * 10
+			end
+			if not d.v6 then
+				d.v6 = (math.random() - 0.5) * 5
+			end
 
 			local dt = t - (d.last_t or t)
 			d.last_t = t
@@ -61,10 +67,10 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				local cy = math.sin(phase * 2 + group) * 20
 
 				local local_rot = d.v4 + phase * 5
-				local local_r = math.random() * 10
+				local local_r = d.v5
 				tx = cx + local_r * math.cos(local_rot)
 				tz = cz + local_r * math.sin(local_rot)
-				ty = cy + (math.random() - 0.5) * 5
+				 ty = cy + d.v6
 			end
 
 			local target_pos = cen + Vector3.new(tx, ty, tz)

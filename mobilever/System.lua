@@ -134,6 +134,7 @@ return function(context)
 					d.nz = nil
 					d.phase = nil
 					d.phase2 = nil
+					d.radial_phase = nil
 					d.last_t = nil
 					d.sys_last_t = nil
 					d.last_target_pos = nil
@@ -271,6 +272,7 @@ return function(context)
 			local ghp = gethiddenproperty
 			local workspace_gravity = workspace.Gravity or 196.2
 			local shape_f2 = cur_shape_mod and cur_shape_mod.f2
+			local is_drop_shape = cur_shape_mod and cur_shape_mod.Drop
 
 			for k = #x6.active_array, 1, -1 do
 				local p = x6.active_array[k]
@@ -312,10 +314,10 @@ return function(context)
 				end
 				local tc = active_c - p.Position
 				local tc_mag = tc.Magnitude
-				if tc_mag > k1 then
+				if tc_mag > k1 and not is_drop_shape then
 					continue
 				end
-				if tc_mag > c7 then
+				if tc_mag > c7 or is_drop_shape then
 					local target_pos_delta = Vector3.new(0, 0.01, 0)
 					local pure_target_pos = nil
 					if shape_f2 then
@@ -323,7 +325,7 @@ return function(context)
 					end
 					
 					if d.unclaim then
-						x4.f2(p)
+						x4.f2(p, true)
 						continue
 					end
 					if vert_mult then
@@ -533,10 +535,15 @@ return function(context)
 		x6.n = x6.n + 1
 	end
 
-	function x4.f2(p)
+	function x4.f2(p, relinquish_ownership)
 		pcall(function()
 			p.CanCollide = true
 			p.CustomPhysicalProperties = nil
+			if relinquish_ownership then
+				p.AssemblyLinearVelocity = Vector3.zero
+				p.AssemblyAngularVelocity = Vector3.zero
+				p:SetNetworkOwner(nil)
+			end
 		end)
 		local d = x6.a[p]
 		if d then

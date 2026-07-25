@@ -15,8 +15,6 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			d.last_t = t
 			d.phase = (d.phase or 0) + (dt * s)
 			local u_phase = d.phase + d.v1
-			local dt = t - (d.last_t or t)
-			d.last_t = t
 			d.phase2 = (d.phase2 or 0) + (dt * s * 0.5)
 			local v_phase = d.phase2 + d.v2
 

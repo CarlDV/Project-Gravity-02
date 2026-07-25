@@ -14,6 +14,9 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			if not d.v3 then
 				d.v3 = math.random(1, 3)
 			end
+			if not d.v4 then
+				d.v4 = (math.random() - 0.5) * 5
+			end
 
 			local dt = t - (d.last_t or t)
 			d.last_t = t
@@ -30,7 +33,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				local tubeOffset = (d.v1 - 0.5) * RingThickness
 				tx = (R + tubeOffset) * math.cos(ringPhase)
 				tz = (R + tubeOffset) * math.sin(ringPhase)
-				ty = (math.random() - 0.5) * 5
+				ty = d.v4
 			else
 				local spokeCount = 4
 				local spokeAngle = math.floor(d.v2 / (math.pi * 2) * spokeCount) * (math.pi * 2 / spokeCount)

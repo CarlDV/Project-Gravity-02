@@ -17,8 +17,10 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 
 
 			local drop_dist = HeightSpawn * 2
-			local fall_time = drop_dist / FallSpeed
-			local current_fall = ((t + d.v3 * fall_time) % fall_time) / fall_time
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * FallSpeed)
+			local current_fall = (d.v3 + (d.phase / drop_dist)) % 1
 
 			local y_pos = HeightSpawn - (current_fall * drop_dist)
 

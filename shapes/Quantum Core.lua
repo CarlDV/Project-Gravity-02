@@ -48,7 +48,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			else
 
 				local spd = ParticleSpeed * 0.1
-				local dist = ((function() local dt = t - (d.last_t or t); d.last_t = t; d.phase = (d.phase or 0) + (dt * spd); return math.sin(d.phase + d.v2) end)() * 0.5 + 0.5) * (R * 0.8)
+				d.radial_phase = (d.radial_phase or 0) + (dt * spd)
+				local dist = (math.sin(d.radial_phase + d.v2) * 0.5 + 0.5) * (R * 0.8)
 				local phi = d.v3 + phase * 3 * d.v4
 				local theta = d.v2 + phase * 4 * d.v4
 

@@ -29,8 +29,12 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 				d.rot_axis = Vector3.new(rx / len, ry / len, rz / len)
 			end
 
-			local phase = t * SpinSpeed + d.v4
-			local drift_phase = (t * DriftTime) + d.v4
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * SpinSpeed)
+			d.phase2 = (d.phase2 or 0) + (dt * DriftTime)
+			local phase = d.phase + d.v4
+			local drift_phase = d.phase2 + d.v4
 
 			local px = d.v1 * Spread
 			local py = d.v2 * Spread

@@ -11,14 +11,21 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			if not d.v6 then
 				d.v6 = math.random() * math.pi * 2
 			end
-			local cx, cz, tilt = (function() local dt = t - (d.last_t or t); d.last_t = t; d.phase = (d.phase or 0) + (dt * s); return math.cos(d.v6 + d.phase) end)() * R, (function() local dt = t - (d.last_t or t); d.last_t = t; d.phase = (d.phase or 0) + (dt * s); return math.sin(d.v6 + d.phase) end)() * R, (math.pi / Orbits) * (d.v1 - 1)
+			local dt = t - (d.last_t or t)
+			d.last_t = t
+			d.phase = (d.phase or 0) + (dt * s)
+			local orbit_phase = d.v6 + d.phase
+			local cx, cz, tilt = math.cos(orbit_phase) * R, math.sin(orbit_phase) * R, (math.pi / Orbits) * (d.v1 - 1)
 			local tx, ty, sp =
 				0 * math.sin(tilt) + cx * math.cos(tilt),
 				0 * math.cos(tilt) - cx * math.sin(tilt),
 				(math.pi * 2 / Orbits) * (d.v1 - 1)
-			return (
-				(cen + Vector3.new(tx * math.cos(sp) - cz * math.sin(sp), ty, tx * math.sin(sp) + cz * math.cos(sp))) - wp
-			) * (x1.k10 * x9.c1)
+			local target_pos = cen + Vector3.new(
+				tx * math.cos(sp) - cz * math.sin(sp),
+				ty,
+				tx * math.sin(sp) + cz * math.cos(sp)
+			)
+			return (target_pos - wp) * (x1.k10 * x9.c1)
 end
 
 M.Controls = {
