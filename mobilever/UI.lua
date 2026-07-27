@@ -597,22 +597,29 @@ return function(context)
 				if #x1.Targets == 1 then
 					tn = "Target: " .. (x1.Targets[1].DisplayName or x1.Targets[1].Name)
 				else
-				et(gsc, "Preserve Collisions", x1.PreserveCollisions, function(v)
-					x1.PreserveCollisions = v
-					for part, data in pairs(x6.a) do
-						if part and part.Parent then
-							part.CanCollide = v and data.original_can_collide or false
-						end
-					end
-					save_settings()
-				end)
+					tn = "Multi-Target (" .. tostring(#x1.Targets) .. ")"
+				end
+			end
 
-				local mob_ai_btn = eb(gsc, "PROJECT GRAVITY AI", function()
-					if ai_chat_module and ai_chat_module.toggle then
-						ai_chat_module.toggle(sg)
+			et(gsc, "Preserve Collisions", x1.PreserveCollisions, function(v)
+				x1.PreserveCollisions = v
+				for part, data in pairs(x6.a) do
+					if part and part.Parent then
+						part.CanCollide = v and data.original_can_collide or false
 					end
-				end)
-				mob_ai_btn.Size = UDim2.new(1, 0, 0, 22)
+				end
+				save_settings()
+			end)
+
+			local mob_ai_btn = eb(gsc, "PROJECT GRAVITY AI", function()
+				if ai_chat_module and ai_chat_module.toggle then
+					ai_chat_module.toggle(sg)
+				end
+			end)
+			mob_ai_btn.Size = UDim2.new(1, 0, 0, 22)
+
+			local tdb = Instance.new("TextButton", gsc)
+			tdb.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 			tdb.Size = UDim2.new(1, 0, 0, 22)
 			tdb.Text = "  " .. tn:upper()
 			tdb.TextColor3 = Color3.fromRGB(255, 255, 255)
