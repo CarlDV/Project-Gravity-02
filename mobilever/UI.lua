@@ -402,7 +402,7 @@ return function(context)
 		end)
 		ab.Size = UDim2.new(1, 0, 0, 20)
 
-		local ai_btn = eb(c, "AI Assistant", function()
+		local ai_btn = eb(c, "PROJECT GRAVITY AI", function()
 			if ai_chat_module and ai_chat_module.toggle then
 				ai_chat_module.toggle(sg)
 			end
@@ -499,13 +499,6 @@ return function(context)
 				if hud then hud.Visible = v end
 				save_settings()
 			end)
-
-			local mob_ai_btn = eb(gsc, "PROJECT GRAVITY AI", function()
-				if ai_chat_module and ai_chat_module.toggle then
-					ai_chat_module.toggle(sg)
-				end
-			end)
-			mob_ai_btn.Size = UDim2.new(1, 0, 0, 22)
 
 			et(gsc, "Anchor to Self", x1.AnchorSelf, function(v)
 				x1.AnchorSelf = v
@@ -610,13 +603,6 @@ return function(context)
 				end
 				save_settings()
 			end)
-
-			local mob_ai_btn = eb(gsc, "PROJECT GRAVITY AI", function()
-				if ai_chat_module and ai_chat_module.toggle then
-					ai_chat_module.toggle(sg)
-				end
-			end)
-			mob_ai_btn.Size = UDim2.new(1, 0, 0, 22)
 
 			local tdb = Instance.new("TextButton", gsc)
 			tdb.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
