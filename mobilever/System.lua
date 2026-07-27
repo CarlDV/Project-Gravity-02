@@ -91,7 +91,7 @@ return function(context)
 		return pos + (vel * (factor / 1000))
 	end
 
-	local no_damp = { ["Slingshot"] = true, ["Point Impact"] = true, ["Deflect"] = true }
+	local no_damp = { ["Slingshot"] = true, ["Point Impact"] = true, ["Deflect"] = true, ["Modified Pika Pika no Mi"] = true }
 
 	local function f3(real_dt)
 		real_dt = real_dt or (1/60)
@@ -133,11 +133,17 @@ return function(context)
 					d.hit_wall = nil
 					d.hover_anchor = nil
 					d.cursed_hover_mode = nil
+					d.room_target = nil
+					d.pika_direction = nil
+					d.pika_redirect_at = nil
 					d.integral = Vector3.zero
 				end
 			end
 			local dt = x6.n > 5000 and 10 or (x6.n > 2500 and 6 or (x6.n > 1000 and 3 or 1))
 			local et, ft = x1.k7 or dt, time()
+			if x1.k6 == "Modified Pika Pika no Mi" then
+				et = 1
+			end
 			local force_smooth = x1["Force Smooth (Lags)"]
 			if force_smooth then
 				dt = 1
@@ -287,6 +293,7 @@ return function(context)
 			local workspace_gravity = workspace.Gravity or 196.2
 			local shape_f2 = cur_shape_mod and cur_shape_mod.f2
 			local is_drop_shape = cur_shape_mod and cur_shape_mod.Drop
+			local is_self_bounded_shape = shape_name == "ROOM Ope Ope no Mi" or shape_name == "Modified Pika Pika no Mi"
 			local aggressive_root = nil
 			if x1.AggressiveClaim and v8.Character then
 				aggressive_root = v8.Character:FindFirstChild("HumanoidRootPart") or v8.Character:FindFirstChildWhichIsA("BasePart")
@@ -332,10 +339,10 @@ return function(context)
 				local p_pos = p.Position
 				local tc = active_c - p_pos
 				local distance_sq = tc:Dot(tc)
-				if distance_sq > k1_sq and not is_drop_shape then
+				if distance_sq > k1_sq and not is_drop_shape and not is_self_bounded_shape then
 					continue
 				end
-				if distance_sq > c7_sq or is_drop_shape or shape_name == "Cursed Technique Red" then
+				if distance_sq > c7_sq or is_drop_shape or is_self_bounded_shape or shape_name == "Cursed Technique Red" then
 					local target_pos_delta = ANTI_SLEEP
 					local pure_target_pos = nil
 					if shape_f2 then
@@ -404,7 +411,7 @@ return function(context)
 						local impact_delta = active_c - p.Position
 						d.vl = impact_delta.Magnitude > 0 and (impact_delta.Unit * 10000) or ZERO_VECTOR
 					else
-						local limit = (max_speed and not cur_no_damp) and max_speed or 3300
+						local limit = shape_name == "Modified Pika Pika no Mi" and 15000 or ((max_speed and not cur_no_damp) and max_speed or 3300)
 						if pure_target_pos then limit = math.max(limit, 15300) end
 						if liftoff_limit then limit = math.min(limit, liftoff_limit) end
 						local velocity_mag = d.vl.Magnitude
@@ -522,7 +529,9 @@ return function(context)
 		local original_can_collide = p.CanCollide
 		local original_anchored = p.Anchored
 		local original_properties = p.CustomPhysicalProperties
-		p.CanCollide = false
+		if not x1.PreserveCollisions then
+			p.CanCollide = false
+		end
 		p.Anchored = false
 		p.CustomPhysicalProperties = LIGHT_PHYSICS
 		local a = Instance.new("Attachment", p)
@@ -659,7 +668,7 @@ return function(context)
 		table.insert(
 			x6.c,
 			v3.Stepped:Connect(function()
-				if x1.AntiFling then
+				if x1.AntiFling and not x1.PreserveCollisions then
 					for _, p in ipairs(v2:GetPlayers()) do
 						if p ~= v8 and p.Character then
 							local parts = anti_fling_cache[p.Character]

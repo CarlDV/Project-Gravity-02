@@ -335,6 +335,16 @@ return function(context)
 			x1.VoidProtection = v
 			save_settings()
 		end, "Automatically ignores targets that fall into the void to prevent your parts from being destroyed.")
+
+		et(ac, "Preserve Collisions", x1.PreserveCollisions, function(v)
+			x1.PreserveCollisions = v
+			for part, data in pairs(x6.a) do
+				if part and part.Parent then
+					part.CanCollide = v and data.original_can_collide or false
+				end
+			end
+			save_settings()
+		end, "Keeps each claimed part's original CanCollide state instead of forcing collisions off.")
 		
 		et(ac, "Disable Shadows", x1.Perf_DisableShadows, function(v)
 			x1.Perf_DisableShadows = v
