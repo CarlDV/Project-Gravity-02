@@ -69,7 +69,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local half_count = math.max(1, math.floor(total_parts / 2))
 	local norm_idx = (group_idx - 1) % half_count
 
-	local dist = c.k11 or 40
+	local dist = c.k11 or 80
 	local rad = c.k12 or 15
 	local spd = (c.k13 or 150) * 0.015
 	local fly_speed = c.k14 or 900
@@ -123,7 +123,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 end
 
 M.Controls = {
-	{ Type = "Slider", Name = "Orb Separation", Min = 10, Max = 200, Key = "k11", Default = 40 },
+	{ Type = "Slider", Name = "Orb Separation", Min = 10, Max = 200, Key = "k11", Default = 80 },
 	{ Type = "Slider", Name = "Orb Radius", Min = 5, Max = 100, Key = "k12", Default = 15 },
 	{ Type = "Slider", Name = "Rotation Speed", Min = 0, Max = 500, Key = "k13", Default = 150 },
 	{ Type = "Slider", Name = "Beam Velocity", Min = 100, Max = 3000, Key = "k14", Default = 900 },
