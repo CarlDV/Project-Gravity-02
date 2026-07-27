@@ -61,7 +61,7 @@ end
 
 M.Controls = {
 	{ Type = "Slider", Name = "Radius", Min = 5, Max = 300, Key = "k11" },
-	{ Type = "Slider", Name = "Spin Speed", Min = 0, Max = 400, Key = "k12", Div = 10 },
+	{ Type = "Slider", Name = "Spin Speed", Min = 0, Max = 400, Key = "k12" },
 	{ Type = "Toggle", Name = "Cut In Half", Key = "k13" },
 	{ Type = "Toggle", Name = "Rotate Y Axis", Key = "k14" },
 	{ Type = "Toggle", Name = "Rotate X Axis", Key = "k15" }

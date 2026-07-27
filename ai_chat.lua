@@ -498,11 +498,14 @@ Core Rules:
 		end
 		local key = args.key and tostring(args.key)
 		local val = tonumber(args.val)
-		if key and val then
+		if key and x2[shapeName][key] == nil then
+			return string.format("Shape '%s' has no control key '%s'", shapeName, key)
+		end
+		if key and val and type(x2[shapeName][key]) == "number" then
 			x2[shapeName][key] = val
 			return string.format("Updated shape '%s' key '%s' to %s", shapeName, key, tostring(val))
 		end
-		return "Shape parameter key or value missing"
+		return "Shape parameter key is not numeric or value is missing"
 	end
 
 	toolHandlers.adjust_gravity = function(args)

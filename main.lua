@@ -225,6 +225,7 @@ local function reset_config()
 	end
 	for mk, mv in pairs(default_x2) do
 		if x2[mk] then
+			table.clear(x2[mk])
 			for sk, sv in pairs(mv) do
 				x2[mk][sk] = sv
 			end
@@ -293,7 +294,9 @@ local function load_settings()
 			for mk, mv in pairs(cx2) do
 				if x2[mk] and type(mv) == "table" then
 					for sk, sv in pairs(mv) do
-						x2[mk][sk] = sv
+						if x2[mk][sk] ~= nil and typeof(x2[mk][sk]) == typeof(sv) then
+							x2[mk][sk] = sv
+						end
 					end
 				end
 			end

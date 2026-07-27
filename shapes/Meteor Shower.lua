@@ -4,7 +4,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local wp = p.Position
 	local tc = cen - wp
 	local md = "Meteor Shower"
-	local SpreadXZ, HeightSpawn, FallSpeed, Density = (c.k11 or 500), (c.k12 or 300), (c.k13 or 150), (c.k14 or 50)
+	local SpreadXZ, HeightSpawn, FallSpeed = (c.k11 or 500), (c.k12 or 300), (c.k13 or 150)
 			if not d.v1 then
 				d.v1 = (math.random() - 0.5) * SpreadXZ
 			end

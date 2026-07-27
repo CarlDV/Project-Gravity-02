@@ -570,7 +570,7 @@ return function(context)
 			l_btn.Font = Enum.Font.GothamBold
 			l_btn.TextSize = 9
 			Instance.new("UICorner", l_btn).CornerRadius = UDim.new(0, 6)
-			l_btn.Visible = x1.ImpactManual or (x1.k6 == "Slingshot" and x1.SlingshotManual)
+			l_btn.Visible = x1.k6 == "Slingshot" and x1.SlingshotManual
 
 			l_btn.MouseButton1Click:Connect(function()
 				x1.IsLaunching = not x1.IsLaunching
@@ -581,7 +581,7 @@ return function(context)
 			table.insert(
 				x6.f1_connections,
 				v3.Heartbeat:Connect(function()
-					if x1.ImpactManual or (x1.k6 == "Slingshot" and x1.SlingshotManual) then
+					if x1.k6 == "Slingshot" and x1.SlingshotManual then
 						l_btn.Visible = true
 						l_btn.Text = x1.IsLaunching and "RESET SYSTEM" or "FORCE LAUNCH"
 						l_btn.BackgroundColor3 = x1.IsLaunching and Color3.fromRGB(50, 150, 200)
@@ -659,11 +659,13 @@ return function(context)
 									current_val = ctrl.Min
 								end
 							end
-							if ctrl.Div then current_val = current_val * ctrl.Div end
 							local max_val = ctrl.Max
 							if string.find(ctrl.Name:lower(), "speed") then
 								max_val = max_val + 300
 							end
+							if ctrl.Div then current_val = current_val * ctrl.Div end
+							current_val = math.clamp(current_val, ctrl.Min, max_val)
+							s[ctrl.Key] = ctrl.Div and (current_val / ctrl.Div) or current_val
 							es(p_frame, ctrl.Name, ctrl.Min, max_val, current_val, function(v)
 								if ctrl.Div then s[ctrl.Key] = v / ctrl.Div else s[ctrl.Key] = v end
 							end, ctrl.IntOnly)

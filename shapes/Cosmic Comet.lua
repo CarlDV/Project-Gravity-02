@@ -60,6 +60,7 @@ M.Controls = {
 	{ Type = "Slider", Name = "Head Radius", Min = 1, Max = 50, Key = "k11", Div = 2 },
 	{ Type = "Slider", Name = "Tail Spread", Min = 0, Max = 200, Key = "k12" },
 	{ Type = "Slider", Name = "Height Limit", Min = 0, Max = 200, Key = "k14" },
+	{ Type = "Slider", Name = "Wave Frequency", Min = 1, Max = 20, Key = "k15", IntOnly = true },
 	{ Type = "Slider", Name = "Move Area", Min = 50, Max = 800, Key = "k17" }
 }
 

@@ -162,7 +162,7 @@ return function(context)
 						local head = pl.Character.Head
 						local is_tgt = target_set[pl] == true
 						local marker = head:FindFirstChild("GravityTargetMarker")
-						
+
 						if is_tgt and not marker then
 							local bg = Instance.new("BillboardGui")
 							bg.Name = "GravityTargetMarker"
@@ -390,19 +390,24 @@ return function(context)
 						end
 					end
 					
-					local limit = (max_speed and not cur_no_damp) and max_speed or 3300
-					if pure_target_pos then limit = math.max(limit, 15300) end
-					if liftoff_limit then limit = math.min(limit, liftoff_limit) end
-					local velocity_mag = d.vl.Magnitude
-					if velocity_mag > limit then
-						d.vl = d.vl * (limit / velocity_mag)
-					end
-					
-					if water_level then
-						local current_y = p.Position.Y
-						if current_y < water_level then
-							local depth = water_level - current_y
-							d.vl = Vector3.new(d.vl.X, math.max(d.vl.Y, 0) + (depth * 5), d.vl.Z)
+					if shape_name == "Point Impact" then
+						local impact_delta = active_c - p.Position
+						d.vl = impact_delta.Magnitude > 0 and (impact_delta.Unit * 10000) or ZERO_VECTOR
+					else
+						local limit = (max_speed and not cur_no_damp) and max_speed or 3300
+						if pure_target_pos then limit = math.max(limit, 15300) end
+						if liftoff_limit then limit = math.min(limit, liftoff_limit) end
+						local velocity_mag = d.vl.Magnitude
+						if velocity_mag > limit then
+							d.vl = d.vl * (limit / velocity_mag)
+						end
+
+						if water_level then
+							local current_y = p.Position.Y
+							if current_y < water_level then
+								local depth = water_level - current_y
+								d.vl = Vector3.new(d.vl.X, math.max(d.vl.Y, 0) + (depth * 5), d.vl.Z)
+							end
 						end
 					end
 					
@@ -412,7 +417,7 @@ return function(context)
 						p.AssemblyAngularVelocity = p.AssemblyAngularVelocity * ang_damp_mult
 					end
 
-					if x1.AggressiveClaim and p.ReceiveAge > 0 then
+					if shape_name ~= "Point Impact" and x1.AggressiveClaim and p.ReceiveAge > 0 then
 						local base_pos = aggressive_root and aggressive_root.Position or active_c
 						if not d.claim_offset then
 							d.claim_offset = Vector3.new(math.sin(d.id) * 20, 15 + (d.id % 15), math.cos(d.id) * 20)
