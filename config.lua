@@ -82,6 +82,6 @@ return {
 		["Fractal Web"] = { k11 = 40, k12 = 3, k13 = 3, k14 = 5, k15 = 0, k16 = 0, k17 = 0, k23 = false },
 		["Leviathan Coil"] = { k11 = 50, k12 = 15, k13 = 8, k14 = 250, k15 = 0, k16 = 0, k17 = 0, k23 = false },
 		["Spinning Cube"] = { k11 = 40, k12 = 200, k13 = false, k14 = false, k15 = true },
-		["Twin Core Beam"] = { k11 = 80, k12 = 15, k13 = 150, k14 = 900, k15 = 4 },
+		["Twin Core Beam"] = { k11 = 80, k12 = 15, k13 = 150, k14 = 900, k15 = 4, k18 = false },
 	},
 }

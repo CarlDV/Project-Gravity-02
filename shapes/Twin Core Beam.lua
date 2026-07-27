@@ -10,26 +10,49 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			active_beam = false,
 			target_point = Vector3.zero,
 			holding = false,
+			is_swiping = false,
+			touch_start = nil,
 			last_frame = -1
 		}
 		x6.pre["Twin Core Beam"] = state
 		
 		uis.InputBegan:Connect(function(inp, gpe)
 			if gpe then return end
-			if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+			if inp.UserInputType == Enum.UserInputType.MouseButton1 then
 				state.holding = true
+				state.touch_start = nil
+				state.is_swiping = false
+			elseif inp.UserInputType == Enum.UserInputType.Touch then
+				state.holding = true
+				state.touch_start = Vector2.new(inp.Position.X, inp.Position.Y)
+				state.is_swiping = false
 			end
 		end)
+
+		uis.InputChanged:Connect(function(inp, gpe)
+			if state.holding and inp.UserInputType == Enum.UserInputType.Touch and state.touch_start then
+				local delta = (Vector2.new(inp.Position.X, inp.Position.Y) - state.touch_start).Magnitude
+				if delta > 15 then
+					state.is_swiping = true
+				end
+			end
+		end)
+
 		uis.InputEnded:Connect(function(inp)
 			if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
 				state.holding = false
+				state.is_swiping = false
+				state.touch_start = nil
 			end
 		end)
 	end
 
 	if state.last_frame ~= x6.f then
 		state.last_frame = x6.f
-		if state.holding then
+		local fire_override = x1.IsLaunching or (c.k18 == true)
+		local should_fire = (state.holding and not state.is_swiping) or fire_override
+
+		if should_fire then
 			local hit_pos = nil
 			local local_plr = plrs.LocalPlayer
 			local mouse = local_plr and local_plr:GetMouse()
@@ -127,7 +150,8 @@ M.Controls = {
 	{ Type = "Slider", Name = "Orb Radius", Min = 5, Max = 100, Key = "k12", Default = 15 },
 	{ Type = "Slider", Name = "Rotation Speed", Min = 0, Max = 500, Key = "k13", Default = 150 },
 	{ Type = "Slider", Name = "Beam Velocity", Min = 100, Max = 3000, Key = "k14", Default = 900 },
-	{ Type = "Slider", Name = "Beam Spread", Min = 1, Max = 30, Key = "k15", Default = 4 }
+	{ Type = "Slider", Name = "Beam Spread", Min = 1, Max = 30, Key = "k15", Default = 4 },
+	{ Type = "Toggle", Name = "Always Fire Beam", Key = "k18", Default = false }
 }
 
 return M
