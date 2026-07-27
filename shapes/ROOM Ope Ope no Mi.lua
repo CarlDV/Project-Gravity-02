@@ -12,66 +12,62 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		x6.pre["ROOM Ope Ope no Mi"] = meta
 	end
 
-	if not d.room_orbit_phase then
-		d.room_orbit_phase = (d.id * 2.399963229728653) % (math.pi * 2)
-		d.room_lat = math.asin(((d.id * 0.618033988749895) % 1) * 1.96 - 0.98)
+	local active_items = x6.active_array
+	local total_cnt = #active_items
+	if total_cnt == 0 then
+		return Vector3.zero, cen
+	end
+
+	if not d.room_slot then
+		d.room_slot = d.id or 1
 	end
 
 	if t >= meta.next_swap then
 		meta.next_swap = t + swap_interval
-		local active_items = {}
-		for _, part in ipairs(x6.active_array) do
-			local part_data = x6.a[part]
-			if part_data and part.Parent then
-				table.insert(active_items, part_data)
-			end
-		end
-
-		local total_cnt = #active_items
 		if total_cnt >= 2 then
-			local num_swaps = math.clamp(math.floor(total_cnt * 0.2), 2, 4)
+			local num_swaps = math.clamp(math.floor(total_cnt * 0.25), 2, 6)
 			num_swaps = math.min(num_swaps, total_cnt)
-
-			local chosen_indices = {}
-			while #chosen_indices < num_swaps do
+			local chosen = {}
+			for _ = 1, num_swaps do
 				local idx = math.random(1, total_cnt)
-				local exists = false
-				for _, prev in ipairs(chosen_indices) do
-					if prev == idx then
-						exists = true
-						break
-					end
-				end
-				if not exists then
-					table.insert(chosen_indices, idx)
+				local part = active_items[idx]
+				local part_data = x6.a[part]
+				if part_data then
+					table.insert(chosen, part_data)
 				end
 			end
-
-			local first_phase = active_items[chosen_indices[1]].room_orbit_phase or 0
-			local first_lat = active_items[chosen_indices[1]].room_lat or 0
-
-			for i = 1, #chosen_indices - 1 do
-				local curr_idx = chosen_indices[i]
-				local next_idx = chosen_indices[i + 1]
-				active_items[curr_idx].room_orbit_phase = active_items[next_idx].room_orbit_phase or 0
-				active_items[curr_idx].room_lat = active_items[next_idx].room_lat or 0
+			if #chosen >= 2 then
+				local first_slot = chosen[1].room_slot or 1
+				for i = 1, #chosen - 1 do
+					chosen[i].room_slot = chosen[i + 1].room_slot or (i + 1)
+				end
+				chosen[#chosen].room_slot = first_slot
 			end
-
-			local last_idx = chosen_indices[#chosen_indices]
-			active_items[last_idx].room_orbit_phase = first_phase
-			active_items[last_idx].room_lat = first_lat
 		end
 	end
 
-	local cur_angle = t * orbit_speed + d.room_orbit_phase
-	local lat_val = d.room_lat or 0
-	local sin_lat = math.sin(lat_val)
-	local cos_lat = math.cos(lat_val)
+	local slot_idx = (d.room_slot or 1) % total_cnt
+	local frac = (slot_idx + 0.5) / total_cnt
+	local y_val, r_scale
+
 	if cut_in_half then
-		sin_lat = math.abs(sin_lat)
+		y_val = frac * 0.96 + 0.02
+		r_scale = math.sqrt(math.max(0.001, 1 - y_val * y_val))
+	else
+		y_val = 1 - 2 * frac
+		r_scale = math.sqrt(math.max(0.001, 1 - y_val * y_val))
 	end
 
-	local target_pos = cen + Vector3.new(cos_lat * math.cos(cur_angle) * radius, sin_lat * radius, cos_lat * math.sin(cur_angle) * radius)
+	local golden_angle = 2.399963229728653
+	local cur_angle = (slot_idx * golden_angle) + (t * orbit_speed)
+
+	local offset = Vector3.new(
+		r_scale * math.cos(cur_angle) * radius,
+		y_val * radius,
+		r_scale * math.sin(cur_angle) * radius
+	)
+
+	local target_pos = cen + offset
 	return (target_pos - p.Position) * (x1.k10 * x9.c1), target_pos
 end
 
