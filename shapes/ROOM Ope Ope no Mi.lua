@@ -3,7 +3,7 @@ local M = {}
 function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local radius = c.k11 or 150
 	local swap_interval = (c.k12 or 20) / 10
-	local orbit_speed = (c.k13 or 15) / 10
+	local orbit_speed = c.k13 or 1.5
 	local cut_in_half = c.k18 ~= false
 
 	local meta = x6.pre["ROOM Ope Ope no Mi"]

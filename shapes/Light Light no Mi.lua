@@ -1,7 +1,7 @@
 local M = {}
 
 function M.f2(p, cen, d, t, c, x1, x6, x9)
-	local radius = c.k11 or 150
+	local radius = c.k11 or 300
 	local speed = c.k12 or 350
 	local spacing = c.k13 or 3
 	local cut_in_half = c.k18 ~= false
@@ -111,7 +111,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 end
 
 M.Controls = {
-	{ Type = "Slider", Name = "Containment Radius", Min = 25, Max = 800, Key = "k11" },
+	{ Type = "Slider", Name = "Containment Radius", Min = 25, Max = 800, Key = "k11", Default = 300 },
 	{ Type = "Slider", Name = "Light Speed", Min = 50, Max = 1000, Key = "k12", ExactMax = true },
 	{ Type = "Slider", Name = "Beam Spacing", Min = 1, Max = 20, Key = "k13" },
 	{ Type = "Toggle", Name = "Cut in Half", Key = "k18", Default = true }
