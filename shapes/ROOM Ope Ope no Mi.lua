@@ -14,6 +14,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 
 	if not d.room_orbit_phase then
 		d.room_orbit_phase = (d.id * 2.399963229728653) % (math.pi * 2)
+		d.room_lat = math.asin(((d.id * 0.618033988749895) % 1) * 1.96 - 0.98)
 	end
 
 	if t >= meta.next_swap then
@@ -47,22 +48,30 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			end
 
 			local first_phase = active_items[chosen_indices[1]].room_orbit_phase or 0
+			local first_lat = active_items[chosen_indices[1]].room_lat or 0
+
 			for i = 1, #chosen_indices - 1 do
 				local curr_idx = chosen_indices[i]
 				local next_idx = chosen_indices[i + 1]
 				active_items[curr_idx].room_orbit_phase = active_items[next_idx].room_orbit_phase or 0
+				active_items[curr_idx].room_lat = active_items[next_idx].room_lat or 0
 			end
-			active_items[chosen_indices[#chosen_indices]].room_orbit_phase = first_phase
+
+			local last_idx = chosen_indices[#chosen_indices]
+			active_items[last_idx].room_orbit_phase = first_phase
+			active_items[last_idx].room_lat = first_lat
 		end
 	end
 
 	local cur_angle = t * orbit_speed + d.room_orbit_phase
-	local height_offset = math.sin(cur_angle * 0.5) * (radius * 0.35)
+	local lat_val = d.room_lat or 0
+	local sin_lat = math.sin(lat_val)
+	local cos_lat = math.cos(lat_val)
 	if cut_in_half then
-		height_offset = math.abs(height_offset)
+		sin_lat = math.abs(sin_lat)
 	end
 
-	local target_pos = cen + Vector3.new(math.cos(cur_angle) * radius, height_offset, math.sin(cur_angle) * radius)
+	local target_pos = cen + Vector3.new(cos_lat * math.cos(cur_angle) * radius, sin_lat * radius, cos_lat * math.sin(cur_angle) * radius)
 	return (target_pos - p.Position) * (x1.k10 * x9.c1), target_pos
 end
 
