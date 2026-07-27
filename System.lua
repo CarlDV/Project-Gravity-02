@@ -328,12 +328,18 @@ return function(context)
 				if distance_sq > c7_sq or is_drop_shape then
 					local target_pos_delta = ANTI_SLEEP
 					local pure_target_pos = nil
+					local preserve_velocity = false
 					if shape_f2 then
-						target_pos_delta, pure_target_pos = shape_f2(p, active_c, d, ft, cur_shape_cfg, x1, x6, x9)
+						target_pos_delta, pure_target_pos, preserve_velocity = shape_f2(p, active_c, d, ft, cur_shape_cfg, x1, x6, x9)
 					end
 					
 					if d.unclaim then
 						x4.f2(p, true, k)
+						continue
+					end
+					if preserve_velocity then
+						d.vl = target_pos_delta
+						d.lv.VectorVelocity = target_pos_delta
 						continue
 					end
 					if vert_mult then
