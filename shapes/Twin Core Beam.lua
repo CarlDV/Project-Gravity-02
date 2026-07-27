@@ -6,12 +6,13 @@ local plrs = game:GetService("Players")
 function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local state = x6.pre["Twin Core Beam"]
 	if not state then
+		local is_touch = uis.TouchEnabled and not uis.KeyboardEnabled
 		state = {
 			active_beam = false,
 			target_point = Vector3.zero,
 			holding = false,
-			is_swiping = false,
-			touch_start = nil,
+			touch_mode = is_touch,
+			tap_locked = false,
 			last_frame = -1
 		}
 		x6.pre["Twin Core Beam"] = state
@@ -20,29 +21,20 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			if gpe then return end
 			if inp.UserInputType == Enum.UserInputType.MouseButton1 then
 				state.holding = true
-				state.touch_start = nil
-				state.is_swiping = false
 			elseif inp.UserInputType == Enum.UserInputType.Touch then
-				state.holding = true
-				state.touch_start = Vector2.new(inp.Position.X, inp.Position.Y)
-				state.is_swiping = false
-			end
-		end)
-
-		uis.InputChanged:Connect(function(inp, gpe)
-			if state.holding and inp.UserInputType == Enum.UserInputType.Touch and state.touch_start then
-				local delta = (Vector2.new(inp.Position.X, inp.Position.Y) - state.touch_start).Magnitude
-				if delta > 15 then
-					state.is_swiping = true
+				if state.touch_mode then
+					state.tap_locked = not state.tap_locked
+				else
+					state.holding = true
 				end
 			end
 		end)
 
 		uis.InputEnded:Connect(function(inp)
-			if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+			if inp.UserInputType == Enum.UserInputType.MouseButton1 then
 				state.holding = false
-				state.is_swiping = false
-				state.touch_start = nil
+			elseif inp.UserInputType == Enum.UserInputType.Touch and not state.touch_mode then
+				state.holding = false
 			end
 		end)
 	end
@@ -50,7 +42,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	if state.last_frame ~= x6.f then
 		state.last_frame = x6.f
 		local fire_override = x1.IsLaunching or (c.k18 == true)
-		local should_fire = (state.holding and not state.is_swiping) or fire_override
+		local should_fire = state.holding or state.tap_locked or fire_override
 
 		if should_fire then
 			local hit_pos = nil
