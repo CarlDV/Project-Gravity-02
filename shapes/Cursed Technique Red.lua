@@ -4,10 +4,16 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local wp = p.Position
 	local radius = c.k12 or 80
 
+	local distance = (wp - cen).Magnitude
+	if not d.hit_wall and distance > radius then
+		return p.AssemblyLinearVelocity, nil, true
+	end
+	if d.hit_wall and distance > radius * 1.1 then
+		d.hit_wall = nil
+		d.v4 = nil
+		return p.AssemblyLinearVelocity, nil, true
+	end
 	if not d.hit_wall then
-		if (wp - cen).Magnitude > radius then
-			return p.AssemblyLinearVelocity, nil, true
-		end
 		d.hit_wall = true
 		d.v4 = wp
 		d.v6 = math.random() * math.pi * 2

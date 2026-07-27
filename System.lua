@@ -325,7 +325,7 @@ return function(context)
 				if distance_sq > k1_sq and not is_drop_shape then
 					continue
 				end
-				if distance_sq > c7_sq or is_drop_shape then
+				if distance_sq > c7_sq or is_drop_shape or shape_name == "Cursed Technique Red" then
 					local target_pos_delta = ANTI_SLEEP
 					local pure_target_pos = nil
 					local preserve_velocity = false
