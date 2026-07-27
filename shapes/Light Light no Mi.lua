@@ -6,41 +6,102 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local spacing = c.k13 or 3
 	local cut_in_half = c.k18 ~= false
 
+	local meta = x6.pre["Light Light no Mi"]
+	if not meta then
+		meta = {
+			last_t = t,
+			beams = {}
+		}
+		x6.pre["Light Light no Mi"] = meta
+	end
+
+	local delta_t = t - (meta.last_t or t)
+	meta.last_t = t
+	if delta_t <= 0 or delta_t > 0.1 then
+		delta_t = 1 / 60
+	end
+
 	local active_items = x6.active_array
 	local total_cnt = #active_items
 	if total_cnt == 0 then
 		return Vector3.zero, cen
 	end
 
-	local item_idx = d.id or 1
-	local slot_idx = item_idx % total_cnt
-	local frac = (slot_idx + 0.5) / total_cnt
+	local beam_count = math.clamp(math.floor(total_cnt / math.max(1, spacing * 2)), 3, 16)
 
-	local y_val, r_scale
-	if cut_in_half then
-		y_val = frac * 0.96 + 0.02
-		r_scale = math.sqrt(math.max(0.001, 1 - y_val * y_val))
-	else
-		y_val = 1 - 2 * frac
-		r_scale = math.sqrt(math.max(0.001, 1 - y_val * y_val))
+	if #meta.beams ~= beam_count then
+		meta.beams = {}
+		for b = 1, beam_count do
+			local phi = (b / beam_count) * math.pi * 2
+			local y_start = cut_in_half and (0.2 + (b / beam_count) * 0.7) or (1 - 2 * (b / beam_count))
+			local r_start = math.sqrt(math.max(0.1, 1 - y_start * y_start))
+			
+			local init_pos = cen + Vector3.new(r_start * math.cos(phi) * (radius * 0.5), y_start * (radius * 0.5), r_start * math.sin(phi) * (radius * 0.5))
+			local init_dir = Vector3.new(math.cos(phi * 3), cut_in_half and math.abs(math.sin(phi * 2)) or math.sin(phi * 2), math.sin(phi * 3)).Unit
+			
+			meta.beams[b] = {
+				pos = init_pos,
+				dir = init_dir,
+				history = { init_pos, init_pos - init_dir * 10, init_pos - init_dir * 20 }
+			}
+		end
 	end
 
-	local golden_angle = 2.399963229728653
-	local base_angle = (slot_idx * golden_angle) + (t * (speed * 0.002))
+	if not meta.updated_frame or meta.updated_frame ~= x6.f then
+		meta.updated_frame = x6.f
+		for b = 1, beam_count do
+			local beam = meta.beams[b]
+			if beam then
+				local step_dist = speed * delta_t
+				beam.pos = beam.pos + (beam.dir * step_dist)
 
-	local dir = Vector3.new(
-		r_scale * math.cos(base_angle),
-		y_val,
-		r_scale * math.sin(base_angle)
-	).Unit
+				local rel = beam.pos - cen
+				local cur_dist = rel.Magnitude
+				local bounced = false
 
-	local wave = math.sin(t * (speed * 0.01) + (slot_idx * 0.5))
-	local rad_dist = radius * (0.3 + 0.7 * math.abs(wave))
+				if cur_dist >= radius then
+					local norm = rel.Unit
+					beam.dir = (beam.dir - norm * (2 * beam.dir:Dot(norm))).Unit
+					beam.pos = cen + norm * (radius - 2)
+					bounced = true
+				end
 
-	local beam_group = math.floor(slot_idx / math.max(1, spacing))
-	local group_offset = math.sin((t * 3) + beam_group) * (spacing * 1.5)
+				if cut_in_half and beam.pos.Y < cen.Y then
+					beam.dir = Vector3.new(beam.dir.X, math.abs(beam.dir.Y) + 0.1, beam.dir.Z).Unit
+					beam.pos = Vector3.new(beam.pos.X, cen.Y + 2, beam.pos.Z)
+					bounced = true
+				end
 
-	local target_pos = cen + (dir * rad_dist) + Vector3.new(0, group_offset * 0.2, 0)
+				if bounced or (beam.history[1] and (beam.pos - beam.history[1]).Magnitude > 12) then
+					table.insert(beam.history, 1, beam.pos)
+					if #beam.history > 24 then
+						table.remove(beam.history)
+					end
+				end
+			end
+		end
+	end
+
+	local item_idx = d.id or 1
+	local slot_idx = (item_idx - 1) % total_cnt
+	local beam_idx = (slot_idx % beam_count) + 1
+	local trail_idx = math.floor(slot_idx / beam_count) + 1
+
+	local beam = meta.beams[beam_idx] or meta.beams[1]
+	local target_pos
+
+	if beam then
+		local history = beam.history
+		local hist_len = #history
+		if trail_idx <= hist_len then
+			target_pos = history[trail_idx]
+		else
+			local last_pt = history[hist_len] or beam.pos
+			target_pos = last_pt - (beam.dir * ((trail_idx - hist_len) * spacing * 3))
+		end
+	else
+		target_pos = cen
+	end
 
 	if cut_in_half and target_pos.Y < cen.Y then
 		target_pos = Vector3.new(target_pos.X, cen.Y + math.abs(target_pos.Y - cen.Y), target_pos.Z)
