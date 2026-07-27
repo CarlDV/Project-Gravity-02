@@ -2,34 +2,28 @@ local M = {}
 
 function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local wp = p.Position
-	local radius = c.k12 or 80
-
-	local distance = (wp - cen).Magnitude
-	local mode = distance > radius and "outer" or "inner"
-	if d.cursed_hover_mode ~= mode then
-		d.cursed_hover_mode = mode
-		d.hover_anchor = mode == "outer" and (wp + Vector3.new(0, 20, 0)) or wp
-		d.v6 = math.random() * math.pi * 2
+	local blast_radius = c.k12 or 100
+	local radial = wp - cen
+	local distance = radial.Magnitude
+	if distance >= blast_radius then
+		return Vector3.zero, wp
 	end
-	if not d.hover_anchor then
-		d.hover_anchor = mode == "outer" and (wp + Vector3.new(0, 20, 0)) or wp
-	end
-	if not d.v6 then
-		d.v6 = math.random() * math.pi * 2
+	if distance < 0.001 then
+		if not d.red_direction then
+			d.red_direction = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5).Unit
+		end
+	else
+		d.red_direction = radial.Unit
 	end
 
-	local phase = t * 1.5 + d.v6
-	local hover = Vector3.new(
-		math.sin(phase * 0.7) * 0.6,
-		math.sin(phase) * 1.5,
-		math.cos(phase * 0.8) * 0.6
-	)
-	local target_pos = d.hover_anchor + hover
-	return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
+	local edge_pos = cen + d.red_direction * blast_radius
+	local edge_delta = edge_pos - wp
+	local intensity = 1 + ((blast_radius - distance) / blast_radius) * 4
+	return edge_delta * (x1.k10 * x9.c1 * intensity), edge_pos
 end
 
 M.Controls = {
-	{ Type = "Slider", Name = "Trigger Radius", Min = 10, Max = 1000, Key = "k12" }
+	{ Type = "Slider", Name = "Blast Radius", Min = 10, Max = 1000, Key = "k12" }
 }
 
 return M
