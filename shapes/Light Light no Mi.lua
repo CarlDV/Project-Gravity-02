@@ -27,7 +27,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		return Vector3.zero, cen
 	end
 
-	local beam_count = math.clamp(math.floor(total_cnt / math.max(1, spacing * 2)), 3, 16)
+	local beam_count = math.clamp(math.floor(c.k14 or 2), 1, 20)
 
 	if #meta.beams ~= beam_count then
 		meta.beams = {}
@@ -72,6 +72,13 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 					bounced = true
 				end
 
+				local ceiling_y = cen.Y + radius
+				if beam.pos.Y > ceiling_y then
+					beam.dir = Vector3.new(beam.dir.X, -math.abs(beam.dir.Y) - 0.1, beam.dir.Z).Unit
+					beam.pos = Vector3.new(beam.pos.X, ceiling_y - 2, beam.pos.Z)
+					bounced = true
+				end
+
 				if bounced or (beam.history[1] and (beam.pos - beam.history[1]).Magnitude > 12) then
 					table.insert(beam.history, 1, beam.pos)
 					if #beam.history > 24 then
@@ -107,12 +114,18 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		target_pos = Vector3.new(target_pos.X, cen.Y + math.abs(target_pos.Y - cen.Y), target_pos.Z)
 	end
 
+	local ceiling_y = cen.Y + radius
+	if target_pos.Y > ceiling_y then
+		target_pos = Vector3.new(target_pos.X, ceiling_y - math.abs(target_pos.Y - ceiling_y), target_pos.Z)
+	end
+
 	return (target_pos - p.Position) * (x1.k10 * x9.c1), target_pos
 end
 
 M.Controls = {
 	{ Type = "Slider", Name = "Containment Radius", Min = 25, Max = 800, Key = "k11", Default = 300 },
 	{ Type = "Slider", Name = "Light Speed", Min = 50, Max = 1000, Key = "k12", ExactMax = true },
+	{ Type = "Slider", Name = "Beam Count", Min = 1, Max = 20, Key = "k14", Default = 2, IntOnly = true },
 	{ Type = "Slider", Name = "Beam Spacing", Min = 1, Max = 20, Key = "k13" },
 	{ Type = "Toggle", Name = "Cut in Half", Key = "k18", Default = true }
 }
