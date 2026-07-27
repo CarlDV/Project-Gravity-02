@@ -340,16 +340,6 @@ return function(context)
 			save_settings()
 		end, "Automatically ignores targets that fall into the void to prevent your parts from being destroyed.")
 
-		et(ac, "Preserve Collisions", x1.PreserveCollisions, function(v)
-			x1.PreserveCollisions = v
-			for part, data in pairs(x6.a) do
-				if part and part.Parent then
-					part.CanCollide = v and data.original_can_collide or false
-				end
-			end
-			save_settings()
-		end, "Keeps each claimed part's original CanCollide state instead of forcing collisions off.")
-		
 		if setfpscap then
 			es(ac, "FPS Cap (0=Unc)", 0, 144, x1.FPSCap or 60, function(v)
 				x1.FPSCap = v
@@ -607,12 +597,22 @@ return function(context)
 				if #x1.Targets == 1 then
 					tn = "Target: " .. (x1.Targets[1].DisplayName or x1.Targets[1].Name)
 				else
-					tn = "Multi-Target (" .. tostring(#x1.Targets) .. ")"
-				end
-			end
+				et(gsc, "Preserve Collisions", x1.PreserveCollisions, function(v)
+					x1.PreserveCollisions = v
+					for part, data in pairs(x6.a) do
+						if part and part.Parent then
+							part.CanCollide = v and data.original_can_collide or false
+						end
+					end
+					save_settings()
+				end)
 
-			local tdb = Instance.new("TextButton", gsc)
-			tdb.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+				local mob_ai_btn = eb(gsc, "PROJECT GRAVITY AI", function()
+					if ai_chat_module and ai_chat_module.toggle then
+						ai_chat_module.toggle(sg)
+					end
+				end)
+				mob_ai_btn.Size = UDim2.new(1, 0, 0, 22)
 			tdb.Size = UDim2.new(1, 0, 0, 22)
 			tdb.Text = "  " .. tn:upper()
 			tdb.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -670,7 +670,7 @@ return function(context)
 								end
 							end
 							local max_val = ctrl.Max
-							if string.find(ctrl.Name:lower(), "speed") then
+							if string.find(ctrl.Name:lower(), "speed") and not ctrl.ExactMax then
 								max_val = max_val + 300
 							end
 							if ctrl.Div then current_val = current_val * ctrl.Div end

@@ -91,7 +91,7 @@ return function(context)
 		return pos + (vel * (factor / 1000))
 	end
 
-	local no_damp = { ["Slingshot"] = true, ["Point Impact"] = true, ["Deflect"] = true, ["Modified Pika Pika no Mi"] = true }
+	local no_damp = { ["Slingshot"] = true, ["Point Impact"] = true, ["Deflect"] = true, ["Light Light no Mi"] = true }
 
 	local function f3(real_dt)
 		real_dt = real_dt or (1/60)
@@ -134,14 +134,17 @@ return function(context)
 					d.hover_anchor = nil
 					d.cursed_hover_mode = nil
 					d.room_target = nil
+					d.room_orbit_phase = nil
 					d.pika_direction = nil
 					d.pika_redirect_at = nil
+					d.light_direction = nil
+					d.light_redirect_at = nil
 					d.integral = Vector3.zero
 				end
 			end
 			local dt = x6.n > 5000 and 10 or (x6.n > 2500 and 6 or (x6.n > 1000 and 3 or 1))
 			local et, ft = x1.k7 or dt, time()
-			if x1.k6 == "Modified Pika Pika no Mi" then
+			if x1.k6 == "Light Light no Mi" then
 				et = 1
 			end
 			local force_smooth = x1["Force Smooth (Lags)"]
@@ -293,7 +296,7 @@ return function(context)
 			local workspace_gravity = workspace.Gravity or 196.2
 			local shape_f2 = cur_shape_mod and cur_shape_mod.f2
 			local is_drop_shape = cur_shape_mod and cur_shape_mod.Drop
-			local is_self_bounded_shape = shape_name == "ROOM Ope Ope no Mi" or shape_name == "Modified Pika Pika no Mi"
+			local is_self_bounded_shape = shape_name == "ROOM Ope Ope no Mi" or shape_name == "Light Light no Mi"
 			local aggressive_root = nil
 			if x1.AggressiveClaim and v8.Character then
 				aggressive_root = v8.Character:FindFirstChild("HumanoidRootPart") or v8.Character:FindFirstChildWhichIsA("BasePart")
@@ -411,7 +414,7 @@ return function(context)
 						local impact_delta = active_c - p.Position
 						d.vl = impact_delta.Magnitude > 0 and (impact_delta.Unit * 10000) or ZERO_VECTOR
 					else
-						local limit = shape_name == "Modified Pika Pika no Mi" and 15000 or ((max_speed and not cur_no_damp) and max_speed or 3300)
+						local limit = shape_name == "Light Light no Mi" and 1000 or ((max_speed and not cur_no_damp) and max_speed or 3300)
 						if pure_target_pos then limit = math.max(limit, 15300) end
 						if liftoff_limit then limit = math.min(limit, liftoff_limit) end
 						local velocity_mag = d.vl.Magnitude
