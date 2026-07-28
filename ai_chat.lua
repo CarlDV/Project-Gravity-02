@@ -11,12 +11,7 @@ return function(context)
 	local REF_LINK = "https://agentrouter.org/register?aff=4pqF"
 	local DEFAULT_ENDPOINT = "https://ai.davidcsl.me"
 	local AVAILABLE_MODELS = {
-		-- "glm-5.2",
-		-- "claude-opus-4-8",
-		-- "gpt-5.5",
-		-- "claude-opus-4-7",
-		-- "claude-opus-4-6"
-		"gpt-5.6-sol"
+		"claude-opus-5"
 	}
 
 	local sessionState = {
@@ -24,7 +19,7 @@ return function(context)
 		token = "",
 		apiKey = "",
 		endpoint = DEFAULT_ENDPOINT,
-		model = "gpt-5.6-sol",
+		model = "claude-opus-5",
 		history = {},
 		systemPrompt = [[You are an integrated AI assistant with extreme full control over Project Gravity physics engine, shape modules, player targeting, and Luau execution.
 
