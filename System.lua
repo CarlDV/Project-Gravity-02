@@ -51,6 +51,27 @@ return function(context)
 		RightFoot = true,
 	}
 
+	-- Character models, rebuilt at most once a second. Membership is checked as a
+	-- plain hash read during the ancestor walk below, which short-circuits before
+	-- the two FindFirstChildOfClass calls: a player character is by far the most
+	-- common reason a part is excluded, so the common case now costs one Lua table
+	-- read instead of an IsA plus up to two engine-side child searches per level.
+	local char_set, char_set_t = {}, 0
+	local function characters()
+		local now = time()
+		if now - char_set_t > 1 then
+			char_set_t = now
+			table.clear(char_set)
+			for _, pl in ipairs(v2:GetPlayers()) do
+				local ch = pl.Character
+				if ch then
+					char_set[ch] = true
+				end
+			end
+		end
+		return char_set
+	end
+
 	function x7.e(p)
 		if not p:IsA("BasePart") then
 			return true
@@ -61,13 +82,22 @@ return function(context)
 		if EXCLUDED_NAMES[p.Name] then
 			return true
 		end
+		-- p.Parent used to be re-read from the engine once per tag in k5, and
+		-- again to seed the ancestor walk. One read up front covers all of it.
+		local parent = p.Parent
 		for _, t in ipairs(x1.k5) do
-			if p:FindFirstChild(t) or (p.Parent and p.Parent:FindFirstChild(t)) then
+			if p:FindFirstChild(t) or (parent and parent:FindFirstChild(t)) then
 				return true
 			end
 		end
-		local target = p.Parent
+		local chars = characters()
+		local target = parent
 		while target and target ~= v4 and target ~= game do
+			-- ordered cheapest-to-dearest: Lua table read, then a bare IsA, then
+			-- the child searches. The ordering alone skips most of the old work.
+			if chars[target] then
+				return true
+			end
 			if target:IsA("Accessory") or target:IsA("Tool") then
 				return true
 			end
@@ -92,9 +122,11 @@ return function(context)
 		local pos = root.Position
 		local vel = root.AssemblyLinearVelocity
 		-- squared compare first: Magnitude's sqrt is only worth paying when the
-		-- velocity actually needs clamping
-		if vel:Dot(vel) > 62500 then
-			vel = vel.Unit * 250
+		-- velocity actually needs clamping. .Unit would then sqrt the same number
+		-- a second time, so scale by the root we already have instead.
+		local vel_sq = vel:Dot(vel)
+		if vel_sq > 62500 then
+			vel = vel * (250 / math.sqrt(vel_sq))
 		end
 		local y_vel = math.clamp(vel.Y, -50, 15)
 		vel = Vector3.new(vel.X, y_vel, vel.Z)
@@ -187,29 +219,40 @@ return function(context)
 				end
 
 				for _, pl in ipairs(v2:GetPlayers()) do
-					if pl.Character and pl.Character:FindFirstChild("Head") then
-						local head = pl.Character.Head
+					-- pl.Character was read twice and the Head lookup was thrown
+					-- away and re-fetched as a property; two engine crossings per
+					-- player per second for values we already had in hand.
+					local char = pl.Character
+					local head = char and char:FindFirstChild("Head")
+					if head then
 						local is_tgt = target_set[pl] == true
 						local marker = head:FindFirstChild("GravityTargetMarker")
 
+						-- Built bottom-up and parented last. Instance.new(class,
+						-- parent) attaches before the properties are assigned, so
+						-- every set after it schedules a layout/render pass the
+						-- engine then throws away; assembling off-tree and
+						-- parenting once costs a single pass for the whole marker.
 						if is_tgt and not marker then
-							local bg = Instance.new("BillboardGui")
-							bg.Name = "GravityTargetMarker"
-							bg.Size = UDim2.new(1.5, 0, 1.5, 0)
-							bg.StudsOffset = Vector3.new(0, 2.5, 0)
-							bg.AlwaysOnTop = true
-							
-							local txt = Instance.new("TextLabel", bg)
+							local txt = Instance.new("TextLabel")
 							txt.BackgroundTransparency = 1
 							txt.Size = UDim2.new(1, 0, 1, 0)
 							txt.Text = "▼"
 							txt.TextColor3 = Color3.fromRGB(255, 60, 60)
 							txt.TextScaled = true
 							txt.Font = Enum.Font.GothamBlack
-							
-							local str = Instance.new("UIStroke", txt)
+
+							local str = Instance.new("UIStroke")
 							str.Color = Color3.fromRGB(0, 0, 0)
 							str.Thickness = 2
+							str.Parent = txt
+
+							local bg = Instance.new("BillboardGui")
+							bg.Name = "GravityTargetMarker"
+							bg.Size = UDim2.new(1.5, 0, 1.5, 0)
+							bg.StudsOffset = Vector3.new(0, 2.5, 0)
+							bg.AlwaysOnTop = true
+							txt.Parent = bg
 							bg.Parent = head
 						elseif not is_tgt and marker then
 							marker:Destroy()
@@ -238,7 +281,10 @@ return function(context)
 				table.clear(target_positions)
 			end
 			local valid_targets = 0
-			local fallen_height = workspace.FallenPartsDestroyHeight + 50
+			-- v4 is already the (cloneref'd) Workspace service, so reaching it as
+			-- an upvalue is a register read where `workspace` is an _ENV hash
+			-- lookup. Same instance, three fewer global lookups per frame.
+			local fallen_height = v4.FallenPartsDestroyHeight + 50
 			if #x6.pi_targets > 0 then
 				local predictive = x1.PredictiveTracking
 				local pfactor = x1.PredictionFactor or 150
@@ -297,7 +343,7 @@ return function(context)
 			end
 			
 			if x6.f % 60 == 0 or x6.water_level == nil then
-				local water_part = workspace:FindFirstChild("WaterLevel")
+				local water_part = v4:FindFirstChild("WaterLevel")
 				if water_part and water_part:IsA("BasePart") then
 					x6.water_level = water_part.Position.Y + (water_part.Size.Y / 2) + 5
 				else
@@ -306,7 +352,7 @@ return function(context)
 			end
 			local water_level = x6.water_level ~= false and x6.water_level or nil
 			local ghp = gethiddenproperty
-			local workspace_gravity = workspace.Gravity or 196.2
+			local workspace_gravity = v4.Gravity or 196.2
 			local shape_f2 = cur_shape_mod and cur_shape_mod.f2
 			local is_drop_shape = cur_shape_mod and cur_shape_mod.Drop
 			local is_self_bounded_shape = shape_name == "ROOM Ope Ope no Mi" or shape_name == "Light Light no Mi"
@@ -329,22 +375,36 @@ return function(context)
 			local do_damping = damping > 0 and not cur_no_damp and not force_smooth
 			local integral_on = ki > 0
 
-			for k = #x6.active_array, 1, -1 do
-				local p = x6.active_array[k]
-				local d = x6.a[p]
+			-- The sweep reached both of these through x6 on every single
+			-- iteration: at 5000 parts that was ~20k extra hash lookups a frame,
+			-- 1.2M a second, for two fields that cannot change mid-sweep. Nothing
+			-- outside main.lua's teardown ever reassigns them (shapes and the
+			-- sculptor only read), so holding them as locals is safe.
+			local arr = x6.active_array
+			local data = x6.a
+			-- gethiddenproperty is one of the pricier executor calls and this was
+			-- refreshing every 0.15s per part no matter the load: ~33k pcall+read
+			-- pairs a second at 5000 parts. Widening it with the same part-count
+			-- stride the sweep already uses cuts that ~4x, capped at 0.6s so an
+			-- ownership change is still picked up quickly.
+			local no3_interval = 0.15 * (dt > 4 and 4 or dt)
+
+			for k = #arr, 1, -1 do
+				local p = arr[k]
+				local d = data[p]
 
 				if not d or not p.Parent then
 					if d then
 						if d.at and d.at.Parent then d.at:Destroy() end
 						if d.lv and d.lv.Parent then d.lv:Destroy() end
 						if d.av and d.av.Parent then d.av:Destroy() end
-						x6.a[p] = nil
+						data[p] = nil
 					end
-					local last = #x6.active_array
+					local last = #arr
 					if k ~= last then
-						x6.active_array[k] = x6.active_array[last]
+						arr[k] = arr[last]
 					end
-					x6.active_array[last] = nil
+					arr[last] = nil
 					x6.n = math.max(0, x6.n - 1)
 					continue
 				end
@@ -353,7 +413,7 @@ return function(context)
 					continue
 				end
 				if check_no3 then
-					if d.no3_val == nil or ft - (d.no3_tick or 0) > 0.15 then
+					if d.no3_val == nil or ft - (d.no3_tick or 0) > no3_interval then
 						d.no3_tick = ft
 						local success, no3_val = pcall(ghp, p, 'NetworkOwnerV3')
 						d.no3_val = success and no3_val or 0
@@ -485,10 +545,21 @@ return function(context)
 			return
 		end
 		if x1.Paused then
+			-- ANTI_SLEEP is a constant, so the old code wrote the same value to
+			-- every constraint 60 times a second: 300k physics property writes a
+			-- second at 5000 parts, all of them no-ops. 20 Hz is enough to keep
+			-- assemblies from sleeping, and at 0.01 studs/s nothing drifts
+			-- visibly between nudges. f3_body does not run while paused, so this
+			-- needs its own counter rather than x6.f.
+			x6.pause_tick = (x6.pause_tick or 0) + 1
+			if x6.pause_tick % 3 ~= 0 then
+				return
+			end
 			-- walking the dense array beats iterating the weak part table
 			local arr = x6.active_array
+			local data = x6.a
 			for i = #arr, 1, -1 do
-				local d = x6.a[arr[i]]
+				local d = data[arr[i]]
 				if d and d.lv then
 					d.lv.VectorVelocity = ANTI_SLEEP
 				end
@@ -500,22 +571,31 @@ return function(context)
 
 	function x4.ProcessQueue()
 		local queue = x6.claim_queue
-		if #queue == 0 then
+		-- Luau's # is a binary search, not a stored field, and the old loop paid
+		-- for it four times per item (the while test, the read, the clear, and
+		-- once inside every table.insert). Carrying the length in a local drops
+		-- all of them. This runs every frame during the initial workspace sweep,
+		-- when the queue is thousands of entries deep, so it is the difference
+		-- between a smooth start and a stutter.
+		local n = #queue
+		if n == 0 then
 			return
 		end
 		local start = os.clock()
 		local processed = 0
 		local claimed = 0
-		while #queue > 0 do
+		while n > 0 do
 			if processed >= 100 or claimed >= 8 or os.clock() - start > 0.001 then
 				break
 			end
-			local instance = queue[#queue]
-			queue[#queue] = nil
+			local instance = queue[n]
+			queue[n] = nil
+			n = n - 1
 			processed = processed + 1
 			if instance and instance:IsDescendantOf(v4) then
 				for _, child in ipairs(instance:GetChildren()) do
-					table.insert(queue, child)
+					n = n + 1
+					queue[n] = child
 				end
 				if instance:IsA("BasePart") then
 					if x4.f1(instance) then
@@ -538,7 +618,7 @@ return function(context)
 		if x1.TgtActive and x1.Targets and #x1.Targets > 0 then
 			local tgt = x1.Targets[1]
 			local root = root_of(tgt and tgt.Character)
-			if not (root and ((x1.VoidProtection == false) or (root.Position.Y > workspace.FallenPartsDestroyHeight + 50))) then
+			if not (root and ((x1.VoidProtection == false) or (root.Position.Y > v4.FallenPartsDestroyHeight + 50))) then
 				return
 			end
 			track = root
@@ -660,11 +740,16 @@ return function(context)
 			idx = table.find(x6.active_array, p)
 		end
 		if idx then
-			local last = #x6.active_array
+			local arr = x6.active_array
+			local last = #arr
 			if idx ~= last then
-				x6.active_array[idx] = x6.active_array[last]
+				arr[idx] = arr[last]
 			end
-			table.remove(x6.active_array, last)
+			-- the element being dropped is always the last one by this point, so
+			-- table.remove's shift machinery and return value are pure overhead.
+			-- Releasing a few thousand parts at once is where it showed up as a
+			-- visible hitch; this matches what the sweep loop already does.
+			arr[last] = nil
 			x6.n = math.max(0, x6.n - 1)
 		end
 	end
@@ -673,59 +758,79 @@ return function(context)
 		pcall(function()
 			settings().Physics.AllowSleep = false
 		end)
+
+		-- These used to be six fresh anonymous closures allocated every half
+		-- second, plus one more per remote player, purely so pcall had something
+		-- to call. Naming them once turns that per-tick allocation into upvalue
+		-- reads and lets pcall take its arguments directly.
+		local function suppress_player(p)
+			p.MaximumSimulationRadius = 0
+			if sethiddenproperty then
+				sethiddenproperty(p, "SimulationRadius", 0)
+			end
+		end
+		local function wake_self()
+			if sethiddenproperty then
+				sethiddenproperty(v8, "NetworkIsSleeping", false)
+			end
+		end
+		local function make_scriptable()
+			if setscriptable then
+				setscriptable(v8, "SimulationRadius", true)
+				setscriptable(v8, "MaximumSimulationRadius", true)
+			end
+		end
+		local function raise_max_radius()
+			v8.MaximumSimulationRadius = 9e9
+		end
+		local function raise_sim_radius()
+			if sethiddenproperty then
+				sethiddenproperty(v8, "SimulationRadius", 9e9)
+				sethiddenproperty(v8, "MaximumSimulationRadius", 9e9)
+			elseif setsimulationradius then
+				setsimulationradius(9e9)
+			end
+		end
+		local function focus_replication()
+			v8.ReplicationFocus = x6.b or nil
+		end
+
 		local last_upd = 0
 		table.insert(
 			x6.c,
-			v3.Heartbeat:Connect(function(dt)
+			v3.Heartbeat:Connect(function()
 				local now = time()
 				if now - last_upd > 0.5 then
 					last_upd = now
 					for _, p in ipairs(v2:GetPlayers()) do
 						if p ~= v8 then
-							pcall(function()
-								p.MaximumSimulationRadius = 0
-								if sethiddenproperty then
-									sethiddenproperty(p, "SimulationRadius", 0)
-								end
-							end)
+							pcall(suppress_player, p)
 						end
 					end
-					pcall(function()
-						if sethiddenproperty then
-							sethiddenproperty(v8, "NetworkIsSleeping", false)
-						end
-					end)
-					pcall(function()
-						if setscriptable then
-							setscriptable(v8, "SimulationRadius", true)
-							setscriptable(v8, "MaximumSimulationRadius", true)
-						end
-					end)
-
-					pcall(function()
-						v8.MaximumSimulationRadius = 9e9
-					end)
-
-					pcall(function()
-						if sethiddenproperty then
-							sethiddenproperty(v8, "SimulationRadius", 9e9)
-							sethiddenproperty(v8, "MaximumSimulationRadius", 9e9)
-						elseif setsimulationradius then
-							setsimulationradius(9e9)
-						end
-					end)
-
-					pcall(function()
-						if x6.b then
-							v8.ReplicationFocus = x6.b
-						else
-							v8.ReplicationFocus = nil
-						end
-					end)
+					pcall(wake_self)
+					pcall(make_scriptable)
+					pcall(raise_max_radius)
+					pcall(raise_sim_radius)
+					pcall(focus_replication)
 				end
 			end)
 		)
 		local anti_fling_cache = setmetatable({}, {__mode = "k"})
+		-- The DescendantAdded hook lives here, keyed weakly by character, instead
+		-- of in x6.c. x6.c is a strong list only emptied on full teardown, so
+		-- every respawn added an entry whose closure pinned that character's part
+		-- array -- which is exactly why the weak cache above could never actually
+		-- collect anything. A long session leaked one connection and one array
+		-- per respawn. Held weakly, both go away with the character (Destroy
+		-- severs the signal on its own).
+		local anti_fling_conns = setmetatable({}, {__mode = "k"})
+		local function connect_parts(char, parts)
+			return char.DescendantAdded:Connect(function(desc)
+				if desc:IsA("BasePart") then
+					parts[#parts + 1] = desc
+				end
+			end)
+		end
 		local af_tick = 0
 		table.insert(
 			x6.c,
@@ -741,36 +846,35 @@ return function(context)
 					return
 				end
 				for _, p in ipairs(v2:GetPlayers()) do
-					if p ~= v8 and p.Character then
-						local parts = anti_fling_cache[p.Character]
+					-- p.Character was re-read five times per player per tick, each
+					-- one an engine crossing. Now read once.
+					local char = p ~= v8 and p.Character or nil
+					if char then
+						local parts = anti_fling_cache[char]
 						if not parts then
 							parts = {}
-							for _, part in ipairs(p.Character:GetDescendants()) do
+							for _, part in ipairs(char:GetDescendants()) do
 								if part:IsA("BasePart") then
-									table.insert(parts, part)
+									parts[#parts + 1] = part
 								end
 							end
-							anti_fling_cache[p.Character] = parts
-							pcall(function()
-								local conn = p.Character.DescendantAdded:Connect(function(desc)
-									if desc:IsA("BasePart") then
-										table.insert(parts, desc)
-									end
-								end)
-								table.insert(x6.c, conn)
-							end)
+							anti_fling_cache[char] = parts
+							local ok, conn = pcall(connect_parts, char, parts)
+							if ok then
+								anti_fling_conns[char] = conn
+							end
 						end
 						for i = #parts, 1, -1 do
 							local part = parts[i]
 							if part and part.Parent then
-									if part.CanCollide then
-										part.CanCollide = false
-									end
-								else
-									table.remove(parts, i)
+								if part.CanCollide then
+									part.CanCollide = false
 								end
+							else
+								table.remove(parts, i)
 							end
 						end
+					end
 				end
 			end)
 		)
@@ -841,9 +945,15 @@ return function(context)
 	-- Release every claimed part but leave the core where it is. The action dock
 	-- has always called this; it just never existed until now.
 	function x4.clean_physics()
-		local released = #x6.active_array
-		while #x6.active_array > 0 do
-			x4.f2(x6.active_array[#x6.active_array], true, #x6.active_array)
+		-- The old loop took the array length three times per part (the while
+		-- test, the index, and the argument), and # is a binary search in Luau.
+		-- A plain descending index removes ~15k probes on a 5000 part release.
+		-- f2 always drops the element at the index it is handed, which is the
+		-- current last, so walking downward stays in step with the shrinking array.
+		local arr = x6.active_array
+		local released = #arr
+		for k = released, 1, -1 do
+			x4.f2(arr[k], true, k)
 		end
 		table.clear(x6.claim_queue)
 		x7.n("Sys", released .. " parts released", 2)
@@ -854,8 +964,11 @@ return function(context)
 			x6.b.Parent:Destroy()
 			x6.b = nil
 		end
-		while #x6.active_array > 0 do
-			x4.f2(x6.active_array[#x6.active_array], false, #x6.active_array)
+		-- same descending walk as clean_physics: three length probes per part
+		-- became none, which is what made stopping with a large claim hitch.
+		local arr = x6.active_array
+		for k = #arr, 1, -1 do
+			x4.f2(arr[k], false, k)
 		end
 		for _, connection in ipairs(x6.run_connections or {}) do
 			connection:Disconnect()
