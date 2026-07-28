@@ -11,7 +11,8 @@ return function(context)
 	local REF_LINK = "https://agentrouter.org/register?aff=4pqF"
 	local DEFAULT_ENDPOINT = "https://ai.davidcsl.me"
 	local AVAILABLE_MODELS = {
-		"claude-opus-5"
+		"claude-opus-5",
+		"claude-fable-5"
 	}
 
 	local sessionState = {
