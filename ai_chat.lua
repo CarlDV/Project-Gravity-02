@@ -12,7 +12,7 @@ return function(context)
 	local DEFAULT_ENDPOINT = "https://ai.davidcsl.me"
 	local AVAILABLE_MODELS = {
 		"claude-opus-5",
-		"claude-fable-5"
+		"gpt-5.6-sol"
 	}
 
 	local sessionState = {
@@ -211,7 +211,7 @@ Core Rules:
 			sessionState.mode = decoded.mode or "free"
 			sessionState.token = decoded.token or ""
 			sessionState.apiKey = decoded.apiKey or ""
-			sessionState.model = decoded.model or "glm-5.2"
+			sessionState.model = (decoded.model and table.find(AVAILABLE_MODELS, decoded.model)) and decoded.model or AVAILABLE_MODELS[1]
 			return (sessionState.mode == "free" and #sessionState.token > 0) or (sessionState.mode == "key" and #sessionState.apiKey > 0)
 		end
 		return false
