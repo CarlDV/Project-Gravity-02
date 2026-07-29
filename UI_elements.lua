@@ -267,6 +267,74 @@ return function(context)
 		return b
 	end
 
+	function M.tb(p, t, df, cb, desc, max_chars)
+		local f = Instance.new("Frame", p)
+		f.BackgroundTransparency = 1
+		f.Size = UDim2.new(1, 0, 0, 52)
+		f.AutomaticSize = Enum.AutomaticSize.Y
+
+		local l = Instance.new("TextLabel", f)
+		l.BackgroundTransparency = 1
+		l.Size = UDim2.new(1, 0, 0, 20)
+		l.Text = t
+		l.TextColor3 = Color3.fromRGB(180, 180, 180)
+		l.TextXAlignment = 0
+		l.Font = Enum.Font.Gotham
+		l.TextSize = 12
+
+		local box = Instance.new("TextBox", f)
+		box.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+		box.Position = UDim2.new(0, 0, 0, 22)
+		box.Size = UDim2.new(1, 0, 0, 26)
+		box.Text = tostring(df or "")
+		box.PlaceholderText = "type a message"
+		box.PlaceholderColor3 = Color3.fromRGB(110, 110, 120)
+		box.TextColor3 = Color3.fromRGB(255, 255, 255)
+		box.Font = Enum.Font.GothamMedium
+		box.TextSize = 12
+		box.ClearTextOnFocus = false
+		box.ClipsDescendants = true
+		Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
+
+		local str = Instance.new("UIStroke", box)
+		str.Color = Color3.fromRGB(50, 50, 55)
+		str.Thickness = 1
+
+		if desc then
+			local dl = Instance.new("TextLabel", f)
+			dl.BackgroundTransparency = 1
+			dl.Position = UDim2.new(0, 0, 0, 50)
+			dl.Size = UDim2.new(1, 0, 0, 0)
+			dl.AutomaticSize = Enum.AutomaticSize.Y
+			dl.Text = desc
+			dl.TextColor3 = Color3.fromRGB(120, 120, 130)
+			dl.TextXAlignment = 0
+			dl.TextYAlignment = 0
+			dl.Font = Enum.Font.Gotham
+			dl.TextSize = 10
+			dl.TextWrapped = true
+		end
+
+		box.Focused:Connect(function()
+			v6:Create(str, TweenInfo.new(0.2), { Color = Color3.fromRGB(0, 255, 200) }):Play()
+		end)
+
+		box.FocusLost:Connect(function()
+			v6:Create(str, TweenInfo.new(0.2), { Color = Color3.fromRGB(50, 50, 55) }):Play()
+			local v = box.Text:gsub("[\r\n]", " ")
+			if max_chars and #v > max_chars then
+				v = v:sub(1, max_chars)
+			end
+			box.Text = v
+			cb(v)
+			if save_settings then
+				save_settings()
+			end
+		end)
+
+		return box
+	end
+
 	function M.h(p, t)
 		local l = Instance.new("TextLabel", p)
 		l.BackgroundTransparency = 1

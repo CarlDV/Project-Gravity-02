@@ -119,6 +119,7 @@ return function(context)
 	local UI_elements = load_module("UI_elements.lua")(context)
 	local ai_chat_module = load_module("ai_chat.lua")(context)
 	local es, et, eb, eh = UI_elements.s, UI_elements.t, UI_elements.b, UI_elements.h
+	local etb = UI_elements.tb
 
 	local x5 = {}
 	x5.g = nil
@@ -796,6 +797,14 @@ return function(context)
 							et(p_frame, ctrl.Name, current_val, function(v)
 								s[ctrl.Key] = v
 							end)
+						elseif ctrl.Type == "TextBox" and etb then
+							if type(current_val) ~= "string" then
+								current_val = type(ctrl.Default) == "string" and ctrl.Default or ""
+							end
+							s[ctrl.Key] = current_val
+							etb(p_frame, ctrl.Name, current_val, function(v)
+								s[ctrl.Key] = v
+							end, ctrl.Desc, ctrl.MaxChars)
 						end
 					end
 				end

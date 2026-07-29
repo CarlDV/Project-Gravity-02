@@ -83,5 +83,8 @@ return {
 		["Leviathan Coil"] = { k11 = 50, k12 = 15, k13 = 8, k14 = 250, k15 = 0, k16 = 0, k17 = 0, k23 = false },
 		["Spinning Cube"] = { k11 = 40, k12 = 200, k13 = false, k14 = false, k15 = true },
 		["Twin Core Beam"] = { k11 = 80, k12 = 15, k13 = 150, k14 = 900, k15 = 4, k18 = false },
+		-- k18 must stay a string: load_settings only restores a saved value when the
+		-- default has the same type, so a number here would silently drop the message.
+		["Hover Text"] = { k18 = "HELLO", k11 = 6, k12 = 30, k13 = 15, k14 = 0.8, k15 = 2, k16 = 0, k19 = true },
 	},
 }
