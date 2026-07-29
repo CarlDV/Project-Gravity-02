@@ -133,7 +133,7 @@ end
 -- frames. A rigid banner cannot tolerate that: if each part read the hover
 -- offset at its own frame the text would shear, half the letters at the top of
 -- the bob and half at the bottom. So the basis and the hover offset are stamped
--- once per cycle and every part in that cycle reads the identical values. The
+-- once per cycle and every part in that cycle reads the identical values/. The
 -- target then steps at ~15 Hz, which the feed-forward velocity term at
 -- System.lua:472-481 smooths back out into continuous motion.
 local function get_slab(x6, x1, c, t)
