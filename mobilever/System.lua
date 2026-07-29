@@ -437,7 +437,23 @@ return function(context)
 				local tc = active_c - p_pos
 				local distance_sq = tc:Dot(tc)
 				if distance_sq > k1_sq and not always_process then
+					-- Skipping the part leaves its LinearVelocity alone, and with MaxForce
+					-- at k4 the constraint keeps applying it: anything that overshoots the
+					-- radius coasts outward for good, and it can never come back because
+					-- this same test culls it before the shape runs again. Park it once on
+					-- the way out instead. The flag keeps that from becoming a physics
+					-- property write per out-of-range part per frame, and clearing d.vl
+					-- means a part that does drift back in starts from a standstill rather
+					-- than resuming the velocity that threw it out.
+					if not d.parked and d.lv then
+						d.parked = true
+						d.vl = ZERO_VECTOR
+						d.lv.VectorVelocity = ZERO_VECTOR
+					end
 					continue
+				end
+				if d.parked then
+					d.parked = nil
 				end
 				if distance_sq > c7_sq or always_process or is_cursed_red then
 					local target_pos_delta = ANTI_SLEEP
@@ -480,8 +496,23 @@ return function(context)
 						if d.last_target_pos and d.sys_last_t then
 							local actual_dt = ft - d.sys_last_t
 							if actual_dt > 0.001 then
-								local target_velocity = (pure_target_pos - d.last_target_pos) / actual_dt
-								tv = tv + target_velocity
+								-- This differentiates a target that shapes only restamp once per
+								-- bucket cycle, so it means something only while the target moves
+								-- continuously. A control change that re-seats parts onto
+								-- different targets teleports it instead: Hover Text's message box
+								-- reshuffles the whole part-id -> pixel map, so every part's
+								-- target jumps most of the banner width in one step, and dividing
+								-- that by a ~0.066s cycle injects thousands of studs/s. Parts
+								-- thrown past k1 then fail the distance test above and are parked
+								-- out of range, so the banner never recovers. Capping the term at
+								-- the part's own speed limit keeps the smoothing for real motion
+								-- and turns a re-seat into a fast glide instead of a fling.
+								local tvel = (pure_target_pos - d.last_target_pos) / actual_dt
+								local tvel_sq = tvel:Dot(tvel)
+								if tvel_sq > base_limit * base_limit then
+									tvel = tvel * (base_limit / math.sqrt(tvel_sq))
+								end
+								tv = tv + tvel
 							end
 						end
 						d.last_target_pos = pure_target_pos
