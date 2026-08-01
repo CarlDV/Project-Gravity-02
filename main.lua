@@ -443,6 +443,14 @@ local function destroy()
 		pcall(function() x6.run_connections[i]:Disconnect() end)
 		x6.run_connections[i] = nil
 	end
+	-- Shapes that own an instance hand it back here. Every loaded shape is asked,
+	-- not just the current one, because this is the teardown that runs when the
+	-- script is re-executed and the shape may have been switched since.
+	for _, mod in pairs(loaded_shapes) do
+		if type(mod) == "table" and mod.cleanup then
+			pcall(mod.cleanup, x6, x1)
+		end
+	end
 	for p, d in pairs(x6.a) do
 		if d then
 			pcall(function()

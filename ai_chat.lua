@@ -538,7 +538,13 @@ Core Rules:
 			table.insert(changes, "damping=" .. tostring(damping))
 		end
 		if disabled ~= nil then
-			x1.Disabled = (disabled == true)
+			-- route through System so the parts get their collision back and stop
+			-- being driven, exactly as the UI toggle and the hotkey do
+			if context.x4 and context.x4.apply_disabled then
+				context.x4.apply_disabled(disabled == true)
+			else
+				x1.Disabled = (disabled == true)
+			end
 			table.insert(changes, "disabled=" .. tostring(x1.Disabled))
 		end
 		if pi_all ~= nil then

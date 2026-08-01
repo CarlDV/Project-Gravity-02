@@ -146,12 +146,27 @@ return function(context)
 	-- hash lookup instead of a four-way comparison chain, per part per frame.
 	local NO3_SKIP = { [-1] = true, [1] = true, [2] = true, [3] = true }
 
+	-- Most shapes are pure functions of the part and the clock, but one that owns
+	-- an instance -- Platform's anchored pad -- needs somewhere to give it back, or
+	-- it outlives the shape that made it. Read straight out of loaded_shapes rather
+	-- than through get_shape: this runs on the disable and stop paths, and
+	-- get_shape would happily block on an HTTP fetch for a shape that never loaded.
+	-- A shape with no cleanup costs one nil check.
+	local function cleanup_shape(name)
+		local cache = context.loaded_shapes
+		local mod = name and cache and cache[name]
+		if mod and mod.cleanup then
+			pcall(mod.cleanup, x6, x1)
+		end
+	end
+
 	-- The hot loop lives in its own function so the per-frame pcall does not have
 	-- to allocate a fresh closure sixty times a second.
 	local function f3_body(real_dt)
 			local c = x6.b.Position
 			x6.f = x6.f + 1
 			if x6.last_shape ~= x1.k6 then
+				cleanup_shape(x6.last_shape)
 				x6.last_shape = x1.k6
 				for _, d in pairs(x6.a) do
 					d.v1 = nil
@@ -700,11 +715,17 @@ return function(context)
 		local original_can_collide = p.CanCollide
 		local original_anchored = p.Anchored
 		local original_properties = p.CustomPhysicalProperties
-		if not x1.PreserveCollisions then
+		-- A part claimed while the script is disabled has to land in the same state
+		-- as the ones already held, or it would hang frozen in mid-air with its
+		-- collision stripped until the next enable. x4.apply_disabled re-applies
+		-- all three of these to every part when the flag flips.
+		if not (x1.PreserveCollisions or x1.Disabled) then
 			p.CanCollide = false
 		end
 		p.Anchored = false
-		p.CustomPhysicalProperties = LIGHT_PHYSICS
+		if not x1.Disabled then
+			p.CustomPhysicalProperties = LIGHT_PHYSICS
+		end
 		-- Parent last: every property set on an already-parented instance costs a
 		-- replication/physics update the engine then has to throw away.
 		local a = Instance.new("Attachment")
@@ -712,14 +733,14 @@ return function(context)
 
 		local lv = Instance.new("LinearVelocity")
 		lv.Name = "GRV_LV"
-		lv.MaxForce = x1.k4
+		lv.MaxForce = x1.Disabled and 0 or x1.k4
 		lv.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
 		lv.RelativeTo = Enum.ActuatorRelativeTo.World
 		lv.Attachment0 = a
 
 		local av = Instance.new("AngularVelocity")
 		av.Name = "GRV_AV"
-		av.MaxTorque = math.huge
+		av.MaxTorque = x1.Disabled and 0 or math.huge
 		av.RelativeTo = Enum.ActuatorRelativeTo.World
 		av.AngularVelocity = Vector3.zero
 		av.Attachment0 = a
@@ -934,12 +955,16 @@ return function(context)
 		x6.b.CanCollide = false
 		x6.b.Material = "Neon"
 		x6.b.Position = pos
-		x6.b.Transparency = x9.c7
+		-- Disabled survives a restart through the settings file, so the core has to
+		-- come up already hidden in that case rather than showing a visible marker
+		-- for something that is not driving anything.
+		x6.b.Transparency = x1.Disabled and 1 or x9.c7
 		local bg = Instance.new("BillboardGui", x6.b)
 		bg.Name = "Visual"
 		bg.Adornee = x6.b
 		bg.Size = UDim2.new(0, 20, 0, 20)
 		bg.AlwaysOnTop = true
+		bg.Enabled = not x1.Disabled
 		local img = Instance.new("ImageLabel", bg)
 		img.BackgroundTransparency = 1
 		img.Size = UDim2.new(1, 0, 1, 0)
@@ -998,7 +1023,81 @@ return function(context)
 		x7.n("Sys", released .. " parts released", 2)
 	end
 
+	-- Disabling is clean_physics without giving up the claim: the constraints stay
+	-- on the part so enabling picks up instantly, but nothing drives it and it gets
+	-- its collision back, so it falls and lands like a released part in the
+	-- meantime. Enabling reverses both halves. Hoisted out of the loop below so a
+	-- 5000 part toggle does not allocate a closure per part for pcall.
+	local function apply_disabled_part(p, d, disabled)
+		if d.lv then
+			d.lv.MaxForce = disabled and 0 or x1.k4
+		end
+		if d.av then
+			d.av.MaxTorque = disabled and 0 or math.huge
+		end
+		p.CanCollide = (disabled or x1.PreserveCollisions) and d.original_can_collide or false
+		-- LIGHT_PHYSICS is what lets the constraints throw a part around; at 0.001
+		-- density a disabled part would be shoved across the map by the first thing
+		-- that touched it instead of resting where it landed. Anchored is left alone
+		-- because x7.e refuses to claim an anchored part in the first place.
+		-- Not an `and/or` chain: original_properties is nil on any part that never
+		-- overrode its material defaults, and nil is falsy, so that would hand every
+		-- such part LIGHT_PHYSICS back on the disable branch.
+		if disabled then
+			p.CustomPhysicalProperties = d.original_properties
+		else
+			p.CustomPhysicalProperties = LIGHT_PHYSICS
+			-- Parts fall while disabled, so every cached smoothing term now
+			-- describes a position they have long since left. d.last_target_pos in
+			-- particular is differentiated against the live target, and dividing a
+			-- whole fall's worth of displacement by one frame injects thousands of
+			-- studs/s -- the same re-seat fling f3_body's target-velocity clamp
+			-- exists to stop. Clearing them makes enabling a fresh lift-off.
+			d.vl = nil
+			d.trans_vl = nil
+			d.last_target_pos = nil
+			d.sys_last_t = nil
+			d.parked = nil
+			d.integral = Vector3.zero
+		end
+	end
+
+	-- The one entry point for the flag: the L hotkey, the UI toggle, the mobile
+	-- action dock and the AI tool all come through here, so none of them can leave
+	-- the parts half-switched. The core visuals are handled whether or not the
+	-- panel is open.
+	function x4.apply_disabled(disabled)
+		disabled = disabled and true or false
+		x1.Disabled = disabled
+		if disabled then
+			-- A shape-owned instance is part of the shape running. Platform's pad in
+			-- particular would otherwise be left as a solid slab hanging in the air
+			-- with nothing updating it. px rebuilds it on the first enabled frame.
+			cleanup_shape(x1.k6)
+		end
+		if x6.b then
+			x6.b.Transparency = disabled and 1 or x9.c7
+			local visual = x6.b:FindFirstChild("Visual")
+			if visual then
+				visual.Enabled = not disabled
+			end
+		end
+		-- the dense array again, rather than iterating the weak part table
+		local arr = x6.active_array
+		local data = x6.a
+		for k = #arr, 1, -1 do
+			local p = arr[k]
+			local d = p and data[p]
+			if d then
+				pcall(apply_disabled_part, p, d, disabled)
+			end
+		end
+	end
+
 	function x4.f5()
+		-- Before the core folder goes, so a shape-owned instance living inside it is
+		-- released deliberately rather than only incidentally.
+		cleanup_shape(x1.k6)
 		if x6.b then
 			x6.b.Parent:Destroy()
 			x6.b = nil
@@ -1044,25 +1143,8 @@ return function(context)
 		end, false, Enum.KeyCode.P)
 		v7:BindAction("Disable", function(_, s)
 			if s == Enum.UserInputState.Begin then
-				x1.Disabled = not x1.Disabled
-				local v = x1.Disabled
-				x7.n("Sys", "Script " .. (v and "Disabled" or "Enabled"), 2)
-				-- this used to be gated on the UI toggle existing, which meant the
-				-- hotkey silently did nothing whenever the panel was closed
-				if x6.b then
-					x6.b.Transparency = v and 1 or x9.c7
-					if x6.b:FindFirstChild("Visual") then
-						x6.b.Visual.Enabled = not v
-					end
-				end
-				for _, d in pairs(x6.a) do
-					if d.lv then
-						d.lv.MaxForce = v and 0 or x1.k4
-					end
-					if d.av then
-						d.av.MaxTorque = v and 0 or math.huge
-					end
-				end
+				x4.apply_disabled(not x1.Disabled)
+				x7.n("Sys", "Script " .. (x1.Disabled and "Disabled" or "Enabled"), 2)
 			end
 		end, false, Enum.KeyCode.L)
 		table.insert(

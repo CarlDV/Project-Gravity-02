@@ -528,19 +528,19 @@ return function(context)
 			end
 
 			x6.disable_btn = et(gsc, "Disable Gravity", x1.Disabled, function(v)
-				x1.Disabled = v
+				-- System owns the switch: parts get their collision back and stop
+				-- being driven while disabled, and both are undone on enable. Doing
+				-- it here as well would only be a second, partial copy.
+				if context.x4 and context.x4.apply_disabled then
+					context.x4.apply_disabled(v)
+				else
+					x1.Disabled = v
+				end
+				if x6.dock_disable_btn then
+					x6.dock_disable_btn.BackgroundColor3 = v and Color3.fromRGB(100, 255, 100)
+						or Color3.fromRGB(60, 60, 60)
+				end
 				save_settings()
-				if x6.b then
-					x6.b.Transparency = v and 1 or 0.8
-					if x6.b:FindFirstChild("Visual") then
-						x6.b.Visual.Enabled = not v
-					end
-				end
-				for _, d in pairs(x6.a) do
-					if d.lv then
-						d.lv.MaxForce = v and 0 or x1.k4
-					end
-				end
 			end)
 
 			if not x1.SimpleMode then
@@ -597,9 +597,12 @@ return function(context)
 
 			et(gsc, "Preserve Collisions", x1.PreserveCollisions, function(v)
 				x1.PreserveCollisions = v
+				-- while disabled every part already holds its original collision, so
+				-- turning this off there would undo that until the next enable
+				local keep = v or x1.Disabled
 				for part, data in pairs(x6.a) do
 					if part and part.Parent then
-						part.CanCollide = v and data.original_can_collide or false
+						part.CanCollide = keep and data.original_can_collide or false
 					end
 				end
 				save_settings()
@@ -1273,6 +1276,12 @@ return function(context)
 		local btn_down = create_btn("DWN", Color3.fromRGB(80, 80, 85), 5)
 		local btn_pause = create_btn("PAU", Color3.fromRGB(200, 150, 50), 6)
 		local btn_dis = create_btn("DIS", Color3.fromRGB(60, 60, 60), 7)
+		-- the settings panel is rebuilt on every f1(), so the toggle there reaches
+		-- the dock through x6 rather than an upvalue that would go stale
+		x6.dock_disable_btn = btn_dis
+		if x1.Disabled then
+			btn_dis.BackgroundColor3 = Color3.fromRGB(100, 255, 100)
+		end
 
 		local controls_visible = true
 		hide_btn.MouseButton1Click:Connect(function()
@@ -1350,20 +1359,15 @@ return function(context)
 		end)
 
 		btn_dis.MouseButton1Click:Connect(function()
-			x1.Disabled = not x1.Disabled
-			btn_dis.BackgroundColor3 = x1.Disabled and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(60, 60, 60)
-			if x6.disable_btn then x6.disable_btn.BackgroundColor3 = btn_dis.BackgroundColor3 end
-			
-			local v = x1.Disabled
-			if x6.b then
-				x6.b.Transparency = v and 1 or x9.c7
-				if x6.b:FindFirstChild("Visual") then
-					x6.b.Visual.Enabled = not v
-				end
+			-- same single entry point as the settings toggle and the hotkey
+			if context.x4 and context.x4.apply_disabled then
+				context.x4.apply_disabled(not x1.Disabled)
+			else
+				x1.Disabled = not x1.Disabled
 			end
-			for _, d in pairs(x6.a) do
-				if d.lv then d.lv.MaxForce = v and 0 or x1.k4 end
-				if d.av then d.av.MaxTorque = v and 0 or math.huge end
+			btn_dis.BackgroundColor3 = x1.Disabled and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(60, 60, 60)
+			if save_settings then
+				save_settings()
 			end
 		end)
 

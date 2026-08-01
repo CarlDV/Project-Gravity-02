@@ -86,5 +86,10 @@ return {
 		-- k18 must stay a string: load_settings only restores a saved value when the
 		-- default has the same type, so a number here would silently drop the message.
 		["Hover Text"] = { k18 = "HELLO", k11 = 6, k12 = 30, k13 = 15, k14 = 0.8, k15 = 2, k16 = 0, k19 = true },
+		-- k19..k22 are toggles and must stay booleans here for the same reason.
+		["Platform"] = {
+			k11 = 8, k12 = -3, k13 = 12, k14 = 3, k15 = 0, k16 = 1, k17 = 0, k18 = 1,
+			k19 = true, k20 = false, k21 = false, k22 = true,
+		},
 	},
 }

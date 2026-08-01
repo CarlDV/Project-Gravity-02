@@ -484,9 +484,12 @@ return function(context)
 
 			et(gsc, "Preserve Collisions", x1.PreserveCollisions, function(v)
 				x1.PreserveCollisions = v
+				-- while disabled every part already holds its original collision, so
+				-- turning this off there would undo that until the next enable
+				local keep = v or x1.Disabled
 				for part, data in pairs(x6.a) do
 					if part and part.Parent then
-						part.CanCollide = v and data.original_can_collide or false
+						part.CanCollide = keep and data.original_can_collide or false
 					end
 				end
 				save_settings()
@@ -519,19 +522,15 @@ return function(context)
 			end
 
 			x6.disable_btn = et(gsc, "Disable Gravity", x1.Disabled, function(v)
-				x1.Disabled = v
+				-- System owns the switch: parts get their collision back and stop
+				-- being driven while disabled, and both are undone on enable. Doing
+				-- it here as well would only be a second, partial copy.
+				if context.x4 and context.x4.apply_disabled then
+					context.x4.apply_disabled(v)
+				else
+					x1.Disabled = v
+				end
 				save_settings()
-				if x6.b then
-					x6.b.Transparency = v and 1 or 0.8
-					if x6.b:FindFirstChild("Visual") then
-						x6.b.Visual.Enabled = not v
-					end
-				end
-				for _, d in pairs(x6.a) do
-					if d.lv then
-						d.lv.MaxForce = v and 0 or x1.k4
-					end
-				end
 			end)
 
 			if not x1.SimpleMode then
