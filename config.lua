@@ -38,6 +38,7 @@ return {
 		AngularDamping = 0.5,
 		VerticalStiffness = 1.0,
 		VoidProtection = true,
+		UIScale = 1.0,
 	},
 	x2 = {
 		["Pulsar Vortex"] = { k11 = 200, k12 = 8, k13 = 10, k14 = 0, k15 = 0, k16 = 0, k17 = 0, k23 = false },
@@ -72,6 +73,7 @@ return {
 		["Light Light no Mi"] = { k11 = 150, k12 = 400, k13 = 0.2, k18 = true },
 		["Quantum Core"] = { k11 = 100, k12 = 30, k13 = 40, k14 = 50, k15 = 0, k16 = 0, k17 = 0, k23 = false },
 		["Galactic Web"] = { k11 = 400, k12 = 10, k13 = 5, k14 = 0, k15 = 0, k16 = 0, k17 = 0, k23 = false, k24 = 200 },
+		["Quantum Entanglement"] = { k11 = 50, k12 = 100, k13 = 200, k14 = 3, k15 = 2, k16 = 5 },
 		["Meteor Shower"] = { k11 = 500, k12 = 300, k13 = 150, k15 = 0, k16 = 0, k17 = 0, k23 = false },
 		["World Serpent"] = { k11 = 400, k12 = 100, k13 = 20, k14 = 20, k15 = 0, k16 = 0, k17 = 0, k23 = false },
 		["Aurora Borealis"] = { k11 = 600, k12 = 300, k13 = 15, k14 = 100, k15 = 0, k16 = 0, k17 = 0, k23 = false },
@@ -86,10 +88,20 @@ return {
 		-- k18 must stay a string: load_settings only restores a saved value when the
 		-- default has the same type, so a number here would silently drop the message.
 		["Hover Text"] = { k18 = "HELLO", k11 = 6, k12 = 30, k13 = 15, k14 = 0.8, k15 = 2, k16 = 0, k19 = true },
-		-- k19..k22 are toggles and must stay booleans here for the same reason.
+		-- Every key a shape's Controls touch has to exist here with its final
+		-- type: load_settings only restores a saved value when the default has
+		-- the same type, so a missing key can never be restored and a boolean
+		-- written as a number silently drops. k19..k22, k32, k48, k55, k57 and
+		-- k58 are toggles and must stay booleans.
 		["Platform"] = {
 			k11 = 8, k12 = -3, k13 = 12, k14 = 3, k15 = 0, k16 = 1, k17 = 0, k18 = 1,
 			k19 = true, k20 = false, k21 = false, k22 = true,
+			k23 = 1.0, k24 = 0, k25 = 0, k26 = 0.6, k27 = 6, k28 = 0,
+			k29 = 1.2, k30 = 1.0, k31 = 0, k32 = false, k33 = 1, k34 = 0, k35 = 0.6,
+			k36 = 1, k37 = 1, k38 = 0, k39 = 80, k40 = 5, k41 = 6, k42 = 250, k43 = 24,
+			k44 = 0, k45 = 100, k46 = 0, k47 = 1, k48 = false, k49 = 60, k50 = 3,
+			k51 = 0, k52 = 16, k53 = 0.5, k54 = 0.5, k55 = false, k56 = 60,
+			k57 = false, k58 = false, k59 = 0,
 		},
 	},
 }

@@ -222,6 +222,12 @@ return function(context)
 		ms.Color = Color3.fromRGB(40, 40, 45)
 		ms.Thickness = 1
 
+		-- Apply saved UI scale on startup
+		if x1.UIScale and x1.UIScale ~= 1 then
+			local scale = Instance.new("UIScale", m)
+			scale.Scale = x1.UIScale
+		end
+
 		local h = Instance.new("Frame", m)
 		h.BackgroundTransparency = 1
 		h.Size = UDim2.new(1, 0, 0, 50)
@@ -264,6 +270,12 @@ return function(context)
 		local ams = Instance.new("UIStroke", am)
 		ams.Color = Color3.fromRGB(40, 40, 45)
 		ams.Thickness = 1
+
+		-- Apply saved UI scale on startup
+		if x1.UIScale and x1.UIScale ~= 1 then
+			local ascale = Instance.new("UIScale", am)
+			ascale.Scale = x1.UIScale
+		end
 
 		local ah = Instance.new("Frame", am)
 		ah.BackgroundTransparency = 1
@@ -326,6 +338,15 @@ return function(context)
 			x1.VerticalStiffness = v
 			save_settings()
 		end, false, "Multiplies vertical pull to fight Roblox's gravity. Use 1.0 for normal.")
+
+		es(ac, "UI Scale", 0.5, 2.0, x1.UIScale or 1.0, function(v)
+			x1.UIScale = v
+			local scale = m:FindFirstChild("UIScale") or Instance.new("UIScale", m)
+			scale.Scale = v
+			local ascale = am:FindFirstChild("UIScale") or Instance.new("UIScale", am)
+			ascale.Scale = v
+			save_settings()
+		end, false, "Scales the entire interface. 1.0 is default.")
 
 		et(ac, "Aggressive Claiming", x1.AggressiveClaim, function(v)
 			x1.AggressiveClaim = v
