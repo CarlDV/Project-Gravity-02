@@ -394,6 +394,170 @@ return function(context)
 		return box
 	end
 
+	-- Only one row may listen at a time, or two rows would both consume the same
+	-- press and the second would overwrite the first.
+	local active_capture = nil
+
+	-- A rebindable key row. get_key returns the currently bound key name (""
+	-- when unbound); on_capture is handed the new name and returns true if it
+	-- accepted it, which is where the caller does its conflict check. Passing ""
+	-- means the user cleared the bind.
+	function M.kb(p, label_text, get_key, on_capture, desc)
+		local f = Instance.new("Frame", p)
+		f.BackgroundTransparency = 1
+		f.Size = UDim2.new(1, 0, 0, 32)
+		f.AutomaticSize = Enum.AutomaticSize.Y
+
+		local l = Instance.new("TextLabel", f)
+		l.BackgroundTransparency = 1
+		l.Size = UDim2.new(1, -104, 0, 22)
+		l.Text = label_text
+		l.TextColor3 = Color3.fromRGB(180, 180, 180)
+		l.TextXAlignment = 0
+		l.TextTruncate = Enum.TextTruncate.AtEnd
+		l.Font = Enum.Font.Gotham
+		l.TextSize = 12
+
+		if desc then
+			local d = Instance.new("TextLabel", f)
+			d.BackgroundTransparency = 1
+			d.Position = UDim2.new(0, 0, 0, 22)
+			d.Size = UDim2.new(1, -104, 0, 0)
+			d.AutomaticSize = Enum.AutomaticSize.Y
+			d.Text = desc
+			d.TextColor3 = Color3.fromRGB(120, 120, 130)
+			d.TextXAlignment = 0
+			d.TextYAlignment = 0
+			d.Font = Enum.Font.Gotham
+			d.TextSize = 10
+			d.TextWrapped = true
+		end
+
+		local btn = Instance.new("TextButton", f)
+		btn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+		btn.Position = UDim2.new(1, -100, 0, 0)
+		btn.Size = UDim2.new(0, 100, 0, 24)
+		btn.AutoButtonColor = false
+		btn.Text = ""
+		btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		btn.Font = Enum.Font.GothamBold
+		btn.TextSize = 11
+		btn.ClipsDescendants = true
+		Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+		local str = Instance.new("UIStroke", btn)
+		str.Color = Color3.fromRGB(50, 50, 55)
+		str.Thickness = 1
+
+		local capturing = false
+
+		local function refresh()
+			if capturing then
+				btn.Text = "PRESS A KEY"
+				btn.TextColor3 = Color3.fromRGB(0, 255, 200)
+				return
+			end
+			local key = get_key()
+			if type(key) == "string" and key ~= "" then
+				btn.Text = key
+				btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+			else
+				btn.Text = "UNBOUND"
+				btn.TextColor3 = Color3.fromRGB(110, 110, 120)
+			end
+		end
+
+		local conn = nil
+
+		local function stop(rebind)
+			if conn then
+				conn:Disconnect()
+				conn = nil
+			end
+			if active_capture == stop then
+				active_capture = nil
+			end
+			capturing = false
+			-- The script's own hotkeys were taken down for the duration of the
+			-- capture so that binding Q could not also fire Reset on the way in.
+			if rebind then
+				local x8 = context.x8
+				if x8 and x8.rebind_all then
+					pcall(x8.rebind_all)
+				end
+			end
+			v6:Create(str, TweenInfo.new(0.15), { Color = Color3.fromRGB(50, 50, 55) }):Play()
+			refresh()
+		end
+
+		local function begin()
+			if capturing then
+				stop(true)
+				return
+			end
+			if active_capture then
+				active_capture(true)
+			end
+			capturing = true
+			active_capture = stop
+			refresh()
+			v6:Create(str, TweenInfo.new(0.15), { Color = Color3.fromRGB(0, 255, 200) }):Play()
+			-- Unbound while listening: otherwise the press being captured also
+			-- runs whatever currently holds that key.
+			local x8 = context.x8
+			if x8 and x8.unbind_all then
+				pcall(x8.unbind_all)
+			end
+			conn = v1.InputBegan:Connect(function(i)
+				if i.UserInputType ~= Enum.UserInputType.Keyboard then
+					return
+				end
+				-- A focused text box owns the keyboard; capturing here would
+				-- steal the keys the user is typing into the search field.
+				if v1:GetFocusedTextBox() then
+					return
+				end
+				local code = i.KeyCode
+				if code == Enum.KeyCode.Unknown then
+					return
+				end
+				if code == Enum.KeyCode.Escape then
+					stop(true)
+					return
+				end
+				if code == Enum.KeyCode.Backspace or code == Enum.KeyCode.Delete then
+					on_capture("")
+					stop(true)
+					return
+				end
+				on_capture(code.Name)
+				stop(true)
+			end)
+		end
+
+		btn.MouseButton1Click:Connect(begin)
+
+		btn.MouseEnter:Connect(function()
+			if not capturing then
+				v6:Create(btn, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(40, 40, 45) }):Play()
+			end
+		end)
+		btn.MouseLeave:Connect(function()
+			v6:Create(btn, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(30, 30, 35) }):Play()
+		end)
+
+		-- The row can be torn down mid-capture (the window rebuilds on every
+		-- search keystroke), which would otherwise leave the listener running
+		-- and the script's hotkeys unbound for good.
+		f.AncestryChanged:Connect(function(_, parent)
+			if not parent and capturing then
+				stop(true)
+			end
+		end)
+
+		refresh()
+		return f, refresh
+	end
+
 	function M.h(p, t)
 		local l = Instance.new("TextLabel", p)
 		l.BackgroundTransparency = 1

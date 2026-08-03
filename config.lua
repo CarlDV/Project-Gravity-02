@@ -39,6 +39,17 @@ return {
 		VerticalStiffness = 1.0,
 		VoidProtection = true,
 		UIScale = 1.0,
+		-- Key names, not KeyCodes: an EnumItem does not survive the JSON round
+		-- trip, and load_settings only restores a value whose type matches the
+		-- default. "" is a real value here and means deliberately unbound.
+		-- Shapes maps a shape name to a key that switches straight to it.
+		Keybinds = {
+			Recenter = "E",
+			Reset = "Q",
+			Pause = "P",
+			Disable = "L",
+			Shapes = {},
+		},
 	},
 	x2 = {
 		["Pulsar Vortex"] = { k11 = 200, k12 = 8, k13 = 10, k14 = 0, k15 = 0, k16 = 0, k17 = 0, k23 = false },

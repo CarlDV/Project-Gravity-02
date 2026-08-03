@@ -120,6 +120,7 @@ return function(context)
 	local ai_chat_module = load_module("ai_chat.lua")(context)
 	local es, et, eb, eh = UI_elements.s, UI_elements.t, UI_elements.b, UI_elements.h
 	local etb = UI_elements.tb
+	local ekb = UI_elements.kb
 
 	local x5 = {}
 	x5.g = nil
@@ -152,23 +153,84 @@ return function(context)
 	end
 
 	function x5.mw(sg)
-		local function toggle_window(win, state)
+		-- Roblox honours one UIScale per GuiObject, so the open/close pop and the
+		-- user's UI Scale setting have to share it. Every scalable window is
+		-- registered here and its scale is always (pop factor * app scale):
+		-- toggle_window used to tween the single UIScale straight to 1, which is
+		-- what silently threw away the Advanced window's saved scale the first
+		-- time it was opened.
+		local scaled_windows = {}
+
+		local function app_scale()
+			local v = tonumber(x1.UIScale) or 1
+			if v <= 0 then
+				return 1
+			end
+			return v
+		end
+
+		-- pop is where the window sits in its own open/close animation: 1 when
+		-- open, 0.8 while hidden. Kept per window so a rescale mid-animation
+		-- cannot snap a closed window to full size.
+		local function register_window(win, pop)
 			local scale = win:FindFirstChild("UIScale")
 			if not scale then
 				scale = Instance.new("UIScale", win)
-				scale.Scale = 0.8
+			end
+			pop = pop or 1
+			scale.Scale = pop * app_scale()
+			scaled_windows[win] = { scale = scale, pop = pop }
+			return scale
+		end
+
+		local function set_pop(win, pop, tween_info)
+			local entry = scaled_windows[win]
+			if not entry then
+				register_window(win, pop)
+				entry = scaled_windows[win]
+			end
+			entry.pop = pop
+			local target = pop * app_scale()
+			if tween_info then
+				v6:Create(entry.scale, tween_info, { Scale = target }):Play()
+			else
+				entry.scale.Scale = target
+			end
+		end
+
+		-- One place the setting is applied, so a popup can never be left at the
+		-- old scale. Tweened rather than snapped, and every window moves together.
+		local function apply_ui_scale()
+			local s = app_scale()
+			for win, entry in pairs(scaled_windows) do
+				if win.Parent then
+					v6:Create(
+						entry.scale,
+						TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+						{ Scale = entry.pop * s }
+					):Play()
+				else
+					scaled_windows[win] = nil
+				end
+			end
+		end
+		x5.apply_ui_scale = apply_ui_scale
+
+		local function toggle_window(win, state)
+			if not scaled_windows[win] then
+				register_window(win, win.Visible and 1 or 0.8)
 			end
 			local prop = win:IsA("CanvasGroup") and "GroupTransparency" or "BackgroundTransparency"
 			if state then
 				win.Visible = true
 				v6:Create(win, TweenInfo.new(0.4, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {[prop] = 0}):Play()
-				v6:Create(scale, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+				set_pop(win, 1, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
 			else
 				local tw = v6:Create(win, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {[prop] = 1})
-				v6:Create(scale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Scale = 0.8}):Play()
+				set_pop(win, 0.8, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.In))
 				local conn
-				conn = tw.Completed:Connect(function() 
-					if win[prop] >= 0.99 then win.Visible = false end 
+				conn = tw.Completed:Connect(function()
+					if win[prop] >= 0.99 then win.Visible = false end
 					if conn then conn:Disconnect() end
 				end)
 				tw:Play()
@@ -222,11 +284,8 @@ return function(context)
 		ms.Color = Color3.fromRGB(40, 40, 45)
 		ms.Thickness = 1
 
-		-- Apply saved UI scale on startup
-		if x1.UIScale and x1.UIScale ~= 1 then
-			local scale = Instance.new("UIScale", m)
-			scale.Scale = x1.UIScale
-		end
+		-- Main is always open, so it starts at full pop.
+		register_window(m, 1)
 
 		local h = Instance.new("Frame", m)
 		h.BackgroundTransparency = 1
@@ -271,11 +330,9 @@ return function(context)
 		ams.Color = Color3.fromRGB(40, 40, 45)
 		ams.Thickness = 1
 
-		-- Apply saved UI scale on startup
-		if x1.UIScale and x1.UIScale ~= 1 then
-			local ascale = Instance.new("UIScale", am)
-			ascale.Scale = x1.UIScale
-		end
+		-- Starts hidden, so it starts at the closed pop factor and toggle_window
+		-- tweens it up to the app scale rather than to a hardcoded 1.
+		register_window(am, 0.8)
 
 		local ah = Instance.new("Frame", am)
 		ah.BackgroundTransparency = 1
@@ -341,10 +398,11 @@ return function(context)
 
 		es(ac, "UI Scale", 0.5, 2.0, x1.UIScale or 1.0, function(v)
 			x1.UIScale = v
-			local scale = m:FindFirstChild("UIScale") or Instance.new("UIScale", m)
-			scale.Scale = v
-			local ascale = am:FindFirstChild("UIScale") or Instance.new("UIScale", am)
-			ascale.Scale = v
+			-- Every registered window, not just these two: the mode selector and
+			-- the target list are children of Main and so were already scaled by
+			-- it, but Advanced, Keybinds and the dialogs are siblings and used to
+			-- be missed or overwritten.
+			apply_ui_scale()
 			save_settings()
 		end, false, "Scales the entire interface. 1.0 is default.")
 
@@ -409,6 +467,202 @@ return function(context)
 			x1.k3 = Color3.fromRGB(x1.k3.R * 255, x1.k3.G * 255, v)
 			update_color()
 		end, true)
+
+		local km = Instance.new("CanvasGroup", sg)
+		km.Name = "Keybinds"
+		km.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+		km.Position = UDim2.new(0, 360, 0.5, -220)
+		km.Size = UDim2.new(0, 300, 0, 440)
+		km.Visible = false
+		km.GroupTransparency = 1
+		km.Active = true
+		km.Draggable = true
+		Instance.new("UICorner", km).CornerRadius = UDim.new(0, 10)
+		local kms = Instance.new("UIStroke", km)
+		kms.Color = Color3.fromRGB(40, 40, 45)
+		kms.Thickness = 1
+		register_window(km, 0.8)
+
+		local kh = Instance.new("Frame", km)
+		kh.BackgroundTransparency = 1
+		kh.Size = UDim2.new(1, 0, 0, 44)
+		local kt = Instance.new("TextLabel", kh)
+		kt.BackgroundTransparency = 1
+		kt.Position = UDim2.new(0, 20, 0, 0)
+		kt.Size = UDim2.new(0.6, 0, 1, 0)
+		kt.Text = "KEYBINDS"
+		kt.TextColor3 = Color3.fromRGB(255, 255, 255)
+		kt.Font = Enum.Font.GothamBold
+		kt.TextSize = 14
+		kt.TextXAlignment = 0
+
+		local kclose = Instance.new("TextButton", kh)
+		kclose.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+		kclose.Position = UDim2.new(1, -30, 0.5, -10)
+		kclose.Size = UDim2.new(0, 20, 0, 20)
+		kclose.Text = ""
+		Instance.new("UICorner", kclose).CornerRadius = UDim.new(1, 0)
+		kclose.MouseButton1Click:Connect(function()
+			toggle_window(km, false)
+		end)
+
+		local ksearch = Instance.new("TextBox", km)
+		ksearch.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+		ksearch.Position = UDim2.new(0, 20, 0, 44)
+		ksearch.Size = UDim2.new(1, -40, 0, 30)
+		ksearch.PlaceholderText = "Search shapes..."
+		ksearch.PlaceholderColor3 = Color3.fromRGB(110, 110, 120)
+		ksearch.Text = ""
+		ksearch.TextColor3 = Color3.fromRGB(255, 255, 255)
+		ksearch.Font = Enum.Font.Gotham
+		ksearch.TextSize = 12
+		ksearch.ClearTextOnFocus = false
+		Instance.new("UICorner", ksearch).CornerRadius = UDim.new(0, 6)
+
+		local kc = Instance.new("ScrollingFrame", km)
+		kc.BackgroundTransparency = 1
+		kc.Position = UDim2.new(0, 0, 0, 82)
+		kc.Size = UDim2.new(1, 0, 1, -92)
+		kc.ScrollBarThickness = 0
+		kc.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		kc.CanvasSize = UDim2.new(0, 0, 0, 0)
+		local kcl = Instance.new("UIListLayout", kc)
+		kcl.Padding = UDim.new(0, 8)
+		kcl.HorizontalAlignment = Enum.HorizontalAlignment.Center
+		local kcp = Instance.new("UIPadding", kc)
+		kcp.PaddingLeft = UDim.new(0, 20)
+		kcp.PaddingRight = UDim.new(0, 20)
+		kcp.PaddingBottom = UDim.new(0, 20)
+
+		-- Notifications go through System's x7.n when it is up so a rejected key
+		-- reads like every other message; before then there is nowhere to show it.
+		local function notify(title, text, dur)
+			local x8 = context.x8
+			if x8 and x8.notify then
+				x8.notify(title, text, dur)
+				return
+			end
+			pcall(function()
+				v5:SetCore("SendNotification", { Title = title, Text = text, Duration = dur or 3 })
+			end)
+		end
+
+		local function keybinds_table()
+			if type(x1.Keybinds) ~= "table" then
+				x1.Keybinds = { Recenter = "E", Reset = "Q", Pause = "P", Disable = "L", Shapes = {} }
+			end
+			if type(x1.Keybinds.Shapes) ~= "table" then
+				x1.Keybinds.Shapes = {}
+			end
+			return x1.Keybinds
+		end
+
+		-- Shared by both kinds of row. exclude_id keeps re-picking the key a row
+		-- already holds from being reported as a conflict with itself.
+		local function accept_key(key_name, exclude_id, assign)
+			local kb = keybinds_table()
+			if key_name == "" then
+				assign(kb, "")
+				save_settings()
+				return true
+			end
+			local x8 = context.x8
+			local conflict = x8 and x8.find_conflict and x8.find_conflict(key_name, exclude_id)
+			if conflict then
+				notify("Keybinds", key_name .. " is already bound to " .. conflict .. ".", 3)
+				return false
+			end
+			assign(kb, key_name)
+			save_settings()
+			return true
+		end
+
+		local function populate_keybinds(filter)
+			kc:ClearAllChildren()
+			local layout = Instance.new("UIListLayout", kc)
+			layout.Padding = UDim.new(0, 8)
+			layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+			local pad = Instance.new("UIPadding", kc)
+			pad.PaddingLeft = UDim.new(0, 20)
+			pad.PaddingRight = UDim.new(0, 20)
+			pad.PaddingBottom = UDim.new(0, 20)
+
+			local x8 = context.x8
+			filter = (filter or ""):lower()
+
+			if filter == "" then
+				eh(kc, "Core")
+				local core = (x8 and x8.core_actions) or {}
+				for _, entry in ipairs(core) do
+					local id = entry.id
+					ekb(kc, entry.label, function()
+						return keybinds_table()[id]
+					end, function(key_name)
+						return accept_key(key_name, id, function(kb, v)
+							kb[id] = v
+						end)
+					end, entry.desc)
+				end
+			end
+
+			eh(kc, filter == "" and "Shapes" or "Shapes matching \"" .. filter .. "\"")
+			local names = {}
+			for shape_name in pairs(x2) do
+				if filter == "" or shape_name:lower():find(filter, 1, true) then
+					names[#names + 1] = shape_name
+				end
+			end
+			-- Bound shapes first, then alphabetical, so what the user has set is
+			-- at the top of a list this long instead of buried in it.
+			table.sort(names, function(a, b)
+				local shapes = keybinds_table().Shapes
+				local ba = (shapes[a] and shapes[a] ~= "") and 1 or 0
+				local bb = (shapes[b] and shapes[b] ~= "") and 1 or 0
+				if ba ~= bb then
+					return ba > bb
+				end
+				return a < b
+			end)
+
+			if #names == 0 then
+				local none = Instance.new("TextLabel", kc)
+				none.BackgroundTransparency = 1
+				none.Size = UDim2.new(1, 0, 0, 24)
+				none.Text = "No shapes match."
+				none.TextColor3 = Color3.fromRGB(120, 120, 130)
+				none.TextXAlignment = Enum.TextXAlignment.Left
+				none.Font = Enum.Font.Gotham
+				none.TextSize = 11
+			end
+
+			for _, shape_name in ipairs(names) do
+				local captured = shape_name
+				ekb(kc, captured, function()
+					return keybinds_table().Shapes[captured]
+				end, function(key_name)
+					return accept_key(key_name, "shape:" .. captured, function(kb, v)
+						-- "" is how a core action records "unbound", but a shape
+						-- with no key does not need an entry at all: dropping it
+						-- keeps the settings file from growing a line per shape
+						-- the user merely looked at.
+						kb.Shapes[captured] = (v ~= "" and v) or nil
+					end)
+				end)
+			end
+		end
+
+		ksearch:GetPropertyChangedSignal("Text"):Connect(function()
+			populate_keybinds(ksearch.Text)
+		end)
+
+		local kb_btn = eb(c, "Keybinds", function()
+			local opening = not km.Visible
+			toggle_window(km, opening)
+			if opening then
+				populate_keybinds(ksearch.Text)
+			end
+		end)
+		kb_btn.Size = UDim2.new(1, 0, 0, 36)
 
 		local ab = eb(c, "Advanced Settings", function()
 			toggle_window(am, not am.Visible)
@@ -938,6 +1192,16 @@ return function(context)
 					if reset_config then
 						reset_config()
 						save_settings()
+						-- Keybinds and UIScale are both part of the reset, and
+						-- neither takes effect on its own: the hotkeys have to be
+						-- rebound from the restored table and every window
+						-- rescaled, or the panel keeps the old values until the
+						-- next launch.
+						local x8 = context.x8
+						if x8 and x8.rebind_all then
+							pcall(x8.rebind_all)
+						end
+						apply_ui_scale()
 						if x5.up then
 							x5.up()
 						end
@@ -957,10 +1221,15 @@ return function(context)
 
 				x6.reset_confirm = confirm
 
-				local scale = Instance.new("UIScale", confirm)
-				scale.Scale = 0.9
+				-- Registered like every other window so it opens at the user's
+				-- scale instead of always at 1. AnchorPoint moves to the middle
+				-- because a UIScale grows a frame from its top-left corner, which
+				-- would walk a centred dialog off-centre as the scale went up.
+				confirm.AnchorPoint = Vector2.new(0.5, 0.5)
+				confirm.Position = UDim2.new(0.5, 0, 0.5, 0)
+				register_window(confirm, 0.9)
 				v6:Create(confirm, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { GroupTransparency = 0 }):Play()
-				v6:Create(scale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+				set_pop(confirm, 1, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
 			end)
 		end
 		x5.up = f1
@@ -1052,25 +1321,33 @@ return function(context)
 				end)
 
 				ib.MouseButton1Click:Connect(function()
-					local shape = get_shape(mn)
-					if shape then
-						x1.k6 = mn
-						x6.transition_time = time()
-						x6.transition_dur = 1.5
-						for _, d in pairs(x6.a) do
-							d.trans_vl = d.vl or Vector3.zero
-							d.v1, d.v2, d.v3, d.v4, d.v5, d.v6, d.v7, d.v8, d.v9 = nil, nil, nil, nil, nil, nil, nil, nil, nil
-							d.integral = Vector3.zero
-						end
-						if db then
+					local x4 = context.x4
+					if x4 and x4.switch_shape then
+						if x4.switch_shape(mn) and db then
 							db.Text = "  " .. mn:upper()
 						end
-						toggle_window(dlst_container, false)
-						save_settings()
-						if x5.up then
-							x5.up()
+					else
+						-- fallback before System is up
+						local shape = get_shape(mn)
+						if shape then
+							x1.k6 = mn
+							x6.transition_time = time()
+							x6.transition_dur = 1.5
+							for _, d in pairs(x6.a) do
+								d.trans_vl = d.vl or Vector3.zero
+								d.v1, d.v2, d.v3, d.v4, d.v5, d.v6, d.v7, d.v8, d.v9 = nil, nil, nil, nil, nil, nil, nil, nil, nil
+								d.integral = Vector3.zero
+							end
+							if db then
+								db.Text = "  " .. mn:upper()
+							end
+							save_settings()
+							if x5.up then
+								x5.up()
+							end
 						end
 					end
+					toggle_window(dlst_container, false)
 				end)
 			end
 		end
@@ -1081,6 +1358,18 @@ return function(context)
 
 		x6.populate_modes = populate_modes
 		populate_modes("")
+
+		-- System calls this after every shape switch, including one driven by a
+		-- hotkey while the mode list was never opened, so the dropdown label and
+		-- the highlighted row cannot fall out of step with x1.k6.
+		function x5.sync_shape(name)
+			if db then
+				db.Text = "  " .. tostring(name):upper()
+			end
+			if dlst_container and dlst_container.Visible then
+				populate_modes(msb.Text)
+			end
+		end
 
 		local minb = Instance.new("TextButton", h)
 		minb.BackgroundColor3 = Color3.fromRGB(60, 200, 100)

@@ -191,15 +191,32 @@ if isfolder and makefolder and listfiles and readfile then
 	end)
 end
 
+-- Copied all the way down, not one level: x1.Keybinds.Shapes is a table inside a
+-- table, and a shallow copy would hand the snapshot the *same* table the user
+-- then edits, so "Reset All Settings" would restore the defaults onto itself and
+-- leave every shape hotkey in place.
+local function copy_table(t)
+	local res = {}
+	for k, v in pairs(t) do
+		if typeof(v) == "table" then
+			res[k] = copy_table(v)
+		else
+			res[k] = v
+		end
+	end
+	return res
+end
+
 local default_x1 = {}
 for k, v in pairs(x1) do
-	if typeof(v) == "table" then
-		default_x1[k] = {}
-		for sk, sv in pairs(v) do
-			default_x1[k][sk] = sv
+	-- S is x2 under another name and Targets holds live Players; reset_config
+	-- skips both, so snapshotting them is pure work.
+	if k ~= "S" and k ~= "Targets" then
+		if typeof(v) == "table" then
+			default_x1[k] = copy_table(v)
+		else
+			default_x1[k] = v
 		end
-	else
-		default_x1[k] = v
 	end
 end
 local default_x2 = {}
@@ -214,10 +231,7 @@ local function reset_config()
 	for k, v in pairs(default_x1) do
 		if k ~= "S" and k ~= "Targets" then
 			if typeof(v) == "table" then
-				x1[k] = {}
-				for sk, sv in pairs(v) do
-					x1[k][sk] = sv
-				end
+				x1[k] = copy_table(v)
 			else
 				x1[k] = v
 			end
@@ -492,6 +506,9 @@ local success, err = pcall(function()
 	local x4 = sys.x4
 	local x8 = sys.x8
 	context.x4 = x4
+	-- The UI reaches back into x8 to rebind hotkeys, so it has to be in the
+	-- context before x5.st() builds the panel below.
+	context.x8 = x8
 
 	x4.f3()
 	x8.i()
