@@ -153,23 +153,84 @@ return function(context)
 	end
 
 	function x5.mw(sg)
-		local function toggle_window(win, state)
+		-- Roblox honours one UIScale per GuiObject, so the open/close pop and the
+		-- user's UI Scale setting have to share it. Every scalable window is
+		-- registered here and its scale is always (pop factor * app scale):
+		-- toggle_window used to tween the single UIScale straight to 1, which
+		-- threw the saved scale away and left the shape selector, target list and
+		-- tutorial completely unaffected by the UI Scale slider.
+		local scaled_windows = {}
+
+		local function app_scale()
+			local v = tonumber(x1.UIScale) or 1
+			if v ~= v or v <= 0 then
+				return 1
+			end
+			return v
+		end
+
+		-- pop is where the window sits in its own open/close animation: 1 when
+		-- open, 0.8 while hidden. Kept per window so a rescale mid-animation
+		-- cannot snap a closed window to full size.
+		local function register_window(win, pop)
 			local scale = win:FindFirstChild("UIScale")
 			if not scale then
 				scale = Instance.new("UIScale", win)
-				scale.Scale = 0.8
+			end
+			pop = pop or 1
+			scale.Scale = pop * app_scale()
+			scaled_windows[win] = { scale = scale, pop = pop }
+			return scale
+		end
+
+		local function set_pop(win, pop, tween_info)
+			local entry = scaled_windows[win]
+			if not entry then
+				register_window(win, pop)
+				entry = scaled_windows[win]
+			end
+			entry.pop = pop
+			local target = pop * app_scale()
+			if tween_info then
+				v6:Create(entry.scale, tween_info, { Scale = target }):Play()
+			else
+				entry.scale.Scale = target
+			end
+		end
+
+		-- One place the setting is applied, so a popup can never be left at the
+		-- old scale. Tweened rather than snapped, and every window moves together.
+		local function apply_ui_scale()
+			local s = app_scale()
+			for win, entry in pairs(scaled_windows) do
+				if win.Parent then
+					v6:Create(
+						entry.scale,
+						TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+						{ Scale = entry.pop * s }
+					):Play()
+				else
+					scaled_windows[win] = nil
+				end
+			end
+		end
+		x5.apply_ui_scale = apply_ui_scale
+
+		local function toggle_window(win, state)
+			if not scaled_windows[win] then
+				register_window(win, win.Visible and 1 or 0.8)
 			end
 			local prop = win:IsA("CanvasGroup") and "GroupTransparency" or "BackgroundTransparency"
 			if state then
 				win.Visible = true
 				v6:Create(win, TweenInfo.new(0.4, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {[prop] = 0}):Play()
-				v6:Create(scale, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+				set_pop(win, 1, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
 			else
 				local tw = v6:Create(win, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {[prop] = 1})
-				v6:Create(scale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Scale = 0.8}):Play()
+				set_pop(win, 0.8, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.In))
 				local conn
 				conn = tw.Completed:Connect(function() 
-					if win[prop] >= 0.99 then win.Visible = false end 
+					if win.Parent and win[prop] >= 0.99 then win.Visible = false end 
 					if conn then conn:Disconnect() end
 				end)
 				tw:Play()
@@ -223,11 +284,8 @@ return function(context)
 		ms.Color = Color3.fromRGB(40, 40, 45)
 		ms.Thickness = 1
 
-		-- Apply saved UI scale on startup
-		if x1.UIScale and x1.UIScale ~= 1 then
-			local scale = Instance.new("UIScale", m)
-			scale.Scale = x1.UIScale
-		end
+		-- Main is always open, so it starts at full pop.
+		register_window(m, 1)
 
 		local h = Instance.new("Frame", m)
 		h.BackgroundTransparency = 1
@@ -271,11 +329,9 @@ return function(context)
 		ams.Color = Color3.fromRGB(40, 40, 45)
 		ams.Thickness = 1
 
-		-- Apply saved UI scale on startup
-		if x1.UIScale and x1.UIScale ~= 1 then
-			local ascale = Instance.new("UIScale", am)
-			ascale.Scale = x1.UIScale
-		end
+		-- Advanced is toggled with plain Visible (no pop animation), so it sits
+		-- at full pop but still follows the app scale.
+		register_window(am, 1)
 
 		local ah = Instance.new("Frame", am)
 		ah.BackgroundTransparency = 1
@@ -345,10 +401,10 @@ return function(context)
 
 		es(ac, "UI Scale", 0.5, 2.0, x1.UIScale or 1.0, function(v)
 			x1.UIScale = v
-			local scale = m:FindFirstChild("UIScale") or Instance.new("UIScale", m)
-			scale.Scale = v
-			local ascale = am:FindFirstChild("UIScale") or Instance.new("UIScale", am)
-			ascale.Scale = v
+			-- Every registered window, not just Main and Advanced: the shape
+			-- selector, target list, tutorial and dialogs are siblings here and
+			-- would otherwise be left at the old scale.
+			apply_ui_scale()
 			save_settings()
 		end, false, "Scales the entire interface. 1.0 is default.")
 
@@ -821,6 +877,10 @@ return function(context)
 					if reset_config then
 						reset_config()
 						save_settings()
+						-- UIScale is part of the reset and only takes effect when
+						-- every window is rescaled, or the panel keeps the old
+						-- value until the next launch.
+						apply_ui_scale()
 						if x5.up then
 							x5.up()
 						end
@@ -840,10 +900,14 @@ return function(context)
 
 				x6.reset_confirm = confirm
 
-				local scale = Instance.new("UIScale", confirm)
-				scale.Scale = 0.9
+				-- Registered like every other window so it opens at the user's
+				-- scale instead of always at 1. AnchorPoint moves to the middle
+				-- because a UIScale grows a frame from its top-left corner.
+				confirm.AnchorPoint = Vector2.new(0.5, 0.5)
+				confirm.Position = UDim2.new(0.5, 0, 0.5, 0)
+				register_window(confirm, 0.9)
 				v6:Create(confirm, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { GroupTransparency = 0 }):Play()
-				v6:Create(scale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+				set_pop(confirm, 1, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
 			end)
 		end
 		x5.up = f1
@@ -860,6 +924,9 @@ return function(context)
 		Instance.new("UICorner", dlst_container).CornerRadius = UDim.new(0, 10)
 		local dls = Instance.new("UIStroke", dlst_container)
 		dls.Color = Color3.fromRGB(40, 40, 45)
+
+		-- Starts hidden, so it starts at the closed pop factor.
+		register_window(dlst_container, 0.8)
 
 		local top_dlst = Instance.new("Frame", dlst_container)
 		top_dlst.BackgroundTransparency = 1
@@ -1003,6 +1070,8 @@ return function(context)
 		Instance.new("UICorner", tdlst).CornerRadius = UDim.new(0, 10)
 		local ts = Instance.new("UIStroke", tdlst)
 		ts.Color = Color3.fromRGB(40, 40, 45)
+
+		register_window(tdlst, 0.8)
 
 		local top_tdlst = Instance.new("Frame", tdlst)
 		top_tdlst.BackgroundTransparency = 1
@@ -1174,6 +1243,8 @@ return function(context)
 		Instance.new("UICorner", tut_container).CornerRadius = UDim.new(0, 10)
 		local tuls = Instance.new("UIStroke", tut_container)
 		tuls.Color = Color3.fromRGB(40, 40, 45)
+
+		register_window(tut_container, 0.8)
 
 		local tut_header = Instance.new("Frame", tut_container)
 		tut_header.BackgroundTransparency = 1

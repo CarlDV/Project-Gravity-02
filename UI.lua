@@ -163,7 +163,7 @@ return function(context)
 
 		local function app_scale()
 			local v = tonumber(x1.UIScale) or 1
-			if v <= 0 then
+			if v ~= v or v <= 0 then
 				return 1
 			end
 			return v
@@ -171,26 +171,29 @@ return function(context)
 
 		-- pop is where the window sits in its own open/close animation: 1 when
 		-- open, 0.8 while hidden. Kept per window so a rescale mid-animation
-		-- cannot snap a closed window to full size.
-		local function register_window(win, pop)
+		-- cannot snap a closed window to full size. Nested windows (the mode
+		-- selector and target list live under Main) must not carry the app scale
+		-- on their own UIScale as well: their parent's UIScale already applies
+		-- it, and applying it twice compounds to scale-squared.
+		local function register_window(win, pop, nested)
 			local scale = win:FindFirstChild("UIScale")
 			if not scale then
 				scale = Instance.new("UIScale", win)
 			end
 			pop = pop or 1
-			scale.Scale = pop * app_scale()
-			scaled_windows[win] = { scale = scale, pop = pop }
+			scale.Scale = pop * ((nested and 1) or app_scale())
+			scaled_windows[win] = { scale = scale, pop = pop, nested = nested or false }
 			return scale
 		end
 
-		local function set_pop(win, pop, tween_info)
+		local function set_pop(win, pop, tween_info, nested)
 			local entry = scaled_windows[win]
 			if not entry then
-				register_window(win, pop)
+				register_window(win, pop, nested)
 				entry = scaled_windows[win]
 			end
 			entry.pop = pop
-			local target = pop * app_scale()
+			local target = pop * ((entry.nested and 1) or app_scale())
 			if tween_info then
 				v6:Create(entry.scale, tween_info, { Scale = target }):Play()
 			else
@@ -204,11 +207,13 @@ return function(context)
 			local s = app_scale()
 			for win, entry in pairs(scaled_windows) do
 				if win.Parent then
-					v6:Create(
-						entry.scale,
-						TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-						{ Scale = entry.pop * s }
-					):Play()
+					if not entry.nested then
+						v6:Create(
+							entry.scale,
+							TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+							{ Scale = entry.pop * s }
+						):Play()
+					end
 				else
 					scaled_windows[win] = nil
 				end
@@ -216,21 +221,21 @@ return function(context)
 		end
 		x5.apply_ui_scale = apply_ui_scale
 
-		local function toggle_window(win, state)
+		local function toggle_window(win, state, nested)
 			if not scaled_windows[win] then
-				register_window(win, win.Visible and 1 or 0.8)
+				register_window(win, win.Visible and 1 or 0.8, nested)
 			end
 			local prop = win:IsA("CanvasGroup") and "GroupTransparency" or "BackgroundTransparency"
 			if state then
 				win.Visible = true
 				v6:Create(win, TweenInfo.new(0.4, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {[prop] = 0}):Play()
-				set_pop(win, 1, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
+				set_pop(win, 1, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), nested)
 			else
 				local tw = v6:Create(win, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {[prop] = 1})
-				set_pop(win, 0.8, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.In))
+				set_pop(win, 0.8, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.In), nested)
 				local conn
 				conn = tw.Completed:Connect(function()
-					if win[prop] >= 0.99 then win.Visible = false end
+					if win.Parent and win[prop] >= 0.99 then win.Visible = false end
 					if conn then conn:Disconnect() end
 				end)
 				tw:Play()
@@ -399,9 +404,9 @@ return function(context)
 		es(ac, "UI Scale", 0.5, 2.0, x1.UIScale or 1.0, function(v)
 			x1.UIScale = v
 			-- Every registered window, not just these two: the mode selector and
-			-- the target list are children of Main and so were already scaled by
-			-- it, but Advanced, Keybinds and the dialogs are siblings and used to
-			-- be missed or overwritten.
+			-- the target list are nested under Main and only carry their pop
+			-- factor, so Main's UIScale covers them; Advanced, Keybinds and the
+			-- dialogs are siblings and used to be missed or overwritten.
 			apply_ui_scale()
 			save_settings()
 		end, false, "Scales the entire interface. 1.0 is default.")
@@ -703,9 +708,9 @@ return function(context)
 			if x6.dlst_container then
 				local new_state = not x6.dlst_container.Visible
 				if m:FindFirstChild("TargetListContainer") and m.TargetListContainer.Visible then
-					toggle_window(m.TargetListContainer, false)
+					toggle_window(m.TargetListContainer, false, true)
 				end
-				toggle_window(x6.dlst_container, new_state)
+				toggle_window(x6.dlst_container, new_state, true)
 				if new_state and x6.populate_modes then
 					x6.populate_modes("")
 				end
@@ -1028,9 +1033,9 @@ return function(context)
 			tdb.MouseButton1Click:Connect(function()
 				local new_state = not tdlst.Visible
 				if x6.dlst_container and x6.dlst_container.Visible then
-					toggle_window(x6.dlst_container, false)
+					toggle_window(x6.dlst_container, false, true)
 				end
-				toggle_window(tdlst, new_state)
+				toggle_window(tdlst, new_state, true)
 				if new_state then
 					update_list("")
 				end
@@ -1347,7 +1352,7 @@ return function(context)
 							end
 						end
 					end
-					toggle_window(dlst_container, false)
+					toggle_window(dlst_container, false, true)
 				end)
 			end
 		end
@@ -1477,10 +1482,10 @@ return function(context)
 			if im then
 				if am.Visible then toggle_window(am, false) end
 				if x6.dlst_container and x6.dlst_container.Visible then
-					toggle_window(x6.dlst_container, false)
+					toggle_window(x6.dlst_container, false, true)
 				end
 				if m:FindFirstChild("TargetListContainer") and m.TargetListContainer.Visible then
-					toggle_window(m.TargetListContainer, false)
+					toggle_window(m.TargetListContainer, false, true)
 				end
 			end
 			v6:Create(m, TweenInfo.new(0.4, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {
