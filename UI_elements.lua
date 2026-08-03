@@ -24,7 +24,7 @@ return function(context)
 		l.Font = Enum.Font.Gotham
 		l.TextSize = 12
 
-		local vl = Instance.new("TextLabel", f)
+		local vl = Instance.new("TextBox", f)
 		vl.BackgroundTransparency = 1
 		vl.Position = UDim2.new(1, -50, 0, 0)
 		vl.Size = UDim2.new(0, 50, 0, 20)
@@ -33,6 +33,12 @@ return function(context)
 		vl.TextXAlignment = 1
 		vl.Font = Enum.Font.GothamBold
 		vl.TextSize = 12
+		-- clearing on focus makes the common case one action: click, type, Enter.
+		-- an accidental click that types nothing is restored by FocusLost below
+		vl.ClearTextOnFocus = true
+		vl.TextEditable = true
+		-- the name label spans this whole row; lift the box so the click lands here
+		vl.ZIndex = 2
 
 		local sc = Instance.new("Frame", f)
 		sc.BackgroundTransparency = 1
@@ -77,16 +83,18 @@ return function(context)
 
 		local dragging = false
 		local hover_slider = false
-		local function u(i)
-			local pos = i.Position.X
-			local rp = pos - sc.AbsolutePosition.X
-			local pc = math.clamp(rp / sc.AbsoluteSize.X, 0, 1)
-			local v = mn + (mx - mn) * pc
+		local current = df
+
+		-- single place a value is committed, so the slider and the number box can
+		-- never disagree: both paths land here
+		local function apply(v)
 			if is_int or mx - mn > 50 then
 				v = math.floor(v + 0.5)
 			else
 				v = math.floor(v * 10 + 0.5) / 10
 			end
+			v = math.clamp(v, mn, mx)
+			current = v
 			local snapped_pc = (v - mn) / (mx - mn)
 			v6:Create(fl, TweenInfo.new(0.1), { Size = UDim2.new(snapped_pc, 0, 1, 0) }):Play()
 			v6:Create(k, TweenInfo.new(0.1), { Position = UDim2.new(snapped_pc, 0, 0.5, 0) }):Play()
@@ -95,6 +103,12 @@ return function(context)
 			if save_settings then
 				save_settings()
 			end
+		end
+
+		local function u(i)
+			local rp = i.Position.X - sc.AbsolutePosition.X
+			local pc = math.clamp(rp / sc.AbsoluteSize.X, 0, 1)
+			apply(mn + (mx - mn) * pc)
 		end
 
 		k.MouseButton1Down:Connect(function()
@@ -130,10 +144,55 @@ return function(context)
 			end
 		end)
 
+		-- keep the field numeric as it is typed, so what's on screen is always
+		-- something tonumber can read on commit
+		local filtering = false
+		local c3 = vl:GetPropertyChangedSignal("Text"):Connect(function()
+			if filtering then
+				return
+			end
+			local clean = vl.Text:gsub("[^%d%.%-]", "")
+			if #clean > 12 then
+				clean = clean:sub(1, 12)
+			end
+			if clean ~= vl.Text then
+				filtering = true
+				vl.Text = clean
+				filtering = false
+			end
+		end)
+
+		vl.Focused:Connect(function()
+			v6:Create(vl, TweenInfo.new(0.15), { TextColor3 = Color3.fromRGB(0, 255, 200) }):Play()
+		end)
+
+		vl.FocusLost:Connect(function()
+			v6:Create(vl, TweenInfo.new(0.15), { TextColor3 = Color3.fromRGB(255, 255, 255) }):Play()
+			local typed = tonumber(vl.Text)
+			-- nil on garbage, and NaN fails its own equality test
+			if not typed or typed ~= typed then
+				vl.Text = tostring(current)
+				return
+			end
+			apply(typed)
+		end)
+
+		vl.MouseEnter:Connect(function()
+			if not vl:IsFocused() then
+				v6:Create(vl, TweenInfo.new(0.15), { TextColor3 = Color3.fromRGB(0, 255, 200) }):Play()
+			end
+		end)
+		vl.MouseLeave:Connect(function()
+			if not vl:IsFocused() then
+				v6:Create(vl, TweenInfo.new(0.15), { TextColor3 = Color3.fromRGB(255, 255, 255) }):Play()
+			end
+		end)
+
 		f.AncestryChanged:Connect(function(_, parent)
 			if not parent then
 				c1:Disconnect()
 				c2:Disconnect()
+				c3:Disconnect()
 			end
 		end)
 	end
