@@ -414,6 +414,48 @@ coroutine.wrap(function()
 	end
 end)()
 
+-- One motion vocabulary for the whole interface. Every tween in UI.lua and
+-- UI_elements.lua pulls from here, so "how does a hover feel" is answered in one
+-- place instead of by whichever TweenInfo happened to get pasted at the call
+-- site -- which is how the same hover ended up at 0.2s in one file and 0.15s in
+-- another, and how a dozen calls ended up on bare TweenInfo.new(t) (Quad/Out by
+-- Roblox default) that reads sluggish next to a deliberate curve.
+--
+-- The scale is intentionally coarse. Interactions that should feel instant
+-- (hover, press) sit under 0.12s, because past roughly 0.15s a pointer response
+-- stops reading as feedback and starts reading as lag. Structural motion
+-- (windows, panels) is slower because it is telling you where something came
+-- from. Anything that moves a large distance gets Quint/Out, which covers most
+-- of the ground early and settles softly; anything that should feel physical
+-- gets Back, which overshoots slightly.
+local ANIM = {
+	-- Pointer feedback. Fast enough to feel attached to the cursor.
+	HOVER = TweenInfo.new(0.11, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+	-- Press is faster than release: the push should feel immediate, the return
+	-- can relax. Asymmetry here is what makes a button feel clicky.
+	PRESS = TweenInfo.new(0.06, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+	RELEASE = TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+	-- A toggle knob is a physical object; Back sells the travel.
+	TOGGLE = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+	-- Colour has no momentum, so easing it with a curve that overshoots looks
+	-- wrong. Plain and quick.
+	TINT = TweenInfo.new(0.13, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+	-- Follows the cursor during a drag, so it has to be nearly immediate or the
+	-- knob lags behind the pointer.
+	SLIDE = TweenInfo.new(0.07, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+	-- Structural motion.
+	OPEN = TweenInfo.new(0.34, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+	OPEN_POP = TweenInfo.new(0.42, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+	CLOSE = TweenInfo.new(0.19, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+	CLOSE_POP = TweenInfo.new(0.19, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+	-- Panel collapse choreography.
+	ROLL = TweenInfo.new(0.32, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+	FOLD = TweenInfo.new(0.36, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+	UNFOLD = TweenInfo.new(0.42, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+	-- Setting-driven rescale: no character wanted, just get there.
+	RESCALE = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+}
+
 local context = {
 	v1 = v1,
 	v2 = v2,
@@ -438,6 +480,7 @@ local context = {
 	is_mobile = is_mobile,
 	SUB_DIR = SUB_DIR,
 	reset_config = reset_config,
+	ANIM = ANIM,
 }
 
 local function destroy()

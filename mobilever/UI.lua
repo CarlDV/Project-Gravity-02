@@ -6,6 +6,21 @@ return function(context)
 	local load_module = context.load_module
 	local reset_config = context.reset_config
 	local SUB_DIR = context.SUB_DIR or "mobilever/"
+	-- Shared motion vocabulary from main.lua; see the ANIM table there for why
+	-- each curve is what it is. Fallback keeps this module loadable standalone.
+	-- Touch has no hover state, so HOVER here only ever drives the pressed tint.
+	local A = context.ANIM or {
+		HOVER = TweenInfo.new(0.11, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		TINT = TweenInfo.new(0.13, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		OPEN = TweenInfo.new(0.34, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+		OPEN_POP = TweenInfo.new(0.42, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		CLOSE = TweenInfo.new(0.19, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+		CLOSE_POP = TweenInfo.new(0.19, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+		ROLL = TweenInfo.new(0.32, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+		FOLD = TweenInfo.new(0.36, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+		UNFOLD = TweenInfo.new(0.42, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		RESCALE = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+	}
 
 	local Lighting = game:GetService("Lighting")
 	
@@ -173,7 +188,14 @@ return function(context)
 		-- toggle_window used to tween the single UIScale straight to 1, which
 		-- threw the saved scale away and left the shape selector, target list and
 		-- tutorial completely unaffected by the UI Scale slider.
-		local scaled_windows = {}
+		-- Weak keys, because registration outlives the window. The reset-confirm
+		-- dialog is registered on open and Destroy()ed on dismiss -- each one used
+		-- to leave a strong reference to a dead Instance behind here. Nothing swept
+		-- them: the only prune is the win.Parent check inside apply_ui_scale, which
+		-- runs only when the scale setting changes, so the table grew for the whole
+		-- session and pinned every corpse it held. A window that is still parented
+		-- is kept alive by its parent, so weak keys drop exactly the dead ones.
+		local scaled_windows = setmetatable({}, { __mode = "k" })
 
 		local function app_scale()
 			local v = tonumber(x1.UIScale) or 1
@@ -218,11 +240,7 @@ return function(context)
 			local s = app_scale()
 			for win, entry in pairs(scaled_windows) do
 				if win.Parent then
-					v6:Create(
-						entry.scale,
-						TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-						{ Scale = entry.pop * s }
-					):Play()
+					v6:Create(entry.scale, A.RESCALE, { Scale = entry.pop * s }):Play()
 				else
 					scaled_windows[win] = nil
 				end
@@ -237,11 +255,11 @@ return function(context)
 			local prop = win:IsA("CanvasGroup") and "GroupTransparency" or "BackgroundTransparency"
 			if state then
 				win.Visible = true
-				v6:Create(win, TweenInfo.new(0.4, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {[prop] = 0}):Play()
-				set_pop(win, 1, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
+				v6:Create(win, A.OPEN, {[prop] = 0}):Play()
+				set_pop(win, 1, A.OPEN_POP)
 			else
-				local tw = v6:Create(win, TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {[prop] = 1})
-				set_pop(win, 0.8, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.In))
+				local tw = v6:Create(win, A.CLOSE, {[prop] = 1})
+				set_pop(win, 0.8, A.CLOSE_POP)
 				local conn
 				conn = tw.Completed:Connect(function() 
 					if win.Parent and win[prop] >= 0.99 then win.Visible = false end 
@@ -803,10 +821,12 @@ return function(context)
 		reset_stroke.Thickness = 1
 
 		reset_btn.MouseEnter:Connect(function()
-			v6:Create(reset_btn, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(220, 50, 50) }):Play()
+			v6:Create(reset_btn, A.HOVER, { BackgroundColor3 = Color3.fromRGB(220, 50, 50) }):Play()
+			v6:Create(reset_stroke, A.HOVER, { Color = Color3.fromRGB(255, 120, 120) }):Play()
 		end)
 		reset_btn.MouseLeave:Connect(function()
-			v6:Create(reset_btn, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(180, 40, 40) }):Play()
+			v6:Create(reset_btn, A.HOVER, { BackgroundColor3 = Color3.fromRGB(180, 40, 40) }):Play()
+			v6:Create(reset_stroke, A.HOVER, { Color = Color3.fromRGB(255, 80, 80) }):Play()
 		end)
 
 			reset_btn.MouseButton1Click:Connect(function()
@@ -881,13 +901,20 @@ return function(context)
 				local confirm_reset_stroke = Instance.new("UIStroke", confirm_reset_btn)
 				confirm_reset_stroke.Color = Color3.fromRGB(120, 30, 30)
 
-				cancel_btn.MouseButton1Click:Connect(function()
-					v6:Create(confirm, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.In), { GroupTransparency = 1 }):Play()
-					task.delay(0.2, function()
-						confirm:Destroy()
-						x6.reset_confirm = nil
+				-- Both buttons dismiss the same way, and the destroy has to wait out
+				-- the fade -- so the delay is read off the curve rather than
+				-- repeating its duration as a literal that drifts when A.CLOSE
+				-- changes.
+				local function dismiss_confirm()
+					v6:Create(confirm, A.CLOSE, { GroupTransparency = 1 }):Play()
+					set_pop(confirm, 0.9, A.CLOSE_POP)
+					task.delay(A.CLOSE.Time, function()
+						if confirm.Parent then confirm:Destroy() end
+						if x6.reset_confirm == confirm then x6.reset_confirm = nil end
 					end)
-				end)
+				end
+
+				cancel_btn.MouseButton1Click:Connect(dismiss_confirm)
 
 				confirm_reset_btn.MouseButton1Click:Connect(function()
 					if reset_config then
@@ -907,11 +934,7 @@ return function(context)
 							end
 						end
 					end
-					v6:Create(confirm, TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.In), { GroupTransparency = 1 }):Play()
-					task.delay(0.2, function()
-						confirm:Destroy()
-						x6.reset_confirm = nil
-					end)
+					dismiss_confirm()
 				end)
 
 				x6.reset_confirm = confirm
@@ -922,8 +945,12 @@ return function(context)
 				confirm.AnchorPoint = Vector2.new(0.5, 0.5)
 				confirm.Position = UDim2.new(0.5, 0, 0.5, 0)
 				register_window(confirm, 0.9)
-				v6:Create(confirm, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { GroupTransparency = 0 }):Play()
-				set_pop(confirm, 1, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out))
+				-- Split the way every other window opens: the fade rides OPEN
+				-- because transparency has no momentum to overshoot -- Back on it
+				-- just drives the value past 0 where it clamps and stalls -- while
+				-- the scale gets OPEN_POP, which is where the spring belongs.
+				v6:Create(confirm, A.OPEN, { GroupTransparency = 0 }):Play()
+				set_pop(confirm, 1, A.OPEN_POP)
 			end)
 		end
 		x5.up = f1
@@ -1326,11 +1353,7 @@ return function(context)
 		-- running and leave the panel stuck at an intermediate size.
 		local anim_busy = false
 
-		local ROLL = TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-		local FOLD = TweenInfo.new(0.35, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out)
-		-- Back overshoots slightly, which is what stops the unfold reading as
-		-- mechanical. Only used on the way out.
-		local UNFOLD = TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+		local ROLL, FOLD, UNFOLD = A.ROLL, A.FOLD, A.UNFOLD
 
 		-- collapsed (declared above the header buttons) is the authority for
 		-- hit-testing, flipped the instant the button is pressed. Transparency
@@ -1340,7 +1363,12 @@ return function(context)
 		local extras = { tutb, closeb }
 		local function set_header_extras(hidden)
 			local a = hidden and 1 or 0
-			local info = hidden and FOLD or UNFOLD
+			-- Deliberately not UNFOLD on the way back. UNFOLD is Back/Out, and a
+			-- transparency has nowhere to overshoot to: the curve drives the value
+			-- below 0, Roblox clamps it, and the fade finishes early then sits
+			-- frozen for the rest of the tween instead of easing in. The geometry
+			-- below still gets UNFOLD -- that is where the spring belongs.
+			local info = hidden and FOLD or A.OPEN
 			v6:Create(t, info, { TextTransparency = a }):Play()
 			for _, b in ipairs(extras) do
 				if not hidden then

@@ -1,7 +1,45 @@
 return function(context)
 	local v1, v6 = context.v1, context.v6
 	local save_settings = context.save_settings
+	-- Shared motion vocabulary from main.lua. The fallback keeps this module
+	-- standalone if it is ever loaded without one; the durations mirror the
+	-- table there rather than the old inline values.
+	local A = context.ANIM or {
+		HOVER = TweenInfo.new(0.11, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		PRESS = TweenInfo.new(0.06, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		RELEASE = TweenInfo.new(0.16, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		TOGGLE = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+		TINT = TweenInfo.new(0.13, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		SLIDE = TweenInfo.new(0.07, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		OPEN = TweenInfo.new(0.34, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+	}
 	local M = {}
+
+	-- Press feedback shared by every clickable row: a small dip on press and a
+	-- springy return on release. Applied to the UIScale so it never fights a
+	-- Position or Size tween the caller may also be running.
+	local function add_press_feedback(btn, depth)
+		local sc = btn:FindFirstChildOfClass("UIScale") or Instance.new("UIScale", btn)
+		depth = depth or 0.96
+		local down = false
+		btn.MouseButton1Down:Connect(function()
+			down = true
+			v6:Create(sc, A.PRESS, { Scale = depth }):Play()
+		end)
+		local function release()
+			if not down then
+				return
+			end
+			down = false
+			v6:Create(sc, A.RELEASE, { Scale = 1 }):Play()
+		end
+		btn.MouseButton1Up:Connect(release)
+		-- Dragging off a pressed button still has to restore it, or it sticks
+		-- shrunk until the next press.
+		btn.MouseLeave:Connect(release)
+		return sc
+	end
+	M.press = add_press_feedback
 
 	function M.s(p, t, mn, mx, df, cb, is_int, desc)
 		df = df or mn
@@ -85,6 +123,19 @@ return function(context)
 		local hover_slider = false
 		local current = df
 
+		-- The knob tracked hover state but never showed it. Growing it on
+		-- hover, and further while dragging, is what makes the bar feel grabbable
+		-- instead of decorative.
+		local K_IDLE, K_HOVER, K_DRAG = 12, 15, 17
+		local function refresh_knob()
+			local target = (dragging and K_DRAG) or (hover_slider and K_HOVER) or K_IDLE
+			v6:Create(k, A.HOVER, { Size = UDim2.new(0, target, 0, target) }):Play()
+			v6:Create(sb, A.TINT, {
+				BackgroundColor3 = (dragging or hover_slider) and Color3.fromRGB(48, 48, 55)
+					or Color3.fromRGB(35, 35, 40),
+			}):Play()
+		end
+
 		-- single place a value is committed, so the slider and the number box can
 		-- never disagree: both paths land here
 		local function apply(v)
@@ -96,8 +147,12 @@ return function(context)
 			v = math.clamp(v, mn, mx)
 			current = v
 			local snapped_pc = (v - mn) / (mx - mn)
-			v6:Create(fl, TweenInfo.new(0.1), { Size = UDim2.new(snapped_pc, 0, 1, 0) }):Play()
-			v6:Create(k, TweenInfo.new(0.1), { Position = UDim2.new(snapped_pc, 0, 0.5, 0) }):Play()
+			-- A drag wants the knob glued to the cursor, but a value typed into the
+			-- box is a jump the eye should be able to follow, so that path gets a
+			-- longer eased move.
+			local move = dragging and A.SLIDE or A.OPEN
+			v6:Create(fl, move, { Size = UDim2.new(snapped_pc, 0, 1, 0) }):Play()
+			v6:Create(k, move, { Position = UDim2.new(snapped_pc, 0, 0.5, 0) }):Play()
 			vl.Text = tostring(v)
 			cb(v)
 			if save_settings then
@@ -113,29 +168,36 @@ return function(context)
 
 		k.MouseButton1Down:Connect(function()
 			dragging = true
+			refresh_knob()
 		end)
 		sb.InputBegan:Connect(function(i)
 			if i.UserInputType == Enum.UserInputType.MouseButton1 then
 				dragging = true
 				hover_slider = true
+				refresh_knob()
 				u(i)
 			end
 		end)
 		k.MouseEnter:Connect(function()
 			hover_slider = true
+			refresh_knob()
 		end)
 		k.MouseLeave:Connect(function()
 			hover_slider = false
+			refresh_knob()
 		end)
 		sb.MouseEnter:Connect(function()
 			hover_slider = true
+			refresh_knob()
 		end)
 		sb.MouseLeave:Connect(function()
 			hover_slider = false
+			refresh_knob()
 		end)
 		local c1 = v1.InputEnded:Connect(function(i)
 			if i.UserInputType == Enum.UserInputType.MouseButton1 then
 				dragging = false
+				refresh_knob()
 			end
 		end)
 		local c2 = v1.InputChanged:Connect(function(i)
@@ -163,11 +225,11 @@ return function(context)
 		end)
 
 		vl.Focused:Connect(function()
-			v6:Create(vl, TweenInfo.new(0.15), { TextColor3 = Color3.fromRGB(0, 255, 200) }):Play()
+			v6:Create(vl, A.TINT, { TextColor3 = Color3.fromRGB(0, 255, 200) }):Play()
 		end)
 
 		vl.FocusLost:Connect(function()
-			v6:Create(vl, TweenInfo.new(0.15), { TextColor3 = Color3.fromRGB(255, 255, 255) }):Play()
+			v6:Create(vl, A.TINT, { TextColor3 = Color3.fromRGB(255, 255, 255) }):Play()
 			local typed = tonumber(vl.Text)
 			-- nil on garbage, and NaN fails its own equality test
 			if not typed or typed ~= typed then
@@ -179,12 +241,12 @@ return function(context)
 
 		vl.MouseEnter:Connect(function()
 			if not vl:IsFocused() then
-				v6:Create(vl, TweenInfo.new(0.15), { TextColor3 = Color3.fromRGB(0, 255, 200) }):Play()
+				v6:Create(vl, A.TINT, { TextColor3 = Color3.fromRGB(0, 255, 200) }):Play()
 			end
 		end)
 		vl.MouseLeave:Connect(function()
 			if not vl:IsFocused() then
-				v6:Create(vl, TweenInfo.new(0.15), { TextColor3 = Color3.fromRGB(255, 255, 255) }):Play()
+				v6:Create(vl, A.TINT, { TextColor3 = Color3.fromRGB(255, 255, 255) }):Play()
 			end
 		end)
 
@@ -246,14 +308,16 @@ return function(context)
 
 		b.MouseButton1Click:Connect(function()
 			df = not df
+			-- Colour has no momentum; the knob does. Tinting on TOGGLE's Back
+			-- curve would make the track flash past its target and back.
 			v6:Create(
 				bg,
-				TweenInfo.new(0.2),
+				A.TINT,
 				{ BackgroundColor3 = df and Color3.fromRGB(60, 200, 100) or Color3.fromRGB(40, 40, 45) }
 			):Play()
 			v6:Create(
 				toggle,
-				TweenInfo.new(0.2),
+				A.TOGGLE,
 				{ Position = df and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7) }
 			):Play()
 			cb(df)
@@ -261,6 +325,7 @@ return function(context)
 				save_settings()
 			end
 		end)
+		add_press_feedback(b, 0.97)
 		return b
 	end
 
@@ -282,21 +347,24 @@ return function(context)
 		b.MouseEnter:Connect(function()
 			v6:Create(
 				b,
-				TweenInfo.new(0.2),
+				A.HOVER,
 				{ BackgroundColor3 = Color3.fromRGB(40, 40, 45), TextColor3 = Color3.fromRGB(255, 255, 255) }
 			):Play()
+			v6:Create(str, A.HOVER, { Color = Color3.fromRGB(70, 70, 78) }):Play()
 		end)
 		b.MouseLeave:Connect(function()
 			v6:Create(
 				b,
-				TweenInfo.new(0.2),
+				A.HOVER,
 				{ BackgroundColor3 = Color3.fromRGB(30, 30, 35), TextColor3 = Color3.fromRGB(220, 220, 220) }
 			):Play()
+			v6:Create(str, A.HOVER, { Color = Color3.fromRGB(50, 50, 55) }):Play()
 		end)
 
 		b.MouseButton1Click:Connect(function()
 			cb(b)
 		end)
+		add_press_feedback(b)
 		return b
 	end
 
@@ -316,13 +384,14 @@ return function(context)
 		str.Thickness = 1
 
 		b.MouseEnter:Connect(function()
-			v6:Create(b, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(35, 35, 40) }):Play()
+			v6:Create(b, A.HOVER, { BackgroundColor3 = Color3.fromRGB(35, 35, 40) }):Play()
 		end)
 		b.MouseLeave:Connect(function()
-			v6:Create(b, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(25, 25, 30) }):Play()
+			v6:Create(b, A.HOVER, { BackgroundColor3 = Color3.fromRGB(25, 25, 30) }):Play()
 		end)
 
 		b.MouseButton1Click:Connect(function() cb(b) end)
+		add_press_feedback(b)
 		return b
 	end
 
@@ -375,11 +444,11 @@ return function(context)
 		end
 
 		box.Focused:Connect(function()
-			v6:Create(str, TweenInfo.new(0.2), { Color = Color3.fromRGB(0, 255, 200) }):Play()
+			v6:Create(str, A.TINT, { Color = Color3.fromRGB(0, 255, 200) }):Play()
 		end)
 
 		box.FocusLost:Connect(function()
-			v6:Create(str, TweenInfo.new(0.2), { Color = Color3.fromRGB(50, 50, 55) }):Play()
+			v6:Create(str, A.TINT, { Color = Color3.fromRGB(50, 50, 55) }):Play()
 			local v = box.Text:gsub("[\r\n]", " ")
 			if max_chars and #v > max_chars then
 				v = v:sub(1, max_chars)
@@ -485,7 +554,7 @@ return function(context)
 					pcall(x8.rebind_all)
 				end
 			end
-			v6:Create(str, TweenInfo.new(0.15), { Color = Color3.fromRGB(50, 50, 55) }):Play()
+			v6:Create(str, A.TINT, { Color = Color3.fromRGB(50, 50, 55) }):Play()
 			refresh()
 		end
 
@@ -500,7 +569,7 @@ return function(context)
 			capturing = true
 			active_capture = stop
 			refresh()
-			v6:Create(str, TweenInfo.new(0.15), { Color = Color3.fromRGB(0, 255, 200) }):Play()
+			v6:Create(str, A.TINT, { Color = Color3.fromRGB(0, 255, 200) }):Play()
 			-- Unbound while listening: otherwise the press being captured also
 			-- runs whatever currently holds that key.
 			local x8 = context.x8
@@ -538,11 +607,11 @@ return function(context)
 
 		btn.MouseEnter:Connect(function()
 			if not capturing then
-				v6:Create(btn, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(40, 40, 45) }):Play()
+				v6:Create(btn, A.HOVER, { BackgroundColor3 = Color3.fromRGB(40, 40, 45) }):Play()
 			end
 		end)
 		btn.MouseLeave:Connect(function()
-			v6:Create(btn, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(30, 30, 35) }):Play()
+			v6:Create(btn, A.HOVER, { BackgroundColor3 = Color3.fromRGB(30, 30, 35) }):Play()
 		end)
 
 		-- The row can be torn down mid-capture (the window rebuilds on every
