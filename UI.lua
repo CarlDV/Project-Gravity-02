@@ -153,6 +153,17 @@ return function(context)
 	end
 
 	function x5.mw(sg)
+		-- Panel geometry. The minimize animation tweens between these, so they
+		-- cannot stay as literals duplicated between the constructor and the
+		-- handler -- that split is what let the two drift apart before.
+		-- CONTENT_GAP is the gap under the header: the content frame's old
+		-- 60/-70 pair was really HEADER_H + gap, written out by hand.
+		local PANEL_W = 320
+		local PANEL_H = 500
+		local HEADER_H = 50
+		local PILL_SIZE = 44
+		local CONTENT_GAP = 10
+
 		-- Roblox honours one UIScale per GuiObject, so the open/close pop and the
 		-- user's UI Scale setting have to share it. Every scalable window is
 		-- registered here and its scale is always (pop factor * app scale):
@@ -281,10 +292,12 @@ return function(context)
 		m.Name = "Main"
 		m.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
 		m.Position = UDim2.new(0, 30, 0.5, -250)
-		m.Size = UDim2.new(0, 320, 0, 500)
+		m.Size = UDim2.new(0, PANEL_W, 0, PANEL_H)
 		m.Active = true
 		m.Draggable = true
-		Instance.new("UICorner", m).CornerRadius = UDim.new(0, 10)
+		-- Held onto: the collapse tweens the radius out to a full circle.
+		local mcorner = Instance.new("UICorner", m)
+		mcorner.CornerRadius = UDim.new(0, 10)
 		local ms = Instance.new("UIStroke", m)
 		ms.Color = Color3.fromRGB(40, 40, 45)
 		ms.Thickness = 1
@@ -294,7 +307,7 @@ return function(context)
 
 		local h = Instance.new("Frame", m)
 		h.BackgroundTransparency = 1
-		h.Size = UDim2.new(1, 0, 0, 50)
+		h.Size = UDim2.new(1, 0, 0, HEADER_H)
 
 		local t = Instance.new("TextLabel", h)
 		t.BackgroundTransparency = 1
@@ -308,8 +321,8 @@ return function(context)
 
 		local c = Instance.new("ScrollingFrame", m)
 		c.BackgroundTransparency = 1
-		c.Position = UDim2.new(0, 0, 0, 60)
-		c.Size = UDim2.new(1, 0, 1, -70)
+		c.Position = UDim2.new(0, 0, 0, HEADER_H + CONTENT_GAP)
+		c.Size = UDim2.new(1, 0, 1, -(HEADER_H + CONTENT_GAP * 2))
 		c.ScrollBarThickness = 0
 		c.AutomaticCanvasSize = Enum.AutomaticSize.Y
 		c.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -1376,6 +1389,11 @@ return function(context)
 			end
 		end
 
+		-- Declared ahead of the header buttons because their click handlers close
+		-- over it: while the panel is a pill every extra is invisible but still
+		-- hit-testable, and stacked on top of minb. See set_header_extras below.
+		local collapsed = false
+
 		local minb = Instance.new("TextButton", h)
 		minb.BackgroundColor3 = Color3.fromRGB(60, 200, 100)
 		minb.Position = UDim2.new(1, -60, 0.5, -10)
@@ -1393,6 +1411,7 @@ return function(context)
 		dcb.TextSize = 11
 		Instance.new("UICorner", dcb).CornerRadius = UDim.new(1, 0)
 		dcb.MouseButton1Click:Connect(function()
+			if collapsed then return end
 			pcall(function()
 				if setclipboard then
 					setclipboard("https://discord.gg/9xYyyYuKap")
@@ -1465,6 +1484,7 @@ return function(context)
 		tut_text.TextWrapped = true
 
 		tutb.MouseButton1Click:Connect(function()
+			if collapsed then return end
 			toggle_window(tut_container, not tut_container.Visible)
 		end)
 
@@ -1475,25 +1495,186 @@ return function(context)
 		closeb.Text = ""
 		Instance.new("UICorner", closeb).CornerRadius = UDim.new(1, 0)
 
+		-- Minimize runs in two stages: the body rolls up into the header, then
+		-- the header folds left into a round pill holding just this button.
+		-- Maximize is the inverse, and the order matters -- the header has to be
+		-- back at full width before the body rolls down, or the content is laid
+		-- out against a 44px frame and every label wraps.
 		local im = false
-		minb.MouseButton1Click:Connect(function()
-			im = not im
-			c.Visible = not im
-			if im then
-				if am.Visible then toggle_window(am, false) end
-				if x6.dlst_container and x6.dlst_container.Visible then
-					toggle_window(x6.dlst_container, false, true)
+		-- The stages are chained on Completed, so a second click mid-flight would
+		-- start the opposite sequence while tweens from the first are still
+		-- running and leave the panel stuck at an intermediate size.
+		local anim_busy = false
+
+		local ROLL = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+		local FOLD = TweenInfo.new(0.4, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out)
+		-- Back overshoots slightly, which is what stops the unfold reading as
+		-- mechanical. Only used on the way out.
+		local UNFOLD = TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+		-- The header extras all vanish for the pill and come back with it.
+		-- Transparency alone is not enough: a fully transparent TextButton still
+		-- takes clicks, and once the panel is pill-width closeb's (1,-30) anchor
+		-- lands on top of minb -- so a click meant to restore would tear the UI
+		-- down instead. Visible is the only thing that removes them from
+		-- hit-testing, but it cannot be driven off the fade alone: the fade runs
+		-- 0.4s while the panel is already narrowing underneath it, and the
+		-- unfold has to make them visible again up front so they can fade in.
+		-- collapsed (declared above the header buttons) is the authority for
+		-- hit-testing, flipped the instant the button is pressed.
+		local extras = { dcb, tutb, closeb }
+		local function set_header_extras(hidden)
+			local a = hidden and 1 or 0
+			local info = hidden and FOLD or UNFOLD
+			v6:Create(t, info, { TextTransparency = a }):Play()
+			for _, b in ipairs(extras) do
+				if not hidden then
+					b.Visible = true
 				end
-				if m:FindFirstChild("TargetListContainer") and m.TargetListContainer.Visible then
-					toggle_window(m.TargetListContainer, false, true)
+				local tw = v6:Create(b, info, {
+					BackgroundTransparency = a,
+					TextTransparency = a,
+				})
+				if hidden then
+					local conn
+					conn = tw.Completed:Connect(function()
+						if conn then conn:Disconnect() end
+						-- Not if a fast re-click already started fading them back.
+						if collapsed then b.Visible = false end
+					end)
 				end
+				tw:Play()
 			end
-			v6:Create(m, TweenInfo.new(0.4, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out), {
-				Size = im and UDim2.new(0, 320, 0, 50) or UDim2.new(0, 320, 0, 500)
-			}):Play()
+		end
+
+		local function fold_to_pill()
+			set_header_extras(true)
+			-- 0.5 is resolved against the width as it animates, so the button
+			-- curves rather than sliding straight in. Endpoints are what matter.
+			v6:Create(minb, FOLD, { Position = UDim2.new(0.5, -10, 0.5, -10) }):Play()
+			-- h carries an absolute height, so it has to come down with the panel
+			-- or minb's 0.5 anchor centres against 50px inside a 44px pill.
+			v6:Create(h, FOLD, { Size = UDim2.new(1, 0, 0, PILL_SIZE) }):Play()
+			v6:Create(mcorner, FOLD, { CornerRadius = UDim.new(0, PILL_SIZE / 2) }):Play()
+			local tw = v6:Create(m, FOLD, { Size = UDim2.new(0, PILL_SIZE, 0, PILL_SIZE) })
+			local conn
+			conn = tw.Completed:Connect(function()
+				anim_busy = false
+				if conn then conn:Disconnect() end
+			end)
+			tw:Play()
+		end
+
+		local function roll_up()
+			-- Clipped rather than hidden, so the body is cut off as the panel
+			-- shrinks instead of vanishing a frame before the tween starts.
+			m.ClipsDescendants = true
+			if am.Visible then toggle_window(am, false) end
+			if km.Visible then toggle_window(km, false) end
+			if tut_container.Visible then toggle_window(tut_container, false) end
+			if x6.dlst_container and x6.dlst_container.Visible then
+				toggle_window(x6.dlst_container, false, true)
+			end
+			if m:FindFirstChild("TargetListContainer") and m.TargetListContainer.Visible then
+				toggle_window(m.TargetListContainer, false, true)
+			end
+			local tw = v6:Create(m, ROLL, { Size = UDim2.new(0, PANEL_W, 0, HEADER_H) })
+			local conn
+			conn = tw.Completed:Connect(function()
+				if conn then conn:Disconnect() end
+				-- The else is unreachable while anim_busy holds across both
+				-- stages, but skipping stage 2 without clearing the guard would
+				-- wedge the button dead with the panel stranded half-collapsed.
+				if im then
+					fold_to_pill()
+				else
+					anim_busy = false
+				end
+			end)
+			tw:Play()
+		end
+
+		local function roll_down()
+			local tw = v6:Create(m, ROLL, { Size = UDim2.new(0, PANEL_W, 0, PANEL_H) })
+			local conn
+			conn = tw.Completed:Connect(function()
+				if conn then conn:Disconnect() end
+				-- Only now: the nested mode selector and target list sit outside
+				-- Main's bounds, so leaving this on would clip them away.
+				m.ClipsDescendants = false
+				anim_busy = false
+			end)
+			tw:Play()
+		end
+
+		local function unfold_header()
+			-- The pill is draggable, so it can be anywhere by now. Expanding from
+			-- near an edge would put most of the panel off-screen.
+			--
+			-- Measured, not computed. Deriving the offset from ViewportSize is
+			-- wrong twice over: sg does not set IgnoreGuiInset, so the parent is
+			-- 36px shorter than the viewport, and the expanded panel is
+			-- PANEL_* * app_scale() because UIScale grows m from its top-left.
+			-- AbsolutePosition and AbsoluteSize are both post-scale and relative
+			-- to the real parent, so they carry the inset and the scale already.
+			local parent = m.Parent
+			local avail = (parent and parent.AbsoluteSize) or Vector2.new(1280, 720)
+			local scale = app_scale()
+			local pw, ph = PANEL_W * scale, PANEL_H * scale
+			local origin = (parent and parent.AbsolutePosition) or Vector2.new(0, 0)
+			local ax = m.AbsolutePosition.X - origin.X
+			local ay = m.AbsolutePosition.Y - origin.Y
+			-- A panel taller than the screen cannot be fully fitted; pin it to the
+			-- top edge rather than letting max() shove the header out of reach.
+			local cx = math.max(10, math.min(ax, avail.X - pw - 10))
+			local cy = math.max(10, math.min(ay, avail.Y - ph - 10))
+			if avail.X - pw - 10 < 10 then cx = 10 end
+			if avail.Y - ph - 10 < 10 then cy = 10 end
+			-- Snapped, not tweened: UNFOLD is Back/Out, and overshoot on a
+			-- correction meant to pull the panel on-screen would push it further
+			-- off first. The move is hidden by the size tween starting alongside.
+			if math.abs(cx - ax) > 0.5 or math.abs(cy - ay) > 0.5 then
+				m.Position = UDim2.new(0, cx, 0, cy)
+			end
+
+			set_header_extras(false)
+			v6:Create(minb, UNFOLD, { Position = UDim2.new(1, -60, 0.5, -10) }):Play()
+			v6:Create(h, UNFOLD, { Size = UDim2.new(1, 0, 0, HEADER_H) }):Play()
+			v6:Create(mcorner, UNFOLD, { CornerRadius = UDim.new(0, 10) }):Play()
+			local tw = v6:Create(m, UNFOLD, { Size = UDim2.new(0, PANEL_W, 0, HEADER_H) })
+			local conn
+			conn = tw.Completed:Connect(function()
+				if conn then conn:Disconnect() end
+				-- As in roll_up: unreachable today, but skipping stage 2 here
+				-- would also strand ClipsDescendants on, and that is the one
+				-- thing that hides the mode selector on an expanded panel.
+				if not im then
+					roll_down()
+				else
+					m.ClipsDescendants = false
+					anim_busy = false
+				end
+			end)
+			tw:Play()
+		end
+
+		minb.MouseButton1Click:Connect(function()
+			if anim_busy then return end
+			anim_busy = true
+			im = not im
+			-- Set before any tween starts: the extras overlap minb for the whole
+			-- fold, and this is what makes their handlers ignore the press.
+			collapsed = im
+			if im then
+				roll_up()
+			else
+				unfold_header()
+			end
 		end)
 
 		closeb.MouseButton1Click:Connect(function()
+			-- Invisible on the pill but still hit-testable, and stacked over minb.
+			if collapsed then return end
 			RestoreAllPerf()
 			if context.x4 and context.x4.f5 then
 				context.x4.f5()
