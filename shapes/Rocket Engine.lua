@@ -119,13 +119,29 @@ local function flight(st, cen, c)
 		if len > 1 then
 			local along = span / len
 			local mid = st.caster + span * 0.5
-			-- perp must leave the along axis, or the whole figure flattens onto it.
-			local perp = along:Cross(v)
-			if perp.Magnitude < 0.001 then
-				perp = along:Cross(u)
+
+			-- Which way the two lobes bulge. This used to fall out of the Plane
+			-- slider via along:Cross(v), which coupled it to a control meant for the
+			-- circle and gave an answer that depended on where the target happened
+			-- to be standing -- two horizontal vectors cross to a vertical one, so
+			-- the flat plane produced upright lobes. Both axes are now derived from
+			-- the span itself and picked explicitly.
+			local side = along:Cross(UP)
+			if side.Magnitude < 0.001 then
+				-- Target directly above or below: no horizontal perpendicular
+				-- exists, so seed off a world axis instead.
+				side = along:Cross(WORLD_RIGHT)
+				if side.Magnitude < 0.001 then
+					side = along:Cross(WORLD_FWD)
+				end
 			end
-			if perp.Magnitude > 0.001 then
-				perp = perp.Unit
+
+			if side.Magnitude > 0.001 then
+				side = side.Unit
+				-- side is horizontal and square to the span; crossing back gives the
+				-- upright perpendicular in the vertical plane through the span.
+				local perp = (c.k20 or 1) >= 2 and side or side:Cross(along).Unit
+
 				local s, c2 = math.sin(th), math.cos(2 * th)
 				local half = len * 0.5
 				local pos = mid + along * (half * s) + perp * (R * 0.5 * math.sin(2 * th))
@@ -189,7 +205,8 @@ end
 
 M.Controls = {
 	{ Type = "Slider", Name = "Path · Shape (1 Circle, 2 Figure 8)", Min = 1, Max = 2, Key = "k12", Default = 1, IntOnly = true },
-	{ Type = "Slider", Name = "Path · Plane (1 Flat, 2 Upright, 3 Side)", Min = 1, Max = 3, Key = "k13", Default = 1, IntOnly = true },
+	{ Type = "Slider", Name = "Circle · Plane (1 Flat, 2 Upright, 3 Side)", Min = 1, Max = 3, Key = "k13", Default = 1, IntOnly = true },
+	{ Type = "Slider", Name = "Figure 8 · Lobes (1 Up/Down, 2 Side by Side)", Min = 1, Max = 2, Key = "k20", Default = 1, IntOnly = true },
 	{ Type = "Slider", Name = "Path · Radius", Min = 10, Max = 500, Key = "k11", Default = 120 },
 	{ Type = "Slider", Name = "Flight Speed", Min = 1, Max = 300, Key = "k14", Div = 10 },
 	{ Type = "Slider", Name = "Engine · Radius", Min = 1, Max = 40, Key = "k15", Default = 10 },

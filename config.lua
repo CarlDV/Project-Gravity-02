@@ -124,13 +124,14 @@ return {
 			k51 = 0, k52 = 16, k53 = 0.5, k54 = 0.5, k55 = false, k56 = 60,
 			k57 = false, k58 = false, k59 = 0,
 		},
-		-- k12/k13 are enum pickers rendered as integer sliders (no Dropdown control
-		-- exists), and k14 carries Div = 10, so the value stored here is what the
-		-- shape reads -- the UI multiplies by Div for display and divides on the
-		-- way back, so a default written pre-multiplied would be ten times too big.
+		-- k12/k13/k20 are enum pickers rendered as integer sliders (no Dropdown
+		-- control exists), and k14 carries Div = 10, so the value stored here is
+		-- what the shape reads -- the UI multiplies by Div for display and divides
+		-- on the way back, so a default written pre-multiplied would be ten times
+		-- too big.
 		["Rocket Engine"] = {
 			k11 = 120, k12 = 1, k13 = 1, k14 = 15, k15 = 10, k16 = 18,
-			k17 = 45, k18 = 60, k19 = 10,
+			k17 = 45, k18 = 60, k19 = 10, k20 = 1,
 		},
 		-- k14 and k15 are toggles and must stay booleans. k11 carries Div = 10.
 		["Mech Suit"] = {

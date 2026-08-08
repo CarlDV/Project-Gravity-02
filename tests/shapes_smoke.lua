@@ -185,6 +185,70 @@ do
 	check(near_caster > 0, "figure 8 reaches the caster lobe")
 	check(near_target > 0, "figure 8 reaches the target lobe")
 
+	-- Lobe axis: k20 picks whether the two loops stack vertically or spread
+	-- sideways. This used to fall out of the circle's Plane slider, so it could
+	-- not be set independently and depended on where the target stood.
+	local function lobe_spread()
+		local lo_y, hi_y, lo_h, hi_h = math.huge, -math.huge, math.huge, -math.huge
+		-- side is the horizontal axis square to the span; the span here runs along
+		-- +X, so Z carries any sideways bulge.
+		for frame = 13, 400 do
+			x6.f = frame
+			S.px(frame / 60, cfg, x6, x9, x1)
+			local _, tp = S.f2(part(Vector3.new(0, 0, 0)), target, { id = 1 }, frame / 60, cfg, x1, x6, x9)
+			if finite(tp) then
+				if tp.Y < lo_y then lo_y = tp.Y end
+				if tp.Y > hi_y then hi_y = tp.Y end
+				if tp.Z < lo_h then lo_h = tp.Z end
+				if tp.Z > hi_h then hi_h = tp.Z end
+			end
+		end
+		return hi_y - lo_y, hi_h - lo_h
+	end
+
+	cfg.k20 = 1
+	local up_v, up_h = lobe_spread()
+	check(up_v > up_h * 4,
+		("up/down lobes bulge vertically: %.1f vs %.1f sideways"):format(up_v, up_h))
+
+	cfg.k20 = 2
+	local sd_v, sd_h = lobe_spread()
+	check(sd_h > sd_v * 4,
+		("side by side lobes bulge sideways: %.1f vs %.1f vertical"):format(sd_h, sd_v))
+
+	-- Both settings must still span the two foci; the axis changes the bulge, not
+	-- the reach.
+	for _, mode in ipairs({ 1, 2 }) do
+		cfg.k20 = mode
+		local hit_c, hit_t = 0, 0
+		for frame = 13, 400 do
+			x6.f = frame
+			S.px(frame / 60, cfg, x6, x9, x1)
+			local _, tp = S.f2(part(Vector3.new(0, 0, 0)), target, { id = 1 }, frame / 60, cfg, x1, x6, x9)
+			if finite(tp) then
+				if (tp - st.caster).Magnitude < 130 then hit_c = hit_c + 1 end
+				if (tp - target).Magnitude < 130 then hit_t = hit_t + 1 end
+			end
+		end
+		check(hit_c > 0 and hit_t > 0, ("lobe mode %d still spans both foci"):format(mode))
+	end
+
+	-- Target directly overhead leaves no horizontal perpendicular. Both modes must
+	-- still produce a finite path rather than collapsing onto the span.
+	for _, mode in ipairs({ 1, 2 }) do
+		cfg.k20 = mode
+		local ok = true
+		for frame = 13, 120 do
+			x6.f = frame
+			S.px(frame / 60, cfg, x6, x9, x1)
+			local _, tp = S.f2(part(Vector3.new(0, 0, 0)), st.caster + Vector3.new(0, 300, 0),
+				{ id = 1 }, frame / 60, cfg, x1, x6, x9)
+			if tp and not finite(tp) then ok = false end
+		end
+		check(ok, ("lobe mode %d survives a vertical span"):format(mode))
+	end
+	cfg.k20 = 1
+
 	-- No target selected: cen == caster, so the span collapses. Must not NaN.
 	local same = st.caster
 	local _, tp = S.f2(part(Vector3.new(0, 0, 0)), same, { id = 3 }, 1.0, cfg, x1, x6, x9)
