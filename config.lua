@@ -141,5 +141,25 @@ return {
 			k11 = 60, k12 = 30, k13 = 35, k14 = 25, k15 = 1,
 			k16 = 2, k17 = 8, k18 = 10, k19 = 3,
 		},
+		-- Wake Spline pair. k19 on Dragons Teeth carries Div = 10, so the stored
+		-- 3.5 is the 0.35 s rise the panel shows (UI.lua:1223-1225).
+		["Dragons Teeth"] = {
+			k11 = 300, k13 = 34, k14 = 18, k15 = 7, k16 = 75,
+			k17 = 4, k18 = 6, k19 = 3.5, k20 = 3, k21 = true, k22 = false,
+		},
+		["Mugen Train"] = {
+			k11 = 420, k13 = 90, k14 = 4, k15 = 26, k16 = 14,
+			k17 = 14, k18 = 10, k19 = 22, k20 = 9, k21 = 1, k24 = false,
+		},
+		-- Lag Tree pair. k14 and k16 on Meteor Hammer carry Div = 10, so the
+		-- stored 0.8 and 1.2 show as 8 and 12 on the panel (UI.lua:1223-1225).
+		["Meteor Hammer"] = {
+			k11 = 90, k13 = 60, k14 = 0.8, k15 = 60, k16 = 1.2,
+			k17 = 16, k18 = 4, k19 = 55,
+		},
+		["Mochi Mochi no Mi"] = {
+			k11 = 60, k12 = 26, k13 = 45, k14 = 0, k15 = 22,
+			k16 = 70, k17 = 62,
+		},
 	},
 }
