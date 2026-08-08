@@ -68,7 +68,11 @@ function M.px(t, c, x6, x9, x1)
 	elseif dt > 0.25 then
 		dt = 0.25
 	end
-	st.phase = st.phase + dt * (c.k14 or 1.2) * x9.c2
+	-- Speed follows the house convention: the slider carries Div = 10, so the
+	-- stored value is a tenth of what the panel shows, and x9.c2 turns that into
+	-- radians per second the same way Celestial Ribbon and Hollow Worm do. Stored
+	-- 15 is 0.75 rad/s, about an eight second orbit.
+	st.phase = st.phase + dt * (c.k14 or 15) * x9.c2
 
 	local et = x1 and x1.k7
 	if not et then
@@ -187,7 +191,7 @@ M.Controls = {
 	{ Type = "Slider", Name = "Path · Shape (1 Circle, 2 Figure 8)", Min = 1, Max = 2, Key = "k12", Default = 1, IntOnly = true },
 	{ Type = "Slider", Name = "Path · Plane (1 Flat, 2 Upright, 3 Side)", Min = 1, Max = 3, Key = "k13", Default = 1, IntOnly = true },
 	{ Type = "Slider", Name = "Path · Radius", Min = 10, Max = 500, Key = "k11", Default = 120 },
-	{ Type = "Slider", Name = "Flight Speed", Min = 1, Max = 60, Key = "k14", Default = 1.2, Div = 10, ExactMax = true },
+	{ Type = "Slider", Name = "Flight Speed", Min = 1, Max = 300, Key = "k14", Div = 10 },
 	{ Type = "Slider", Name = "Engine · Radius", Min = 1, Max = 40, Key = "k15", Default = 10 },
 	{ Type = "Slider", Name = "Engine · Length", Min = 1, Max = 60, Key = "k16", Default = 18 },
 	{ Type = "Slider", Name = "Exhaust · Share %", Min = 0, Max = 90, Key = "k17", Default = 45, IntOnly = true },

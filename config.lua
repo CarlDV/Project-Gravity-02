@@ -91,7 +91,7 @@ return {
 		["Alien Mothership"] = { k11 = 120, k12 = 40, k13 = 15, k14 = 200, k15 = 0, k16 = 0, k17 = 0, k23 = false },
 		["Cursed Technique Red"] = { k12 = 100 },
 		["ROOM Ope Ope no Mi"] = { k11 = 150, k12 = 2, k13 = 1.5, k14 = 20, k18 = true },
-		["Light Light no Mi"] = { k11 = 150, k12 = 400, k13 = 0.2, k18 = true },
+		["Light Light no Mi"] = { k11 = 150, k12 = 400, k13 = 0.2, k14 = 2, k18 = true },
 		["Quantum Core"] = { k11 = 100, k12 = 30, k13 = 40, k14 = 50, k15 = 0, k16 = 0, k17 = 0, k23 = false },
 		["Galactic Web"] = { k11 = 400, k12 = 10, k13 = 5, k14 = 0, k15 = 0, k16 = 0, k17 = 0, k23 = false, k24 = 200 },
 		["Quantum Entanglement"] = { k11 = 50, k12 = 100, k13 = 200, k14 = 3, k15 = 2, k16 = 5 },
@@ -123,6 +123,22 @@ return {
 			k44 = 0, k45 = 100, k46 = 0, k47 = 1, k48 = false, k49 = 60, k50 = 3,
 			k51 = 0, k52 = 16, k53 = 0.5, k54 = 0.5, k55 = false, k56 = 60,
 			k57 = false, k58 = false, k59 = 0,
+		},
+		-- k12/k13 are enum pickers rendered as integer sliders (no Dropdown control
+		-- exists), and k14 carries Div = 10, so the value stored here is what the
+		-- shape reads -- the UI multiplies by Div for display and divides on the
+		-- way back, so a default written pre-multiplied would be ten times too big.
+		["Rocket Engine"] = {
+			k11 = 120, k12 = 1, k13 = 1, k14 = 15, k15 = 10, k16 = 18,
+			k17 = 45, k18 = 60, k19 = 10,
+		},
+		-- k14 and k15 are toggles and must stay booleans. k11 carries Div = 10.
+		["Mech Suit"] = {
+			k11 = 2, k12 = 30, k13 = 2, k14 = false, k15 = true, k16 = 1200,
+		},
+		["Big Bad Broom"] = {
+			k11 = 60, k12 = 30, k13 = 35, k14 = 25, k15 = 1,
+			k16 = 2, k17 = 8, k18 = 10,
 		},
 	},
 }
