@@ -161,5 +161,15 @@ return {
 			k11 = 60, k12 = 26, k13 = 45, k14 = 0, k15 = 22,
 			k16 = 70, k17 = 62,
 		},
+		-- World Envelope pair. k22 on Orochi carries Div = 10, so the stored 0.3
+		-- shows as 3 on the panel (UI.lua:1223-1225).
+		["Ymir's Flesh"] = {
+			k13 = 300, k14 = 140, k15 = 110, k16 = 4, k17 = 1,
+			k18 = 1, k20 = 40, k21 = 60, k22 = 120,
+		},
+		["Yamata no Orochi"] = {
+			k13 = 400, k15 = 5, k16 = 50, k17 = 5, k18 = 16,
+			k20 = 14, k22 = 0.3,
+		},
 	},
 }

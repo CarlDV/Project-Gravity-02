@@ -1179,6 +1179,13 @@ return function(context)
 				ib.MouseButton1Click:Connect(function()
 					local shape = get_shape(mn)
 					if shape then
+						-- This tree has no switch_shape at all, so the testing notice has
+						-- to live here. context.x8 is populated after this module is built
+						-- (main.lua:565) but long before any click, so it resolves at call
+						-- time rather than at build time.
+						if shape.Testing and context.x8 and context.x8.notify then
+							context.x8.notify("Testing", mn .. " is still in testing.", 4)
+						end
 						x1.k6 = mn
 						x6.transition_time = time()
 						x6.transition_dur = 1.5

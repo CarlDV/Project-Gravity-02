@@ -1507,6 +1507,11 @@ return function(context)
 						-- fallback before System is up
 						local shape = get_shape(mn)
 						if shape then
+							-- switch_shape owns this notice on the normal path; repeat it
+							-- here because this branch sets k6 itself and never reaches it.
+							if shape.Testing and context.x8 and context.x8.notify then
+								context.x8.notify("Testing", mn .. " is still in testing.", 4)
+							end
 							x1.k6 = mn
 							x6.transition_time = time()
 							x6.transition_dur = 1.5

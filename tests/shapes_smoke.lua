@@ -140,10 +140,58 @@ local_player = {
 	Character = character,
 	GetMouse = function() return { Hit = CFrame.new(MOUSE_HIT) } end,
 }
+-- A room for the probe shapes: floor at y=0, ceiling at y=40, walls at +-100 in
+-- x and z, and a gap in the +x wall between y=5 and y=20 so head selection has a
+-- real doorway to find. Returning a Normal as well as a Position matters: a stub
+-- that omits it leaves every cached normal nil, and a plane with no normal NaNs
+-- the whole envelope.
+local ROOM_ON = false
+local function ray_room(org, dv)
+	local reach = dv.Magnitude
+	if reach < 1e-6 then
+		return nil
+	end
+	local dir = dv / reach
+	local best, bn = reach, nil
+	local function face(t, n)
+		if t and t > 0.01 and t < best then
+			best, bn = t, n
+		end
+	end
+	if dir.Y < -1e-6 then face((0 - org.Y) / dir.Y, Vector3.new(0, 1, 0)) end
+	if dir.Y > 1e-6 then face((40 - org.Y) / dir.Y, Vector3.new(0, -1, 0)) end
+	if dir.X > 1e-6 then
+		local t = (100 - org.X) / dir.X
+		local hy = org.Y + dir.Y * t
+		if not (hy > 5 and hy < 20) then face(t, Vector3.new(-1, 0, 0)) end
+	end
+	if dir.X < -1e-6 then face((-100 - org.X) / dir.X, Vector3.new(1, 0, 0)) end
+	if dir.Z > 1e-6 then face((100 - org.Z) / dir.Z, Vector3.new(0, 0, -1)) end
+	if dir.Z < -1e-6 then face((-100 - org.Z) / dir.Z, Vector3.new(0, 0, 1)) end
+	if not bn then
+		return nil
+	end
+	return { Position = org + dir * best, Normal = bn }
+end
+
 workspace = {
 	CurrentCamera = { CFrame = CFrame.new(0, 0, 0) },
-	Raycast = function() return { Position = MOUSE_HIT } end,
+	Raycast = function(_, org, dv)
+		if ROOM_ON then
+			return ray_room(org, dv)
+		end
+		return { Position = MOUSE_HIT }
+	end,
 }
+
+-- Not needed by the three original shapes, but the probe shapes construct both
+-- inside px.
+RaycastParams = { new = function() return {} end }
+Enum = setmetatable({}, {
+	__index = function()
+		return setmetatable({}, { __index = function() return 0 end })
+	end,
+})
 
 -- Defaults come from config.lua rather than being restated here. A hand-copied
 -- fixture silently goes stale the moment a default changes, which is exactly how
@@ -582,6 +630,278 @@ do
 	for _, c in ipairs(st.conns) do if c.Connected then live = live + 1 end end
 	check(live == 0, ("cleanup disconnects all listeners (%d still live)"):format(live))
 end
+
+-- ---- Wake Spline pair ---------------------------------------------------
+-- Dragons Teeth and Mugen Train share one ring buffer of the anchor's own path.
+-- The invariants worth asserting are the ones a syntax check cannot see: that
+-- standing still does not collapse the trail, that a teleport starts a new one
+-- instead of drawing a line across the map, and that the ring stays bounded.
+for _, name in ipairs({ "Dragons Teeth", "Mugen Train" }) do
+	print(name)
+	local S = load_shape(name)
+	local cfg = shape_cfg(name)
+	local x1 = { k10 = 20, k7 = 4 }
+	local x9 = { c1 = 0.15, c2 = 0.05 }
+
+	local x6 = mk_x6()
+	x6.b = { Position = Vector3.new(0, 10, 0) }
+	-- Walk a circle for ten seconds: 300 studs of arc at STEP 5 is 60 samples.
+	for frame = 1, 600 do
+		x6.f = frame
+		local th = frame / 60 * 0.5
+		x6.b.Position = Vector3.new(math.cos(th) * 60, 10, math.sin(th) * 60)
+		S.px(frame / 60, cfg, x6, x9, x1)
+	end
+	local st = x6.pre["Wake Spline"]
+	check(st ~= nil, name .. ": px builds the ring")
+	check(st.count > 40 and st.count <= 768, ("%s: ring bounded (%d)"):format(name, st.count))
+
+	local cen = Vector3.new(0, 10, 0)
+	local seen, maxd = {}, 0
+	for id = 40000, 40400 do
+		local vel, tp = S.f2(part(Vector3.new(0, 0, 0)), cen, { id = id }, 10.0, cfg, x1, x6, x9)
+		check(finite(vel) and finite(tp), name .. " finite id=" .. id)
+		seen[("%.0f,%.0f,%.0f"):format(tp.X, tp.Y, tp.Z)] = true
+		local dd = (tp - cen).Magnitude
+		if dd > maxd then maxd = dd end
+	end
+	local uniq = 0
+	for _ in pairs(seen) do uniq = uniq + 1 end
+	-- id % n would pile 401 parts onto a handful of slots; the Weyl stride must not.
+	check(uniq > 200, ("%s: no clumping (%d/401 distinct)"):format(name, uniq))
+	check(maxd < 2000, ("%s: inside the k1 cull (%.0f)"):format(name, maxd))
+
+	-- Standing still must not collapse the trail onto one point.
+	local idle = mk_x6()
+	idle.b = { Position = Vector3.new(0, 10, 0) }
+	for frame = 1, 300 do
+		idle.f = frame
+		S.px(frame / 60, cfg, idle, x9, x1)
+	end
+	check(idle.pre["Wake Spline"].count == 1, name .. ": idle appends nothing")
+
+	-- A teleport starts a fresh trail rather than laying a line across the map.
+	local tp6 = mk_x6()
+	tp6.b = { Position = Vector3.new(0, 10, 0) }
+	for frame = 1, 120 do
+		tp6.f = frame
+		tp6.b.Position = Vector3.new(frame * 2, 10, 0)
+		S.px(frame / 60, cfg, tp6, x9, x1)
+	end
+	tp6.f = 121
+	tp6.b.Position = Vector3.new(9000, 10, 9000)
+	S.px(121 / 60, cfg, tp6, x9, x1)
+	check(tp6.pre["Wake Spline"].count == 1, name .. ": teleport reseeds the trail")
+
+	S.cleanup(x6, x1)
+	check(x6.pre["Wake Spline"] == nil, name .. ": cleanup drops state")
+end
+
+-- ---- Lag Tree pair ------------------------------------------------------
+-- Meteor Hammer and Mochi share a damped-spring chain. An explicit integrator is
+-- only conditionally stable, so the test that matters is the whole slider range
+-- against a punishing frame rate: a fixed 240 Hz sub-step sent the tip to 8.6e14
+-- studs at k=400 and 20 fps before the step count was derived from stiffness.
+for _, name in ipairs({ "Meteor Hammer", "Mochi Mochi no Mi" }) do
+	print(name)
+	local S = load_shape(name)
+	local x1 = { k10 = 20, k7 = 4 }
+	local x9 = { c1 = 0.15, c2 = 0.05 }
+
+	local worst = 0
+	for _, k in ipairs({ 5, 60, 400 }) do
+		for _, dr in ipairs({ 0.1, 0.8, 3.0 }) do
+			for _, g in ipairs({ 0, 60, 300 }) do
+				for _, fps in ipairs({ 20, 60, 240 }) do
+					local cfg = shape_cfg(name)
+					if name == "Meteor Hammer" then
+						cfg.k13, cfg.k14, cfg.k15 = k, dr, g
+					else
+						cfg.k13, cfg.k15, cfg.k14 = 45, dr * 33, g
+					end
+					local x6 = mk_x6()
+					x6.b = { Position = Vector3.new(0, 50, 0) }
+					for frame = 1, fps * 4 do
+						x6.f = frame
+						local tt = frame / fps
+						-- Yank the anchor 200 studs every second: an outside energy
+						-- source the stability bound does not model.
+						x6.b.Position = Vector3.new(math.floor(tt) % 2 == 0 and 0 or 200, 50, 0)
+						S.px(tt, cfg, x6, x9, x1)
+					end
+					local st = x6.pre["Lag Tree"]
+					for i = 1, 24 do
+						check(finite(st.p[i]), ("%s: finite k=%d drag=%.1f g=%d fps=%d"):format(name, k, dr, g, fps))
+						local dd = (st.p[i] - x6.b.Position).Magnitude
+						if dd > worst then worst = dd end
+					end
+				end
+			end
+		end
+	end
+	check(worst < 2000, ("%s: 81 configs stay inside the k1 cull (%.0f)"):format(name, worst))
+
+	-- Energy decay, which is the invariant that actually distinguishes a stable
+	-- integrator from a clamped unstable one. The leash and the velocity cap keep
+	-- an exploding chain bounded and finite, so a position check alone passes
+	-- either way -- verified by reverting the derived sub-step and watching the
+	-- bounds test stay green.
+	--
+	-- Decay is asserted rather than a settling deadline. A 24-node chain has
+	-- collective modes far slower than one spring, so at the softest stiffness it
+	-- legitimately rings for over ten seconds; demanding it be at rest by a fixed
+	-- time fails correct code. An unstable integrator cannot decay at all, which
+	-- is the property worth pinning.
+	for _, k in ipairs({ 5, 60, 400 }) do
+		for _, fps in ipairs({ 20, 60 }) do
+			local cfg = shape_cfg(name)
+			if name == "Meteor Hammer" then
+				cfg.k13, cfg.k14, cfg.k15, cfg.k16 = k, 0.8, 0, 0
+			else
+				cfg.k13, cfg.k15, cfg.k14 = 45, 26, 0
+			end
+			local x6 = mk_x6()
+			x6.b = { Position = Vector3.new(0, 50, 0) }
+			-- Kick it hard, then hold perfectly still and watch the energy go.
+			for frame = 1, fps do
+				x6.f = frame
+				x6.b.Position = Vector3.new((frame % 2 == 0) and 0 or 220, 50, 0)
+				S.px(frame / fps, cfg, x6, x9, x1)
+			end
+			local st = x6.pre["Lag Tree"]
+			local function peak()
+				local m = 0
+				for i = 1, 24 do
+					local sp = st.v[i].Magnitude
+					if sp > m then m = sp end
+				end
+				return m
+			end
+			local function hold(upto)
+				for frame = fps + 1, fps * upto do
+					x6.f = frame
+					x6.b.Position = Vector3.new(0, 50, 0)
+					S.px(frame / fps, cfg, x6, x9, x1)
+				end
+			end
+			hold(4)
+			local early = peak()
+			hold(16)
+			local late = peak()
+			check(late < early * 0.6,
+				("%s: sheds energy at rest, k=%d fps=%d (%.1f -> %.1f studs/s)"):format(name, k, fps, early, late))
+		end
+	end
+
+	local cfg = shape_cfg(name)
+	local x6 = mk_x6()
+	x6.b = { Position = Vector3.new(0, 50, 0) }
+	for frame = 1, 240 do
+		x6.f = frame
+		x6.b.Position = Vector3.new(math.cos(frame / 40) * 80, 50, math.sin(frame / 40) * 80)
+		S.px(frame / 60, cfg, x6, x9, x1)
+	end
+	local seen = {}
+	for id = 40000, 40400 do
+		local vel, tp = S.f2(part(Vector3.new(0, 0, 0)), Vector3.new(0, 50, 0), { id = id }, 4.0, cfg, x1, x6, x9)
+		check(finite(vel) and finite(tp), name .. " finite id=" .. id)
+		seen[("%.0f,%.0f,%.0f"):format(tp.X, tp.Y, tp.Z)] = true
+	end
+	local uniq = 0
+	for _ in pairs(seen) do uniq = uniq + 1 end
+	check(uniq > 200, ("%s: no clumping (%d/401 distinct)"):format(name, uniq))
+
+	S.cleanup(x6, x1)
+	check(x6.pre["Lag Tree"] == nil, name .. ": cleanup drops state")
+end
+
+-- ---- World Envelope pair ------------------------------------------------
+-- Ymir's Flesh and Yamata no Orochi share a probe lattice that caches world
+-- PLANES rather than radii, because px never sees cen and cen is per-part. The
+-- claim to test is that the field re-roots onto an origin it never probed from.
+ROOM_ON = true
+for _, name in ipairs({ "Ymir's Flesh", "Yamata no Orochi" }) do
+	print(name)
+	local S = load_shape(name)
+	local cfg = shape_cfg(name)
+	local x1 = { k10 = 20, k7 = 4 }
+	local x9 = { c1 = 0.15, c2 = 0.05 }
+
+	local org = Vector3.new(0, 20, 0)
+	local x6 = mk_x6()
+	x6.b = { Position = org }
+	-- Long enough for the round-robin to cover the lattice several times over.
+	for frame = 1, 200 do
+		x6.f = frame
+		S.px(frame / 60, cfg, x6, x9, x1)
+	end
+	check(x6.pre["World Envelope"] ~= nil, name .. ": px builds the field")
+
+	local seen, escapees = {}, 0
+	for id = 40000, 40500 do
+		local vel, tp = S.f2(part(Vector3.new(0, 0, 0)), org, { id = id }, 3.0, cfg, x1, x6, x9)
+		check(finite(vel) and finite(tp), name .. " finite id=" .. id)
+		seen[("%.0f,%.0f,%.0f"):format(tp.X, tp.Y, tp.Z)] = true
+		-- The room is 200 x 40 x 200; the pulse may lift parts through a face, but
+		-- nothing should be flung to the far side of the map.
+		if math.abs(tp.X) > 340 or math.abs(tp.Z) > 340 or tp.Y < -120 or tp.Y > 260 then
+			escapees = escapees + 1
+		end
+	end
+	local uniq = 0
+	for _ in pairs(seen) do uniq = uniq + 1 end
+	check(uniq > 250, ("%s: no clumping (%d/501 distinct)"):format(name, uniq))
+	check(escapees == 0, ("%s: every part stays in the room (%d escaped)"):format(name, escapees))
+
+	-- The re-root claim: serve a cen the probe never ran from. A cached radius
+	-- would put parts through the walls here; a cached plane does not.
+	local moved = org + Vector3.new(40, 0, -25)
+	local inside = 0
+	for id = 40000, 40200 do
+		local _, tp = S.f2(part(Vector3.new(0, 0, 0)), moved, { id = id }, 3.0, cfg, x1, x6, x9)
+		if finite(tp) and math.abs(tp.X) < 340 and math.abs(tp.Z) < 340 then
+			inside = inside + 1
+		end
+	end
+	check(inside > 190, ("%s: re-roots onto an unprobed origin (%d/201)"):format(name, inside))
+
+	S.cleanup(x6, x1)
+	check(x6.pre["World Envelope"] == nil, name .. ": cleanup drops state")
+end
+
+-- Orochi must put one head through the doorway rather than piling every head
+-- into the single deepest direction, which is what a plain top-K would do.
+do
+	print("Yamata no Orochi · head selection")
+	local S = load_shape("Yamata no Orochi")
+	local cfg = shape_cfg("Yamata no Orochi")
+	local x1 = { k10 = 20, k7 = 4 }
+	local x9 = { c1 = 0.15, c2 = 0.05 }
+	local x6 = mk_x6()
+	x6.b = { Position = Vector3.new(0, 12, 0) }
+	for frame = 1, 400 do
+		x6.f = frame
+		S.px(frame / 60, cfg, x6, x9, x1)
+	end
+	local st = x6.pre["World Envelope"]
+	local through = false
+	for i = 1, (st.pK or 0) do
+		if st.phd[i].dir.X > 0.75 then through = true end
+	end
+	check(through, "a head cranes through the doorway")
+
+	local minsep = 999
+	for i = 1, (st.pK or 0) do
+		for j = i + 1, (st.pK or 0) do
+			local dot = st.phd[i].dir:Dot(st.phd[j].dir)
+			if dot > 1 then dot = 1 elseif dot < -1 then dot = -1 end
+			local deg = math.deg(math.acos(dot))
+			if deg < minsep then minsep = deg end
+		end
+	end
+	check(minsep >= (cfg.k16 or 50) - 1, ("heads stay %.0f deg apart, not clustered"):format(minsep))
+end
+ROOM_ON = false
 
 print(("\n%d checks, %d failures"):format(checks, fails))
 os.exit(fails == 0 and 0 or 1)

@@ -1123,9 +1123,16 @@ return function(context)
 		if not name or not x2[name] then
 			return false
 		end
-		if not get_shape(name) then
+		local mod = get_shape(name)
+		if not mod then
 			x7.n("Sys", "Could not load " .. tostring(name), 3)
 			return false
+		end
+		-- Shapes still being tuned announce themselves. A module flag rather than
+		-- a name list here, following M.Drop (System.lua:376), so a shape carries
+		-- its own status and nothing central has to be edited to promote one.
+		if mod.Testing then
+			x7.n("Testing", name .. " is still in testing.", 4)
 		end
 		x1.k6 = name
 		x6.transition_time = time()

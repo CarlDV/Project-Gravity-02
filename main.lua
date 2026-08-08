@@ -567,6 +567,15 @@ local success, err = pcall(function()
 	x4.f3()
 	x8.i()
 	x5.st()
+
+	-- A saved k6 can already name a testing shape, in which case it is active
+	-- without the user having picked it this session and none of the switch paths
+	-- ever fire. Announcing it here is the whole point of the notice: the case
+	-- where you did not choose the shape is the one where you most need telling.
+	local startup_shape = get_shape(x1.k6)
+	if startup_shape and startup_shape.Testing then
+		x8.notify("Testing", tostring(x1.k6) .. " is still in testing.", 4)
+	end
 end)
 
 spin_conn:Disconnect()
