@@ -28,6 +28,16 @@ return {
 		PredictiveTracking = true,
 		PredictionFactor = 150,
 		ShowHUD = true,
+		-- load_settings only restores a saved value when a default of the same
+		-- type is already here, and reset_config only restores what it snapshotted
+		-- from this table. A key the UI writes but this table omits therefore both
+		-- forgets itself between sessions and survives "Reset All Settings".
+		SimpleMode = false,
+		Perf_DisableShadows = false,
+		Perf_DisablePostFX = false,
+		Perf_PotatoMaterials = false,
+		Perf_HideParticles = false,
+		SlingshotManual = false,
 		AggressiveClaim = false,
 		["Force Smooth (Lags)"] = false,
 		["Realistic Liftoff"] = false,

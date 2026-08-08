@@ -272,6 +272,88 @@ return function(context)
 			end
 		end
 
+		-- Dragging, done by hand rather than with the legacy Draggable property.
+		-- Draggable applies to the whole frame, so on Main -- which is mostly a tall
+		-- scrolling list of sliders and toggles -- a drag that began on the body moved
+		-- the window instead of reaching the control under the cursor. Binding the
+		-- drag to the header is the actual fix; the clamp is the second half of it,
+		-- because Draggable also happily parked a window fully outside the viewport
+		-- where nothing could reach it again. Only Main had a rescue for that
+		-- (unfold_header), and only by way of minimizing.
+		--
+		-- Deltas go straight onto Position's offset and stay 1:1 with the cursor even
+		-- under UIScale: a UIScale scales the window's own size and its descendants,
+		-- while Position still resolves against the parent, which is the ScreenGui.
+		-- The scale components are preserved, so a window anchored to the viewport
+		-- centre still tracks a resize.
+		local KEEP_ON_SCREEN = 60
+		local function make_draggable(win, handle)
+			handle = handle or win
+			-- A transparent Frame header still reports input; Active makes it consume
+			-- the press so it cannot fall through to whatever sits behind. Buttons
+			-- inside the header consume their own input, so minb and closeb never
+			-- start a drag.
+			handle.Active = true
+
+			local dragging = false
+			local origin, start_pos
+
+			local function commit(delta)
+				local parent = win.Parent
+				if not parent then
+					return
+				end
+				local avail = parent.AbsoluteSize
+				local size = win.AbsoluteSize
+				local want_x = start_pos.X.Scale * avail.X + start_pos.X.Offset + delta.X
+				local want_y = start_pos.Y.Scale * avail.Y + start_pos.Y.Offset + delta.Y
+				-- Leave a grabbable sliver on screen in both axes. Vertically the
+				-- floor is 0: a header dragged above the top edge is a window that
+				-- can never be picked up again.
+				local max_x = avail.X - KEEP_ON_SCREEN
+				local min_x = math.min(-(size.X - KEEP_ON_SCREEN), max_x)
+				win.Position = UDim2.new(
+					start_pos.X.Scale,
+					math.clamp(want_x, min_x, max_x) - start_pos.X.Scale * avail.X,
+					start_pos.Y.Scale,
+					math.clamp(want_y, 0, math.max(0, avail.Y - 30)) - start_pos.Y.Scale * avail.Y
+				)
+			end
+
+			table.insert(x6.c, handle.InputBegan:Connect(function(input)
+				local ty = input.UserInputType
+				if ty ~= Enum.UserInputType.MouseButton1 and ty ~= Enum.UserInputType.Touch then
+					return
+				end
+				dragging = true
+				origin = input.Position
+				start_pos = win.Position
+				-- Latched off the input itself rather than a global InputEnded: a
+				-- release over another GUI still ends this input, and without it the
+				-- window would stay stuck to the cursor.
+				local conn
+				conn = input.Changed:Connect(function()
+					if input.UserInputState == Enum.UserInputState.End then
+						dragging = false
+						if conn then
+							conn:Disconnect()
+						end
+					end
+				end)
+			end))
+
+			table.insert(x6.c, v1.InputChanged:Connect(function(input)
+				if not dragging or not start_pos then
+					return
+				end
+				local ty = input.UserInputType
+				if ty ~= Enum.UserInputType.MouseMovement and ty ~= Enum.UserInputType.Touch then
+					return
+				end
+				commit(input.Position - origin)
+			end))
+		end
+
 		local hud = Instance.new("Frame", sg)
 		hud.Name = "StatusHUD"
 		hud.BackgroundTransparency = 1
@@ -295,7 +377,22 @@ return function(context)
 				if not x5.g then
 					return
 				end
-				local tgt = x1.Tgt and (x1.Tgt.DisplayName or x1.Tgt.Name) or "None"
+				-- x1.Targets, not x1.Tgt: multi-targeting replaced the single slot and
+				-- nothing has written Tgt since, so this field read "NONE" even with
+				-- a target locked. main.lua strips Tgt from the save file outright.
+				local tgt = "None"
+				local sel = x1.Targets
+				if x1.PI_All then
+					tgt = "Everyone"
+				elseif sel and #sel > 0 then
+					if #sel == 1 then
+						tgt = sel[1].DisplayName or sel[1].Name
+					else
+						tgt = "Multi (" .. tostring(#sel) .. ")"
+					end
+				elseif x1.AnchorSelf then
+					tgt = "Self"
+				end
 				local state = x1.Disabled and "DISABLED" or (x1.Paused and "PAUSED" or "ACTIVE")
 				if tgt ~= hud_target or state ~= hud_state then
 					hud_target, hud_state = tgt, state
@@ -313,8 +410,8 @@ return function(context)
 		m.Position = UDim2.new(0, 30, 0.5, -250)
 		m.Size = UDim2.new(0, PANEL_W, 0, PANEL_H)
 		m.Active = true
-		m.Draggable = true
-		-- Held onto: the collapse tweens the radius out to a full circle.
+		-- Dragged by its header only; see make_draggable. The old Draggable made
+		-- the whole scrolling body a drag handle.
 		local mcorner = Instance.new("UICorner", m)
 		mcorner.CornerRadius = UDim.new(0, 10)
 		local ms = Instance.new("UIStroke", m)
@@ -327,6 +424,9 @@ return function(context)
 		local h = Instance.new("Frame", m)
 		h.BackgroundTransparency = 1
 		h.Size = UDim2.new(1, 0, 0, HEADER_H)
+		-- The header is also the whole surface of the collapsed pill, so binding
+		-- the drag here keeps the pill draggable without a second code path.
+		make_draggable(m, h)
 
 		local t = Instance.new("TextLabel", h)
 		t.BackgroundTransparency = 1
@@ -361,7 +461,6 @@ return function(context)
 		am.Visible = false
 		am.GroupTransparency = 1
 		am.Active = true
-		am.Draggable = true
 		Instance.new("UICorner", am).CornerRadius = UDim.new(0, 10)
 		local ams = Instance.new("UIStroke", am)
 		ams.Color = Color3.fromRGB(40, 40, 45)
@@ -374,6 +473,7 @@ return function(context)
 		local ah = Instance.new("Frame", am)
 		ah.BackgroundTransparency = 1
 		ah.Size = UDim2.new(1, 0, 0, 50)
+		make_draggable(am, ah)
 		local at = Instance.new("TextLabel", ah)
 		at.BackgroundTransparency = 1
 		at.Position = UDim2.new(0, 20, 0, 0)
@@ -492,16 +592,24 @@ return function(context)
 			save_settings()
 		end
 
-		es(ac, "Center Color R", 0, 255, math.floor(x1.k3.R * 255), function(v)
-			x1.k3 = Color3.fromRGB(v, x1.k3.G * 255, x1.k3.B * 255)
+		-- Each channel slider rebuilds the whole colour, so it has to hand the other
+		-- two back as the same integers they came in as. Color3 stores 0-1 floats and
+		-- v/255 does not round-trip exactly, so passing the bare product re-quantised
+		-- the untouched channels on every drag and walked the colour off over a
+		-- session of tweaking.
+		local function ch(x)
+			return math.floor(x * 255 + 0.5)
+		end
+		es(ac, "Center Color R", 0, 255, ch(x1.k3.R), function(v)
+			x1.k3 = Color3.fromRGB(v, ch(x1.k3.G), ch(x1.k3.B))
 			update_color()
 		end, true)
-		es(ac, "Center Color G", 0, 255, math.floor(x1.k3.G * 255), function(v)
-			x1.k3 = Color3.fromRGB(x1.k3.R * 255, v, x1.k3.B * 255)
+		es(ac, "Center Color G", 0, 255, ch(x1.k3.G), function(v)
+			x1.k3 = Color3.fromRGB(ch(x1.k3.R), v, ch(x1.k3.B))
 			update_color()
 		end, true)
-		es(ac, "Center Color B", 0, 255, math.floor(x1.k3.B * 255), function(v)
-			x1.k3 = Color3.fromRGB(x1.k3.R * 255, x1.k3.G * 255, v)
+		es(ac, "Center Color B", 0, 255, ch(x1.k3.B), function(v)
+			x1.k3 = Color3.fromRGB(ch(x1.k3.R), ch(x1.k3.G), v)
 			update_color()
 		end, true)
 
@@ -513,7 +621,6 @@ return function(context)
 		km.Visible = false
 		km.GroupTransparency = 1
 		km.Active = true
-		km.Draggable = true
 		Instance.new("UICorner", km).CornerRadius = UDim.new(0, 10)
 		local kms = Instance.new("UIStroke", km)
 		kms.Color = Color3.fromRGB(40, 40, 45)
@@ -523,6 +630,7 @@ return function(context)
 		local kh = Instance.new("Frame", km)
 		kh.BackgroundTransparency = 1
 		kh.Size = UDim2.new(1, 0, 0, 44)
+		make_draggable(km, kh)
 		local kt = Instance.new("TextLabel", kh)
 		kt.BackgroundTransparency = 1
 		kt.Position = UDim2.new(0, 20, 0, 0)
@@ -866,7 +974,11 @@ return function(context)
 			l_btn.Font = Enum.Font.GothamBold
 			l_btn.TextSize = 13
 			Instance.new("UICorner", l_btn).CornerRadius = UDim.new(0, 6)
-			l_btn.Visible = x1.k6 == "Slingshot" and x1.SlingshotManual
+			-- == true, not the bare value: Visible rejects nil, and an unset
+			-- SlingshotManual made this whole expression nil whenever Slingshot was
+			-- the live shape, which threw here and abandoned the rest of f1 --
+			-- taking the target selector, the shape controls and reset with it.
+			l_btn.Visible = x1.k6 == "Slingshot" and x1.SlingshotManual == true
 
 			l_btn.MouseButton1Click:Connect(function()
 				x1.IsLaunching = not x1.IsLaunching
@@ -877,7 +989,7 @@ return function(context)
 			table.insert(
 				x6.f1_connections,
 				v3.Heartbeat:Connect(function()
-					if x1.k6 == "Slingshot" and x1.SlingshotManual then
+					if x1.k6 == "Slingshot" and x1.SlingshotManual == true then
 						l_btn.Visible = true
 						l_btn.Text = x1.IsLaunching and "RESET SYSTEM" or "FORCE LAUNCH"
 						l_btn.BackgroundColor3 = x1.IsLaunching and Color3.fromRGB(50, 150, 200)
@@ -1030,10 +1142,23 @@ return function(context)
 
 					ib.MouseEnter:Connect(function()
 						ib.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+						-- Cleared first: moving the pointer fast enough gets the next
+						-- row's MouseEnter in before this row's MouseLeave, and the
+						-- single-slot handle would otherwise drop the older one
+						-- unreachable while it stayed parented to its character.
+						clear_highlight()
 						if pl.Character then
-							local h = Instance.new("Highlight", pl.Character)
+							local h = Instance.new("Highlight")
 							h.FillColor = Color3.fromRGB(255, 255, 255)
 							h.OutlineColor = Color3.fromRGB(255, 255, 255)
+							-- Adopted by the row rather than the character, so the
+							-- teardown below takes it with it. Clicking a row calls
+							-- f1(), which Destroy()s this whole list, and a Destroy
+							-- fires no MouseLeave -- so a highlight parented to the
+							-- character outlived the only handle to it and left that
+							-- player glowing for the rest of the session.
+							h.Adornee = pl.Character
+							h.Parent = ib
 							active_highlight = h
 						end
 					end)
@@ -1102,9 +1227,15 @@ return function(context)
 								if ctrl.Div then s[ctrl.Key] = v / ctrl.Div else s[ctrl.Key] = v end
 							end, ctrl.IntOnly)
 						elseif ctrl.Type == "Toggle" then
-							if current_val == nil then
-								current_val = ctrl.Default ~= nil and ctrl.Default or false
+							if type(current_val) ~= "boolean" then
+								current_val = ctrl.Default == true
 							end
+							-- Seated back into the config like the Slider and TextBox
+							-- branches already do. Without it a Toggle whose key is
+							-- missing from config.lua draws itself ON from its Default
+							-- while the shape keeps reading c[key] as nil and behaves
+							-- OFF, and the two only agree once the user clicks it.
+							s[ctrl.Key] = current_val
 							et(p_frame, ctrl.Name, current_val, function(v)
 								s[ctrl.Key] = v
 							end)
@@ -1470,7 +1601,6 @@ return function(context)
 		tut_container.Position = UDim2.new(0.5, -200, 0.5, -150)
 		tut_container.Size = UDim2.new(0, 400, 0, 300)
 		tut_container.Active = true
-		tut_container.Draggable = true
 		Instance.new("UICorner", tut_container).CornerRadius = UDim.new(0, 10)
 		local tuls = Instance.new("UIStroke", tut_container)
 		tuls.Color = Color3.fromRGB(40, 40, 45)
@@ -1478,6 +1608,7 @@ return function(context)
 		local tut_header = Instance.new("Frame", tut_container)
 		tut_header.BackgroundTransparency = 1
 		tut_header.Size = UDim2.new(1, 0, 0, 40)
+		make_draggable(tut_container, tut_header)
 		
 		local tut_title = Instance.new("TextLabel", tut_header)
 		tut_title.BackgroundTransparency = 1
@@ -1533,6 +1664,9 @@ return function(context)
 		-- start the opposite sequence while tweens from the first are still
 		-- running and leave the panel stuck at an intermediate size.
 		local anim_busy = false
+		-- Where the body was scrolled to when the panel collapsed; nil when the
+		-- panel is open and there is nothing banked. See roll_up.
+		local saved_canvas = nil
 
 		local ROLL, FOLD, UNFOLD = A.ROLL, A.FOLD, A.UNFOLD
 
@@ -1598,6 +1732,15 @@ return function(context)
 			-- Clipped rather than hidden, so the body is cut off as the panel
 			-- shrinks instead of vanishing a frame before the tween starts.
 			m.ClipsDescendants = true
+			-- The scroll offset has to be banked before the body shrinks. c is
+			-- sized against m, so collapsing drives its height to zero, and a
+			-- ScrollingFrame clamps CanvasPosition against its own window size --
+			-- at zero height that clamp stops holding the offset anywhere sensible.
+			-- Restoring from a stale value is what left the panel reopening onto
+			-- the middle of the list, or past the end of it entirely, whenever it
+			-- was minimized from anywhere but the very top.
+			saved_canvas = c.CanvasPosition
+			c.CanvasPosition = Vector2.new(0, 0)
 			if am.Visible then toggle_window(am, false) end
 			if km.Visible then toggle_window(km, false) end
 			if tut_container.Visible then toggle_window(tut_container, false) end
@@ -1606,6 +1749,20 @@ return function(context)
 			end
 			if m:FindFirstChild("TargetListContainer") and m.TargetListContainer.Visible then
 				toggle_window(m.TargetListContainer, false, true)
+			end
+			-- The AI chat window, its auth window and the floating "AI" widget are
+			-- siblings of the panel rather than children, so collapsing never
+			-- reached them and they sat in mid-screen beside a 44px pill. Same for
+			-- the reset dialog, which is a modal belonging to a panel that is no
+			-- longer on screen.
+			if ai_chat_module and ai_chat_module.hide then
+				pcall(ai_chat_module.hide)
+			end
+			if x6.reset_confirm then
+				if x6.reset_confirm.Parent then
+					x6.reset_confirm:Destroy()
+				end
+				x6.reset_confirm = nil
 			end
 			local tw = v6:Create(m, ROLL, { Size = UDim2.new(0, PANEL_W, 0, HEADER_H) })
 			local conn
@@ -1631,6 +1788,16 @@ return function(context)
 				-- Only now: the nested mode selector and target list sit outside
 				-- Main's bounds, so leaving this on would clip them away.
 				m.ClipsDescendants = false
+				-- Put the reader back where they left off, now that the body is at
+				-- full height again and the clamp means something. Deferred to the
+				-- end of the tween for the same reason.
+				if saved_canvas then
+					c.CanvasPosition = saved_canvas
+					saved_canvas = nil
+				end
+				if ai_chat_module and ai_chat_module.showWidget then
+					pcall(ai_chat_module.showWidget)
+				end
 				anim_busy = false
 			end)
 			tw:Play()
@@ -1718,6 +1885,13 @@ return function(context)
 				if x6.sg == sg then x6.sg = nil end
 			end)
 		end)
+
+		-- The body lives entirely inside f1, so without this the panel comes up
+		-- holding only the header buttons and the mode dropdown: no toggles, no
+		-- target selector, no shape controls, no reset. It used to fill in only
+		-- once something called x5.st() a second time -- recenter or stop -- which
+		-- read as the panel being half-built until the first keypress.
+		f1()
 	end
 
 	return x5

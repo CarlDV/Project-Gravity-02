@@ -6,6 +6,93 @@ return function(context)
 	local hs = game:GetService("HttpService")
 	local req_fn = request or (http and http.request) or http_request or (fluxus and fluxus.request) or (syn and syn.request)
 
+	-- Replaces the deprecated Frame.Draggable on this module's windows. Draggable
+	-- treats the entire surface as a drag handle, which on the chat panel meant the
+	-- transcript could not be dragged to scroll and the prompt box could not be
+	-- swiped to select -- both gestures moved the window instead. Binding the drag
+	-- to the title bar hands those gestures back.
+	--
+	-- The delta goes onto Position's offset unchanged: a UIScale scales a window's
+	-- size and its descendants, not its Position, which resolves against the parent
+	-- ScreenGui in plain screen pixels. The scale components of Position are kept,
+	-- which matters here because these windows are centred with AnchorPoint 0.5 and
+	-- a (0.5, 0.5) scale -- flattening that would jump them by half a screen on the
+	-- first drag.
+	--
+	-- Returns a was_dragged() probe. The floating widget is a TextButton that both
+	-- drags and clicks, and Roblox fires MouseButton1Click on release even after a
+	-- drag, so without this every reposition would also toggle the chat open.
+	local DRAG_SLOP = 6
+	local function make_draggable(win, handle)
+		handle = handle or win
+		handle.Active = true
+
+		local dragging, moved = false, false
+		local origin, start_pos
+
+		handle.InputBegan:Connect(function(input)
+			local ty = input.UserInputType
+			if ty ~= Enum.UserInputType.MouseButton1 and ty ~= Enum.UserInputType.Touch then
+				return
+			end
+			dragging, moved = true, false
+			origin = input.Position
+			start_pos = win.Position
+			local conn
+			conn = input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+					if conn then
+						conn:Disconnect()
+					end
+				end
+			end)
+		end)
+
+		v1.InputChanged:Connect(function(input)
+			if not dragging or not start_pos then
+				return
+			end
+			local ty = input.UserInputType
+			if ty ~= Enum.UserInputType.MouseMovement and ty ~= Enum.UserInputType.Touch then
+				return
+			end
+			local parent = win.Parent
+			if not parent then
+				dragging = false
+				return
+			end
+			local delta = input.Position - origin
+			-- A few pixels of travel is a shaky click, not a drag.
+			if math.abs(delta.X) > DRAG_SLOP or math.abs(delta.Y) > DRAG_SLOP then
+				moved = true
+			end
+			local avail = parent.AbsoluteSize
+			local size = win.AbsoluteSize
+			-- AnchorPoint shifts where Position lands, so the on-screen edges are
+			-- offset by it. Folding it in here keeps the clamp honest for both the
+			-- centred windows and the top-left anchored widget.
+			local anchor = win.AnchorPoint
+			local want_x = start_pos.X.Scale * avail.X + start_pos.X.Offset + delta.X
+			local want_y = start_pos.Y.Scale * avail.Y + start_pos.Y.Offset + delta.Y
+			local keep = math.min(30, size.X, size.Y)
+			local min_x = keep - size.X * (1 - anchor.X)
+			local max_x = avail.X - keep + size.X * anchor.X
+			local min_y = size.Y * anchor.Y
+			local max_y = avail.Y - keep + size.Y * anchor.Y
+			win.Position = UDim2.new(
+				start_pos.X.Scale,
+				math.clamp(want_x, math.min(min_x, max_x), math.max(min_x, max_x)) - start_pos.X.Scale * avail.X,
+				start_pos.Y.Scale,
+				math.clamp(want_y, math.min(min_y, max_y), math.max(min_y, max_y)) - start_pos.Y.Scale * avail.Y
+			)
+		end)
+
+		return function()
+			return moved
+		end
+	end
+
 	local AUTH_DIR = "ProjectAI"
 	local AUTH_FILE = "ProjectAI/auth.json"
 	local REF_LINK = "https://agentrouter.org/register?aff=4pqF"
@@ -957,7 +1044,6 @@ Core Rules:
 		authWindow.AnchorPoint = Vector2.new(0.5, 0.5)
 		authWindow.BackgroundColor3 = Color3.fromRGB(12, 12, 15)
 		authWindow.Active = true
-		authWindow.Draggable = true
 		authWindow.GroupTransparency = 1
 		Instance.new("UICorner", authWindow).CornerRadius = UDim.new(0, 10)
 		local str = Instance.new("UIStroke", authWindow)
@@ -971,6 +1057,7 @@ Core Rules:
 		local header = Instance.new("Frame", authWindow)
 		header.Size = UDim2.new(1, 0, 0, 32)
 		header.BackgroundTransparency = 1
+		make_draggable(authWindow, header)
 
 		local title = Instance.new("TextLabel", header)
 		title.Position = UDim2.new(0, 12, 0, 0)
@@ -1220,7 +1307,6 @@ Core Rules:
 		chatWindow.AnchorPoint = Vector2.new(0.5, 0.5)
 		chatWindow.BackgroundColor3 = Color3.fromRGB(12, 12, 15)
 		chatWindow.Active = true
-		chatWindow.Draggable = true
 		chatWindow.GroupTransparency = 1
 		Instance.new("UICorner", chatWindow).CornerRadius = UDim.new(0, 8)
 		local str = Instance.new("UIStroke", chatWindow)
@@ -1234,6 +1320,7 @@ Core Rules:
 		local header = Instance.new("Frame", chatWindow)
 		header.Size = UDim2.new(1, 0, 0, 30)
 		header.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+		make_draggable(chatWindow, header)
 		local headerLine = Instance.new("Frame", header)
 		headerLine.Position = UDim2.new(0, 0, 1, -1)
 		headerLine.Size = UDim2.new(1, 0, 0, 1)
@@ -1653,14 +1740,20 @@ Core Rules:
 		circleWidget.Font = Enum.Font.GothamBold
 		circleWidget.TextSize = 11
 		circleWidget.Active = true
-		circleWidget.Draggable = true
 		circleWidget.ZIndex = 100
 		Instance.new("UICorner", circleWidget).CornerRadius = UDim.new(0.5, 0)
 		local str = Instance.new("UIStroke", circleWidget)
 		str.Color = Color3.fromRGB(45, 45, 52)
 		str.Thickness = 1
 
+		-- Handle is the widget itself: it is a 36px grab target with nothing inside
+		-- it to conflict with, so the whole surface should drag.
+		local widget_dragged = make_draggable(circleWidget, circleWidget)
+
 		circleWidget.MouseButton1Click:Connect(function()
+			-- Release after a drag still fires a click, which would open the chat
+			-- every time the widget was moved out of the way.
+			if widget_dragged() then return end
 			windowController.toggle(parentGui)
 		end)
 		return circleWidget
@@ -1675,6 +1768,30 @@ Core Rules:
 			windowController.openAuth(parentGui, function()
 				windowController.openChat(parentGui)
 			end)
+		end
+	end
+
+	-- Called when the main panel collapses to its pill. These windows and the
+	-- floating widget are siblings of the panel rather than children, so nothing
+	-- about minimizing reaches them on its own -- they used to be left hanging in
+	-- the middle of the screen next to a 44px pill. Only hides: the session and
+	-- the chat history live on these instances, so tearing them down would lose
+	-- the conversation every time the panel was minimized.
+	function windowController.hide()
+		if chatWindow and chatWindow.Visible then
+			animateWindow(chatWindow, false)
+		end
+		if authWindow and authWindow.Visible then
+			animateWindow(authWindow, false)
+		end
+		if circleWidget then
+			circleWidget.Visible = false
+		end
+	end
+
+	function windowController.showWidget()
+		if circleWidget then
+			circleWidget.Visible = true
 		end
 	end
 
