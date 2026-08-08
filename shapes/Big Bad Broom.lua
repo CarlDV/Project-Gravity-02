@@ -11,13 +11,6 @@ local R2_A = 0.7548776662466927
 local R2_B = 0.5698402909980532
 local PHI = 0.6180339887498949
 
-local function root_of(char)
-	if not char then
-		return nil
-	end
-	return char:FindFirstChild("HumanoidRootPart") or char:FindFirstChildWhichIsA("BasePart")
-end
-
 -- Where the broom is pointed. Mouse.Hit first, since it already accounts for
 -- whatever the game does to the cursor; the viewport raycast is the fallback for
 -- when it returns nothing usable, and the far-plane point is the last resort so
@@ -137,9 +130,9 @@ function M.px(t, c, x6, x9, x1)
 	end
 	st.gen = gen
 
-	local lp = plrs.LocalPlayer
-	local root = root_of(lp and lp.Character)
-	st.grip = root and (root.Position + UP * 3) or nil
+	-- The grip is not stamped here: px never receives cen, and anchoring to the
+	-- character root ignores the anchor entirely, so the broom would not follow a
+	-- moved centre or a selected target. f2 derives the grip from cen instead.
 	st.aim = aim_point()
 	st.pub_ext = st.ext
 	st.pub_sweep = st.sweep
@@ -148,14 +141,19 @@ end
 function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local wp = p.Position
 	local st = x6.pre and x6.pre["Big Bad Broom"]
-	if not st or not st.grip or not st.aim then
+	if not st or not st.aim then
 		return ANTI_SLEEP, nil
 	end
 
-	-- The handle runs from a grip near you toward the cursor. Length is fixed by
-	-- the slider rather than reaching all the way, so the broom keeps its shape
+	-- Built off cen like every other shape, so the broom follows the anchor when
+	-- you drag it and rides a selected target when one is picked. Grip Height
+	-- lifts the hand off the centre; at 0 the broom swings straight out of it.
+	local grip = cen + UP * (c.k19 or 3)
+
+	-- The handle runs from the grip toward the cursor. Length is fixed by the
+	-- slider rather than reaching all the way, so the broom keeps its shape
 	-- whether you aim at your feet or the horizon.
-	local dir = st.aim - st.grip
+	local dir = st.aim - grip
 	if dir.Magnitude < 0.001 then
 		dir = WORLD_FWD
 	else
@@ -181,7 +179,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 
 	local hlen = c.k11 or 60
 	local ext = (st.pub_ext or 0) * (c.k14 or 25)
-	local tip = st.grip + shaft * (hlen + ext)
+	local tip = grip + shaft * (hlen + ext)
 
 	-- A frame on the head: across the sweep, and the head's own normal.
 	local across = shaft:Cross(UP)
@@ -203,7 +201,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		local along = w1 * (hlen + ext)
 		local a = w2 * math.pi * 2
 		local rad = c.k16 or 2
-		target_pos = st.grip + shaft * along + (across * math.cos(a) + norm * math.sin(a)) * rad
+		target_pos = grip + shaft * along + (across * math.cos(a) + norm * math.sin(a)) * rad
 	else
 		-- Head: a flat slab of bristles. No PreserveCollisions needed to crush
 		-- with it — CanCollide = false (System.lua:720) is a local property and
@@ -242,6 +240,7 @@ M.Controls = {
 	{ Type = "Slider", Name = "Head · Bristles", Min = 0, Max = 60, Key = "k18", Default = 10 },
 	{ Type = "Slider", Name = "Extend On Hold", Min = 0, Max = 150, Key = "k14", Default = 25 },
 	{ Type = "Slider", Name = "Sweep Axis (1 Flat, 2 Tip, 3 Roll)", Min = 1, Max = 3, Key = "k15", Default = 1, IntOnly = true },
+	{ Type = "Slider", Name = "Grip Height", Min = -40, Max = 120, Key = "k19", Default = 3 },
 }
 
 return M

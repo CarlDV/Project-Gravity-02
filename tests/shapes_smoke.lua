@@ -233,6 +233,43 @@ do
 	check((front - behind).Magnitude > 30, "front and behind are distinct placements")
 	check((front - beside).Magnitude > 20, "front and beside are distinct placements")
 
+	-- Height slider must move the body vertically and only vertically.
+	cfg.k13 = 2
+	cfg.k17 = 0; local low = centroid()
+	cfg.k17 = 50; local high = centroid()
+	check(math.abs((high.Y - low.Y) - 50) < 0.01, ("height slider lifts by its own studs: %.2f"):format(high.Y - low.Y))
+	check(math.abs(high.X - low.X) < 0.01 and math.abs(high.Z - low.Z) < 0.01, "height slider does not drift sideways")
+	cfg.k17 = 0
+
+	-- Height must apply in every placement, not just the offset ones.
+	for _, place in ipairs({ 1, 2, 3, 4 }) do
+		cfg.k13 = place
+		cfg.k17 = 0; local a = centroid()
+		cfg.k17 = 25; local b = centroid()
+		check(math.abs((b.Y - a.Y) - 25) < 0.01, ("height applies at placement %d"):format(place))
+		cfg.k17 = 0
+	end
+	cfg.k13 = 2
+
+	-- Feet must hold their height as the mech scales, or a large one sinks into
+	-- the floor. Lowest point is what matters here, not the centroid.
+	local function lowest()
+		local y = math.huge
+		for id = 1, 200 do
+			local _, tp = S.f2(part(Vector3.new(0, 0, 0)), cen, { id = id }, 0.2, cfg, x1, x6, x9)
+			if tp.Y < y then y = tp.Y end
+		end
+		return y
+	end
+	cfg.k11 = 1; local feet_small = lowest()
+	cfg.k11 = 4; local feet_big = lowest()
+	cfg.k11 = 12; local feet_huge = lowest()
+	check(math.abs(feet_big - feet_small) < 0.5,
+		("feet hold at 4x vs 1x: %.2f vs %.2f"):format(feet_big, feet_small))
+	check(math.abs(feet_huge - feet_small) < 0.5,
+		("feet hold at 12x vs 1x: %.2f vs %.2f"):format(feet_huge, feet_small))
+	cfg.k11 = 2
+
 	-- Stationary must latch a pose and hold it while the player moves.
 	cfg.k14 = true
 	x6.f = 8; S.px(0.13, cfg, x6, x9, x1)
@@ -265,7 +302,11 @@ do
 	local st = x6.pre["Big Bad Broom"]
 	check(st ~= nil, "state builds")
 	check(#st.conns == 3, ("connects %d input listeners"):format(st and #st.conns or 0))
-	check(st.grip ~= nil and st.aim ~= nil, "grip and aim resolved")
+	-- px stamps aim and input state only. The grip is deliberately not stamped:
+	-- px never receives cen, so deriving it here is what made the broom ignore
+	-- the anchor. f2 builds it from cen instead.
+	check(st.aim ~= nil, "aim resolved")
+	check(st.grip == nil, "grip is not stamped in px")
 
 	for id = 1, 300 do
 		local vel, tp = S.f2(part(Vector3.new(0, 0, 0)), cen, { id = id }, 0.2, cfg, x1, x6, x9)
@@ -294,7 +335,29 @@ do
 	st.pub_sweep = 0
 	st.pub_ext = 0; local retracted = centroid()
 	st.pub_ext = 1; local extended = centroid()
-	check((extended - st.grip).Magnitude > (retracted - st.grip).Magnitude, "hold extends the broom")
+	local grip = cen + Vector3.new(0, 1, 0) * cfg.k19
+	check((extended - grip).Magnitude > (retracted - grip).Magnitude, "hold extends the broom")
+	st.pub_ext = 0
+
+	-- The broom must be built off cen, so it follows the anchor and rides a
+	-- selected target. It used to hang off the character root and ignore both.
+	local moved = Vector3.new(500, 60, -300)
+	local here = centroid()
+	local there = (function()
+		local sx, sy, sz = 0, 0, 0
+		for id = 1, 100 do
+			local _, tp = S.f2(part(Vector3.new(0, 0, 0)), moved, { id = id }, 0.2, cfg, x1, x6, x9)
+			sx, sy, sz = sx + tp.X, sy + tp.Y, sz + tp.Z
+		end
+		return Vector3.new(sx / 100, sy / 100, sz / 100)
+	end)()
+	check((there - here).Magnitude > 100, "broom follows cen when the anchor moves")
+	check((there - moved).Magnitude < (there - cen).Magnitude, "broom sits at the new centre, not the old one")
+
+	-- Grip Height raises the hand off the centre.
+	cfg.k19 = 0; local at_cen = centroid()
+	cfg.k19 = 40; local lifted = centroid()
+	check(lifted.Y > at_cen.Y, "grip height raises the broom")
 
 	S.cleanup(x6, x1)
 	check(x6.pre["Big Bad Broom"] == nil, "cleanup drops state")

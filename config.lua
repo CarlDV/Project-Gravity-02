@@ -134,11 +134,11 @@ return {
 		},
 		-- k14 and k15 are toggles and must stay booleans. k11 carries Div = 10.
 		["Mech Suit"] = {
-			k11 = 2, k12 = 30, k13 = 2, k14 = false, k15 = true, k16 = 1200,
+			k11 = 2, k12 = 30, k13 = 2, k14 = false, k15 = true, k16 = 1200, k17 = 0,
 		},
 		["Big Bad Broom"] = {
 			k11 = 60, k12 = 30, k13 = 35, k14 = 25, k15 = 1,
-			k16 = 2, k17 = 8, k18 = 10,
+			k16 = 2, k17 = 8, k18 = 10, k19 = 3,
 		},
 	},
 }

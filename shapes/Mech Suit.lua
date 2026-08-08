@@ -52,6 +52,11 @@ local function build_cloud(char, detail)
 
 	local pts, n = table.create(detail), 0
 	local hi = 0
+	-- Lowest point in root-local space, so f2 can keep the feet on the floor at
+	-- any size. Without it a scaled cloud scales its downward offsets too and the
+	-- mech sinks: cen sits about 3 studs up, so at a large Size the legs end up
+	-- entirely underground and only the torso shows.
+	local lo = 0
 	for _, b in ipairs(boxes) do
 		local want = math.floor(detail * (b.vol / total) + 0.5)
 		if want < 1 then
@@ -69,6 +74,9 @@ local function build_cloud(char, detail)
 			if m > hi then
 				hi = m
 			end
+			if lp.Y < lo then
+				lo = lp.Y
+			end
 		end
 	end
 	if n == 0 then
@@ -84,7 +92,7 @@ local function build_cloud(char, detail)
 	while n % step == 0 and step > 1 do
 		step = step - 1
 	end
-	return { pts = pts, n = n, step = step, reach = hi }
+	return { pts = pts, n = n, step = step, reach = hi, low = lo }
 end
 
 -- Rebuilds the cloud on respawn or a detail change, then stamps the placement
@@ -184,6 +192,17 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	elseif place == 4 then
 		origin = base + right * gap
 	end
+	-- Height is applied after placement rather than inside it, so it reads the same
+	-- whether the mech is in front of you or standing on you.
+	--
+	-- The first term keeps the feet where they would be at Size 10: the cloud's
+	-- downward offsets scale with the mech, so a big one would otherwise drive its
+	-- legs through the floor. low is negative and scale > 1 lifts, scale < 1
+	-- lowers, and at Size 10 the term is 0 and the mech lines up with your body.
+	-- The slider is then a plain stud nudge on top, so its numbers mean the same
+	-- thing at every size.
+	local lift = (cloud.low or 0) * (1 - scale) + (c.k17 or 0)
+	origin = origin + UP * lift
 
 	-- Face You turns the mech to look back at the player; otherwise it faces the
 	-- same way you do, so it reads as an escort rather than a mirror.
@@ -232,6 +251,7 @@ M.Controls = {
 	{ Type = "Slider", Name = "Size", Min = 5, Max = 120, Key = "k11", Default = 2, Div = 10 },
 	{ Type = "Slider", Name = "Place (1 On You, 2 Front, 3 Behind, 4 Beside)", Min = 1, Max = 4, Key = "k13", Default = 2, IntOnly = true },
 	{ Type = "Slider", Name = "Standoff", Min = 0, Max = 200, Key = "k12", Default = 30 },
+	{ Type = "Slider", Name = "Height", Min = -100, Max = 300, Key = "k17", Default = 0 },
 	{ Type = "Slider", Name = "Detail", Min = 200, Max = 4000, Key = "k16", Default = 1200, IntOnly = true },
 	{ Type = "Toggle", Name = "Stationary", Key = "k14", Default = false },
 	{ Type = "Toggle", Name = "Face You", Key = "k15", Default = true },
