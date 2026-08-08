@@ -97,6 +97,63 @@ function M.px(t, c, x6, x9, x1)
 	local root = lp and root_of(lp.Character)
 	st.caster = root and root.Position or nil
 	st.u, st.v = plane_of(c.k13 or 1)
+
+	-- Hunt: work through the targets one at a time instead of orbiting whatever
+	-- each part was dealt.
+	--
+	-- With Target Everyone on, System gives each part a different active_c
+	-- (System.lua:446), which would split the engine into one thin rocket per
+	-- player. Choosing a single quarry here and publishing it for every part keeps
+	-- one whole rocket that visits them in turn. The roster is rebuilt each dwell
+	-- and sorted by distance from you, so it opens on the nearest and re-sorts as
+	-- people move, join or leave.
+	if c.k21 ~= true or not st.caster then
+		st.hunt = nil
+		return
+	end
+
+	if not st.hunt_at or t >= st.hunt_at then
+		local roster = {}
+		if x1 and x1.PI_All then
+			for _, pl in ipairs(plrs:GetPlayers()) do
+				if pl ~= lp then
+					local r = root_of(pl.Character)
+					if r then
+						roster[#roster + 1] = r
+					end
+				end
+			end
+		elseif x1 and x1.Targets then
+			for _, pl in ipairs(x1.Targets) do
+				local r = pl and pl.Parent and root_of(pl.Character)
+				if r then
+					roster[#roster + 1] = r
+				end
+			end
+		end
+
+		if #roster == 0 then
+			st.hunt, st.hunt_at = nil, nil
+			return
+		end
+
+		local from = st.caster
+		table.sort(roster, function(a, b)
+			return (a.Position - from).Magnitude < (b.Position - from).Magnitude
+		end)
+
+		-- Advance before reading, so the first pass opens on the nearest and each
+		-- later one moves along. Wrapping on the current roster length means a
+		-- shrinking lobby cannot leave the index stranded past the end.
+		st.hunt_i = ((st.hunt_i or 0) % #roster) + 1
+		st.hunt_root = roster[st.hunt_i]
+		st.hunt = st.hunt_root.Position
+		st.hunt_at = t + math.max(0.5, c.k22 or 4)
+	elseif st.hunt_root and st.hunt_root.Parent then
+		-- Keep tracking the quarry between rebuilds, so the rocket chases a moving
+		-- player rather than the spot they stood on when the dwell began.
+		st.hunt = st.hunt_root.Position
+	end
 end
 
 -- Where the engine is on its path, and which way it is pointing.
@@ -164,7 +221,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		return ANTI_SLEEP, nil
 	end
 
-	local pos, tan = flight(st, cen, c)
+	-- Hunt overrides the per-part cen so every part flies the same path; see px.
+	local pos, tan = flight(st, st.hunt or cen, c)
 
 	-- A stable frame around the flight direction. Cross against whichever world
 	-- axis the tangent is least parallel to, so it never collapses at the poles.
@@ -214,6 +272,8 @@ M.Controls = {
 	{ Type = "Slider", Name = "Exhaust · Share %", Min = 0, Max = 90, Key = "k17", Default = 45, IntOnly = true },
 	{ Type = "Slider", Name = "Exhaust · Length", Min = 5, Max = 200, Key = "k18", Default = 60 },
 	{ Type = "Slider", Name = "Exhaust · Spread", Min = 0, Max = 40, Key = "k19", Default = 10 },
+	{ Type = "Toggle", Name = "Hunt Targets", Key = "k21", Default = false },
+	{ Type = "Slider", Name = "Hunt · Seconds Each", Min = 1, Max = 30, Key = "k22", Default = 4 },
 }
 
 return M

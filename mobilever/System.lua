@@ -140,7 +140,7 @@ return function(context)
 		return pos + (vel * (factor / 1000))
 	end
 
-	local no_damp = { ["Slingshot"] = true, ["Point Impact"] = true, ["Deflect"] = true, ["Light Light no Mi"] = true }
+	local no_damp = { ["Slingshot"] = true, ["Point Impact"] = true, ["Light Light no Mi"] = true }
 
 	-- NetworkOwnerV3 values that mean somebody else is simulating the part. One
 	-- hash lookup instead of a four-way comparison chain, per part per frame.

@@ -319,6 +319,17 @@ local function load_settings()
 end
 load_settings()
 
+-- A settings file can name a shape that no longer ships -- Deflect was folded
+-- into Cursed Technique Red -- and nothing downstream catches that. switch_shape
+-- checks x2 (System.lua), but only for an explicit switch; the startup path calls
+-- get_shape(x1.k6) directly, which warns, returns nil, and leaves shape_f2 nil.
+-- Every claimed part then falls through to ANTI_SLEEP, so the script grabs the
+-- map and does nothing with it, with only a warn to explain why. Falling back to
+-- the default costs one lookup and turns that into a working panel.
+if not x2[x1.k6] then
+	x1.k6 = default_x1.k6
+end
+
 if setfpscap then
 	pcall(function()
 		setfpscap(x1.FPSCap or 60)

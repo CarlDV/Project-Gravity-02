@@ -14,11 +14,36 @@ local R3_B = 0.6710436067037893
 local R3_C = 0.5497004779019702
 local PHI = 0.6180339887498949
 
+-- Which swinging limb a part belongs to, by name. 0 is body: torso, head, and
+-- anything unrecognised, which all stay rigid. Matching on name covers R6 and
+-- R15 together -- "Left Arm" and "LeftUpperArm" both land on the same limb --
+-- and anything exotic falls through to body rather than flailing.
 local function root_of(char)
 	if not char then
 		return nil
 	end
 	return char:FindFirstChild("HumanoidRootPart") or char:FindFirstChildWhichIsA("BasePart")
+end
+
+local LIMB_NONE, LIMB_LARM, LIMB_RARM, LIMB_LLEG, LIMB_RLEG = 0, 1, 2, 3, 4
+
+-- Natural gait counter-rotates: the left arm leads with the right leg.
+local LIMB_SWING = { 1, -1, -1, 1 }
+
+local function limb_of(name)
+	local n = string.lower(name)
+	local side = string.find(n, "left", 1, true) and 1
+		or (string.find(n, "right", 1, true) and 2 or 0)
+	if side == 0 then
+		return LIMB_NONE
+	end
+	if string.find(n, "arm", 1, true) or string.find(n, "hand", 1, true) then
+		return side == 1 and LIMB_LARM or LIMB_RARM
+	end
+	if string.find(n, "leg", 1, true) or string.find(n, "foot", 1, true) then
+		return side == 1 and LIMB_LLEG or LIMB_RLEG
+	end
+	return LIMB_NONE
 end
 
 -- Samples the player's own character into a point cloud in root-local space.
@@ -42,7 +67,12 @@ local function build_cloud(char, detail)
 			local vol = sz.X * sz.Y * sz.Z
 			if vol > 0 then
 				total = total + vol
-				boxes[#boxes + 1] = { cf = inv * part.CFrame, size = sz, vol = vol }
+				boxes[#boxes + 1] = {
+					cf = inv * part.CFrame,
+					size = sz,
+					vol = vol,
+					limb = limb_of(part.Name),
+				}
 			end
 		end
 	end
@@ -50,19 +80,29 @@ local function build_cloud(char, detail)
 		return nil
 	end
 
-	local pts, n = table.create(detail), 0
+	local pts, limbs, n = table.create(detail), table.create(detail), 0
 	local hi = 0
 	-- Lowest point in root-local space, so f2 can keep the feet on the floor at
 	-- any size. Without it a scaled cloud scales its downward offsets too and the
 	-- mech sinks: cen sits about 3 studs up, so at a large Size the legs end up
 	-- entirely underground and only the torso shows.
 	local lo = 0
+	-- Where each swinging limb hinges: the top of its own points, at their mean
+	-- across and fore-aft. Measured rather than assumed, so an R15 arm made of
+	-- three parts hinges at the shoulder and not at each elbow, and an oversized
+	-- avatar hinges in the right place too.
+	local piv = {}
+	for l = LIMB_LARM, LIMB_RLEG do
+		piv[l] = { top = -math.huge, sx = 0, sz = 0, count = 0 }
+	end
+
 	for _, b in ipairs(boxes) do
 		local want = math.floor(detail * (b.vol / total) + 0.5)
 		if want < 1 then
 			want = 1
 		end
 		local sx, sy, sz = b.size.X, b.size.Y, b.size.Z
+		local acc = piv[b.limb]
 		for i = 1, want do
 			local ox = ((i * R3_A) % 1 - 0.5) * sx
 			local oy = ((i * R3_B) % 1 - 0.5) * sy
@@ -70,6 +110,7 @@ local function build_cloud(char, detail)
 			local lp = b.cf * Vector3.new(ox, oy, oz)
 			n = n + 1
 			pts[n] = lp
+			limbs[n] = b.limb
 			local m = lp.Magnitude
 			if m > hi then
 				hi = m
@@ -77,10 +118,26 @@ local function build_cloud(char, detail)
 			if lp.Y < lo then
 				lo = lp.Y
 			end
+			if acc then
+				if lp.Y > acc.top then
+					acc.top = lp.Y
+				end
+				acc.sx = acc.sx + lp.X
+				acc.sz = acc.sz + lp.Z
+				acc.count = acc.count + 1
+			end
 		end
 	end
 	if n == 0 then
 		return nil
+	end
+
+	local pivots = {}
+	for l = LIMB_LARM, LIMB_RLEG do
+		local acc = piv[l]
+		if acc.count > 0 then
+			pivots[l] = Vector3.new(acc.sx / acc.count, acc.top, acc.sz / acc.count)
+		end
 	end
 
 	-- Coprime-ish stride so consecutive ids land on unrelated points: thinning
@@ -92,7 +149,7 @@ local function build_cloud(char, detail)
 	while n % step == 0 and step > 1 do
 		step = step - 1
 	end
-	return { pts = pts, n = n, step = step, reach = hi, low = lo }
+	return { pts = pts, limbs = limbs, pivots = pivots, n = n, step = step, reach = hi, low = lo }
 end
 
 -- Rebuilds the cloud on respawn or a detail change, then stamps the placement
@@ -110,6 +167,18 @@ function M.px(t, c, x6, x9, x1)
 		x6.pre["Mech Suit"] = st
 	end
 
+	-- Gait runs every frame, ahead of the bucket gate, so the stride integrates
+	-- against real elapsed time rather than stepping once per cycle. Only the
+	-- published pair below is read by f2, which is what keeps the limbs in
+	-- agreement with each other.
+	local dt = t - (st.t or t)
+	st.t = t
+	if dt <= 0 then
+		dt = 1 / 60
+	elseif dt > 0.25 then
+		dt = 0.25
+	end
+
 	local et = x1 and x1.k7
 	if not et then
 		local n = x6.n or 0
@@ -122,12 +191,6 @@ function M.px(t, c, x6, x9, x1)
 		et = 1
 	end
 
-	local gen = math.floor((x6.f or 0) / et)
-	if st.gen == gen then
-		return
-	end
-	st.gen = gen
-
 	local lp = plrs.LocalPlayer
 	local char = lp and lp.Character
 	local root = root_of(char)
@@ -135,6 +198,39 @@ function M.px(t, c, x6, x9, x1)
 		st.cloud = nil
 		return
 	end
+
+	-- Which body the mech stands on and animates from.
+	--
+	-- The mech deliberately does not read the per-part cen System hands f2. With
+	-- several targets that value differs per part (System.lua:446), which would
+	-- deal the body out across all of them and leave one thin copy standing on
+	-- each. One target is chosen here and every part uses it, so the mech is
+	-- always a single whole body. Target Everyone is ignored for the same reason;
+	-- with no explicit target the mech stays on you.
+	local anchor_root = root
+	local targets = x1 and x1.Targets
+	if targets then
+		for _, pl in ipairs(targets) do
+			local r = pl and pl.Parent and root_of(pl.Character)
+			if r then
+				anchor_root = r
+				break
+			end
+		end
+	end
+
+	-- Stride advances with ground speed, so it keeps step with the actual walk
+	-- instead of running at a fixed cadence, and stops dead when the body does.
+	-- Vertical speed is dropped: falling is not walking.
+	local vel = anchor_root.AssemblyLinearVelocity
+	local ground = vel and Vector3.new(vel.X, 0, vel.Z).Magnitude or 0
+	st.gait = (st.gait or 0) + dt * ground * 0.34
+
+	local gen = math.floor((x6.f or 0) / et)
+	if st.gen == gen then
+		return
+	end
+	st.gen = gen
 
 	local detail = math.floor(c.k16 or 1200)
 	local live = 0
@@ -148,12 +244,24 @@ function M.px(t, c, x6, x9, x1)
 		st.char, st.detail, st.live = char, detail, live
 	end
 
-	local cf = root.CFrame
+	-- Swing eases in with speed and back out to zero, so the limbs settle to rest
+	-- when you stop rather than freezing mid-stride.
+	local swing = (c.k18 or 35) * (math.pi / 180)
+	local ramp = math.clamp(ground / 14, 0, 1)
+	st.pub_swing = math.sin(st.gait) * swing * ramp
+	-- A small vertical bob on twice the stride: one rise per footfall, not per
+	-- full cycle.
+	st.pub_bob = math.cos(st.gait * 2) * (c.k19 or 0) * 0.1 * ramp
+
+	local cf = anchor_root.CFrame
 	local lv = cf.LookVector
 	local flat = Vector3.new(lv.X, 0, lv.Z)
 	local fwd = (flat.Magnitude > 0.001) and flat.Unit or WORLD_FWD
 	st.player_pos = cf.Position
 	st.player_fwd = fwd
+	-- Where you actually are, which is what Face You turns toward. Separate from
+	-- player_pos now that the mech can be standing on somebody else.
+	st.host_pos = root.Position
 
 	-- Stationary latches a world pose the first cycle it is on, so the mech is
 	-- left standing where you were rather than snapping to the origin. Cleared
@@ -201,14 +309,16 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	-- lowers, and at Size 10 the term is 0 and the mech lines up with your body.
 	-- The slider is then a plain stud nudge on top, so its numbers mean the same
 	-- thing at every size.
-	local lift = (cloud.low or 0) * (1 - scale) + (c.k17 or 0)
+	local lift = (cloud.low or 0) * (1 - scale) + (c.k17 or 0) + (st.pub_bob or 0) * scale
 	origin = origin + UP * lift
 
-	-- Face You turns the mech to look back at the player; otherwise it faces the
-	-- same way you do, so it reads as an escort rather than a mirror.
+	-- Face You turns the mech to look back at you; otherwise it faces the same way
+	-- the body it stands on does, so it reads as an escort rather than a mirror.
+	-- Turning toward host_pos, not base: with a target selected the mech stands on
+	-- them, and facing base would have it staring at its own feet.
 	local f = fwd
-	if c.k15 == true and place ~= 1 then
-		local look = base - origin
+	if c.k15 == true then
+		local look = (st.host_pos or base) - origin
 		local flat = Vector3.new(look.X, 0, look.Z)
 		if flat.Magnitude > 0.001 then
 			f = flat.Unit
@@ -220,6 +330,30 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local n = cloud.n
 	local i = (id * cloud.step) % n + 1
 	local lp = cloud.pts[i]
+
+	-- Walk cycle. Each limb rotates about its own hinge in the fore-aft plane,
+	-- arms counter to legs, so a claimed-part body reads as striding rather than
+	-- sliding. Body points are untouched, and with swing at rest this is a single
+	-- comparison per part.
+	local swing = st.pub_swing or 0
+	if swing ~= 0 then
+		local limb = cloud.limbs[i]
+		if limb ~= LIMB_NONE then
+			local pivot = cloud.pivots[limb]
+			if pivot then
+				local ang = swing * LIMB_SWING[limb]
+				local ca, sa = math.cos(ang), math.sin(ang)
+				local dx, dy, dz = lp.X - pivot.X, lp.Y - pivot.Y, lp.Z - pivot.Z
+				-- Rotate about root-local X: Y is up and Z is aft, so this swings the
+				-- limb forward and back around its hinge.
+				lp = Vector3.new(
+					pivot.X + dx,
+					pivot.Y + dy * ca - dz * sa,
+					pivot.Z + dy * sa + dz * ca
+				)
+			end
+		end
+	end
 
 	-- Parts beyond the point count shell outward in golden-angle rings instead of
 	-- z-fighting into one blob, the same fallback Hover Text uses for extra parts.
@@ -253,6 +387,8 @@ M.Controls = {
 	{ Type = "Slider", Name = "Standoff", Min = 0, Max = 200, Key = "k12", Default = 30 },
 	{ Type = "Slider", Name = "Height", Min = -100, Max = 300, Key = "k17", Default = 0 },
 	{ Type = "Slider", Name = "Detail", Min = 200, Max = 4000, Key = "k16", Default = 1200, IntOnly = true },
+	{ Type = "Slider", Name = "Walk · Swing", Min = 0, Max = 90, Key = "k18", Default = 35 },
+	{ Type = "Slider", Name = "Walk · Bob", Min = 0, Max = 40, Key = "k19", Default = 6 },
 	{ Type = "Toggle", Name = "Stationary", Key = "k14", Default = false },
 	{ Type = "Toggle", Name = "Face You", Key = "k15", Default = true },
 }

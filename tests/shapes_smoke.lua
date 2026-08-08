@@ -72,6 +72,8 @@ do
 			-- and CFrame off every limb.
 			Position = pos,
 			CFrame = CFrame.new(pos),
+			-- Standing still by default; the walk tests drive this directly.
+			AssemblyLinearVelocity = Vector3.new(0, 0, 0),
 			IsA = function(_, cls) return cls == "BasePart" end,
 		}
 	end
@@ -80,17 +82,50 @@ do
 		for _, k in ipairs(kids) do if k.Name == n then return k end end
 	end
 	character.FindFirstChildWhichIsA = function() return kids[1] end
+	character.root = kids[1]
 end
 
+-- Other players, for the targeting and hunt tests. Distances from the local
+-- player are deliberately out of order so a "nearest first" claim has to sort.
+local function mk_player(name, pos)
+	local char
+	local root = {
+		Name = "HumanoidRootPart",
+		Size = Vector3.new(2, 2, 1),
+		Position = pos,
+		CFrame = CFrame.new(pos),
+		AssemblyLinearVelocity = Vector3.new(0, 0, 0),
+		IsA = function(_, cls) return cls == "BasePart" end,
+	}
+	char = {
+		GetChildren = function() return { root } end,
+		FindFirstChild = function(_, n) return n == "HumanoidRootPart" and root or nil end,
+		FindFirstChildWhichIsA = function() return root end,
+	}
+	-- A real BasePart is always parented to its character model. Shapes use that
+	-- to tell a live quarry from one that has despawned mid-chase.
+	root.Parent = char
+	return { Name = name, Parent = true, Character = char, root = root }
+end
+
+local FAR = mk_player("Far", Vector3.new(900, 0, 0))
+local NEAR = mk_player("Near", Vector3.new(120, 0, 0))
+local MID = mk_player("Mid", Vector3.new(400, 0, 0))
+
+local local_player
+
 local MOUSE_HIT = Vector3.new(140, 8, 40)
+local ROSTER = {}
 game = {
 	GetService = function(_, name)
 		if name == "Players" then
 			return {
-				LocalPlayer = {
-					Character = character,
-					GetMouse = function() return { Hit = CFrame.new(MOUSE_HIT) } end,
-				},
+				LocalPlayer = local_player,
+				GetPlayers = function()
+					local out = { local_player }
+					for _, pl in ipairs(ROSTER) do out[#out + 1] = pl end
+					return out
+				end,
 			}
 		end
 		return {
@@ -99,6 +134,11 @@ game = {
 			GetMouseLocation = function() return { X = 400, Y = 300 } end,
 		}
 	end,
+}
+local_player = {
+	Name = "Host",
+	Character = character,
+	GetMouse = function() return { Hit = CFrame.new(MOUSE_HIT) } end,
 }
 workspace = {
 	CurrentCamera = { CFrame = CFrame.new(0, 0, 0) },
@@ -253,6 +293,62 @@ do
 	local same = st.caster
 	local _, tp = S.f2(part(Vector3.new(0, 0, 0)), same, { id = 3 }, 1.0, cfg, x1, x6, x9)
 	check(finite(tp), "figure 8 degenerate span falls back cleanly")
+
+	-- Hunt: one rocket that works through the lobby, nearest first, on a loop.
+	cfg.k12 = 1
+	cfg.k21 = true
+	cfg.k22 = 2
+	ROSTER = { FAR, NEAR, MID }
+	local x1h = { k10 = 20, k7 = 4, PI_All = true }
+
+	local function hunt_step(frame, tt)
+		x6.f = frame
+		S.px(tt, cfg, x6, x9, x1h)
+		return st.hunt
+	end
+
+	-- Opens on the nearest, not on roster order: NEAR is listed second.
+	local first = hunt_step(500, 100)
+	check(first ~= nil, "hunt picks a quarry")
+	check((first - NEAR.root.Position).Magnitude < 1,
+		"hunt opens on the nearest player")
+
+	-- Holds that quarry for the dwell, then advances.
+	local held = hunt_step(504, 101)
+	check((held - NEAR.root.Position).Magnitude < 1, "hunt holds a quarry for its dwell")
+	local second = hunt_step(508, 103)
+	check((second - MID.root.Position).Magnitude < 1, "hunt advances to the next nearest")
+	local third = hunt_step(512, 106)
+	check((third - FAR.root.Position).Magnitude < 1, "hunt advances again")
+	local wrapped = hunt_step(516, 109)
+	check((wrapped - NEAR.root.Position).Magnitude < 1, "hunt loops back to the start")
+
+	-- A moving quarry is chased between dwells, not left at where it stood.
+	NEAR.root.Position = Vector3.new(150, 0, 200)
+	local chased = hunt_step(520, 110)
+	check((chased - NEAR.root.Position).Magnitude < 1, "hunt tracks a moving quarry")
+	NEAR.root.Position = Vector3.new(120, 0, 0)
+
+	-- Every part must fly the same path, or Target Everyone splits the rocket
+	-- into one thin copy per player. Different cen per part, same result.
+	hunt_step(524, 112)
+	local a1, a2
+	do
+		local _, p1 = S.f2(part(Vector3.new(0, 0, 0)), Vector3.new(0, 0, 0), { id = 5 }, 112, cfg, x1h, x6, x9)
+		local _, p2 = S.f2(part(Vector3.new(0, 0, 0)), Vector3.new(800, 40, -600), { id = 5 }, 112, cfg, x1h, x6, x9)
+		a1, a2 = p1, p2
+	end
+	check((a1 - a2).Magnitude < 0.001, "hunt overrides per-part cen so the rocket stays whole")
+
+	-- An empty lobby has to fall back to cen rather than freezing or erroring.
+	ROSTER = {}
+	local empty = hunt_step(528, 120)
+	check(empty == nil, "hunt clears when there is nobody to chase")
+	local _, fb = S.f2(part(Vector3.new(0, 0, 0)), Vector3.new(0, 10, 0), { id = 1 }, 120, cfg, x1h, x6, x9)
+	check(finite(fb), "hunt with an empty lobby still produces a finite path")
+
+	cfg.k21 = false
+	ROSTER = {}
 end
 
 -- ---- Mech Suit ----------------------------------------------------------
@@ -344,6 +440,63 @@ do
 	cfg.k14 = false
 	x6.f = 24; S.px(0.4, cfg, x6, x9, x1)
 	check(st.anchor == nil, "anchor clears when stationary is switched off")
+
+	-- Targeting. The mech must stand on a selected target, stay one whole body
+	-- while doing it, and ignore Target Everyone.
+	local function body_at(cfg2, x1b, frame)
+		x6.f = frame
+		S.px(frame / 60, cfg2, x6, x9, x1b)
+		local sx, sy, sz = 0, 0, 0
+		for id = 1, 150 do
+			local _, tp = S.f2(part(Vector3.new(0, 0, 0)), Vector3.new(0, 5, 0), { id = id }, frame / 60, cfg2, x1b, x6, x9)
+			sx, sy, sz = sx + tp.X, sy + tp.Y, sz + tp.Z
+		end
+		return Vector3.new(sx / 150, sy / 150, sz / 150)
+	end
+
+	local untargeted = body_at(cfg, { k10 = 20, k7 = 4 }, 40)
+	check((untargeted - character.root.Position).Magnitude < 120,
+		"with no target the mech stays on the host")
+
+	local targeted = body_at(cfg, { k10 = 20, k7 = 4, Targets = { MID } }, 48)
+	check((targeted - MID.root.Position).Magnitude < 120,
+		"a selected target moves the mech onto them")
+	check((targeted - untargeted).Magnitude > 200, "targeting actually relocates the body")
+
+	-- Target Everyone must not deal the body out across the lobby. Whatever it
+	-- picks, the result has to be one coherent mech, not several thin ones.
+	local all_on = body_at(cfg, { k10 = 20, k7 = 4, PI_All = true }, 56)
+	check((all_on - untargeted).Magnitude < 1,
+		"Target Everyone is ignored; the mech stays whole on the host")
+
+	-- Walking. The limbs must swing only while the body is actually moving.
+	local x1w = { k10 = 20, k7 = 4 }
+	local function limb_spread(frame)
+		-- Feet are the lowest points; their fore-aft spread is the stride.
+		local lo, hi = math.huge, -math.huge
+		x6.f = frame
+		S.px(frame / 60, cfg, x6, x9, x1w)
+		for id = 1, 400 do
+			local _, tp = S.f2(part(Vector3.new(0, 0, 0)), cen, { id = id }, frame / 60, cfg, x1w, x6, x9)
+			if tp.Z < lo then lo = tp.Z end
+			if tp.Z > hi then hi = tp.Z end
+		end
+		return hi - lo
+	end
+
+	character.root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+	local still = limb_spread(64)
+	character.root.AssemblyLinearVelocity = Vector3.new(16, 0, 0)
+	-- Several cycles so the stride integrates away from zero crossing.
+	limb_spread(72); limb_spread(80)
+	local walking = limb_spread(88)
+	check(walking > still + 0.5, ("walking swings the limbs: %.2f vs %.2f standing"):format(walking, still))
+
+	-- Falling is not walking: vertical speed alone must not drive the gait.
+	character.root.AssemblyLinearVelocity = Vector3.new(0, -60, 0)
+	x6.f = 96; S.px(96 / 60, cfg, x6, x9, x1w)
+	check(math.abs(st.pub_swing or 0) < 0.001, "falling does not trigger the walk cycle")
+	character.root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
 
 	S.cleanup(x6, x1)
 	check(x6.pre["Mech Suit"] == nil, "cleanup drops state")

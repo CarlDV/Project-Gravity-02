@@ -74,7 +74,6 @@ return {
 		["Halo Ring"] = { k11 = 40, k12 = 0, k13 = 5, k14 = 80, k15 = 0, k16 = 0, k17 = 50, k23 = false },
 		["Slingshot"] = { k11 = 50, k12 = 3, k13 = 100, k14 = 0, k15 = 5, k16 = 0, k17 = 100, k23 = false },
 		["Gods Call"] = { k11 = 10, k12 = 0, k13 = 0, k14 = 0, k15 = 0, k16 = 0, k17 = 50, k23 = false },
-		["Deflect"] = { k11 = 50, k12 = 500, k13 = 0, k14 = 0, k15 = 0, k16 = 0, k17 = 50, k23 = false },
 		["Shield Wall"] = { k11 = 20, k12 = 25, k13 = 20, k14 = 50, k15 = 10, k16 = 0, k17 = 50, k23 = false },
 		["Sculptor"] = { k11 = 0, k12 = 0, k13 = 0, k14 = 0, k15 = 0, k16 = 0, k17 = 0, k23 = false },
 		["Torus Knot"] = { k11 = 3, k12 = 2, k13 = 10, k14 = 50, k15 = 20, k16 = 0, k17 = 0, k23 = false },
@@ -125,17 +124,18 @@ return {
 			k57 = false, k58 = false, k59 = 0,
 		},
 		-- k12/k13/k20 are enum pickers rendered as integer sliders (no Dropdown
-		-- control exists), and k14 carries Div = 10, so the value stored here is
-		-- what the shape reads -- the UI multiplies by Div for display and divides
-		-- on the way back, so a default written pre-multiplied would be ten times
-		-- too big.
+		-- control exists), k21 is a toggle and must stay a boolean, and k14 carries
+		-- Div = 10, so the value stored here is what the shape reads -- the UI
+		-- multiplies by Div for display and divides on the way back, so a default
+		-- written pre-multiplied would be ten times too big.
 		["Rocket Engine"] = {
 			k11 = 120, k12 = 1, k13 = 1, k14 = 15, k15 = 10, k16 = 18,
-			k17 = 45, k18 = 60, k19 = 10, k20 = 1,
+			k17 = 45, k18 = 60, k19 = 10, k20 = 1, k21 = false, k22 = 4,
 		},
 		-- k14 and k15 are toggles and must stay booleans. k11 carries Div = 10.
 		["Mech Suit"] = {
-			k11 = 2, k12 = 30, k13 = 2, k14 = false, k15 = true, k16 = 1200, k17 = 0,
+			k11 = 2, k12 = 30, k13 = 2, k14 = false, k15 = true, k16 = 1200,
+			k17 = 0, k18 = 35, k19 = 6,
 		},
 		["Big Bad Broom"] = {
 			k11 = 60, k12 = 30, k13 = 35, k14 = 25, k15 = 1,
