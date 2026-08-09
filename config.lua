@@ -90,7 +90,7 @@ return {
 		["Alien Mothership"] = { k11 = 120, k12 = 40, k13 = 15, k14 = 200, k15 = 0, k16 = 0, k17 = 0, k23 = false },
 		["Cursed Technique Red"] = { k12 = 100 },
 		["ROOM Ope Ope no Mi"] = { k11 = 150, k12 = 2, k13 = 1.5, k14 = 20, k18 = true },
-		["Light Light no Mi"] = { k11 = 150, k12 = 400, k13 = 0.2, k14 = 2, k18 = true },
+		["Light Light no Mi"] = { k11 = 150, k12 = 400, k13 = 3, k14 = 2, k18 = true },
 		["Quantum Core"] = { k11 = 100, k12 = 30, k13 = 40, k14 = 50, k15 = 0, k16 = 0, k17 = 0, k23 = false },
 		["Galactic Web"] = { k11 = 400, k12 = 10, k13 = 5, k14 = 0, k15 = 0, k16 = 0, k17 = 0, k23 = false, k24 = 200 },
 		["Quantum Entanglement"] = { k11 = 50, k12 = 100, k13 = 200, k14 = 3, k15 = 2, k16 = 5 },
@@ -141,16 +141,6 @@ return {
 			k11 = 60, k12 = 30, k13 = 35, k14 = 25, k15 = 1,
 			k16 = 2, k17 = 8, k18 = 10, k19 = 3,
 		},
-		-- Wake Spline pair. k19 on Dragons Teeth carries Div = 10, so the stored
-		-- 3.5 is the 0.35 s rise the panel shows (UI.lua:1223-1225).
-		["Dragons Teeth"] = {
-			k11 = 300, k13 = 34, k14 = 18, k15 = 7, k16 = 75,
-			k17 = 4, k18 = 6, k19 = 3.5, k20 = 3, k21 = true, k22 = false,
-		},
-		["Mugen Train"] = {
-			k11 = 420, k13 = 90, k14 = 4, k15 = 26, k16 = 14,
-			k17 = 14, k18 = 10, k19 = 22, k20 = 9, k21 = 1, k24 = false,
-		},
 		-- Lag Tree pair. k14 and k16 on Meteor Hammer carry Div = 10, so the
 		-- stored 0.8 and 1.2 show as 8 and 12 on the panel (UI.lua:1223-1225).
 		["Meteor Hammer"] = {
@@ -161,15 +151,9 @@ return {
 			k11 = 60, k12 = 26, k13 = 45, k14 = 0, k15 = 22,
 			k16 = 70, k17 = 62,
 		},
-		-- World Envelope pair. k22 on Orochi carries Div = 10, so the stored 0.3
-		-- shows as 3 on the panel (UI.lua:1223-1225).
 		["Ymir's Flesh"] = {
 			k13 = 300, k14 = 140, k15 = 110, k16 = 4, k17 = 1,
 			k18 = 1, k20 = 40, k21 = 60, k22 = 120,
-		},
-		["Yamata no Orochi"] = {
-			k13 = 400, k15 = 5, k16 = 50, k17 = 5, k18 = 16,
-			k20 = 14, k22 = 0.3,
-		},
+		}
 	},
 }
