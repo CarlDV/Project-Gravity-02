@@ -20,7 +20,18 @@ return function(env)
 		muted = Color3.fromRGB(110, 110, 120),
 		label = Color3.fromRGB(150, 150, 165),
 		accent = Color3.fromRGB(0, 230, 190),
-		danger = Color3.fromRGB(255, 100, 100)
+		danger = Color3.fromRGB(255, 100, 100),
+		-- Same teal as accent, dropped in value so it can sit behind text or as a
+		-- hairline without pulling the eye off the message itself.
+		accentDim = Color3.fromRGB(0, 150, 128),
+		-- Bubble fills. These lived as literals in transcript.lua, which put half
+		-- the panel's colour outside the palette; the values are unchanged.
+		bubbleUser = Color3.fromRGB(35, 35, 42),
+		bubbleAi = Color3.fromRGB(25, 25, 30),
+		bubbleSys = Color3.fromRGB(19, 19, 24),
+		bodyText = Color3.fromRGB(240, 240, 240),
+		dangerBg = Color3.fromRGB(150, 40, 40),
+		dangerStroke = Color3.fromRGB(180, 50, 50)
 	}
 
 	function M.corner(inst, radius)

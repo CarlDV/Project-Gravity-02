@@ -51,17 +51,31 @@ return function(env)
 
 		-- Free mode's model is the server's to pick, so the picker only appears
 		-- for API-key sessions where the choice actually reaches the upstream.
-		if st.session.mode ~= "free" then
+		local showModelMenu = st.session.mode ~= "free"
+		if showModelMenu then
 			env.require("ui/modelmenu").new(window, header)
 		end
 
+		-- Where the status text may start and stop. The left bound clears the
+		-- title, plus the model picker when it is shown; the right bound covers
+		-- the Clear / Logout / minimise / close cluster.
+		local HEADER_LEFT = showModelMenu and 132 or 58
+		local HEADER_RIGHT = 128
+
+		-- Every header control used to be pinned to a fixed x offset, so the status
+		-- text was handed "1,-260" -- about 40px on the default 300px window, and
+		-- negative at the 240px minimum, where Logout landed on top of Clear. The
+		-- right-hand cluster is now right-anchored and status takes the gap that
+		-- is genuinely left over, so it stays readable at every allowed width.
 		local statusLbl = kit.label(header, {
 			text = "ready",
 			color = COL.muted,
-			pos = UDim2.new(0, 168, 0, 0),
-			dim = UDim2.new(1, -260, 1, 0),
+			size = 8,
+			pos = UDim2.new(0, HEADER_LEFT, 0, 0),
+			dim = UDim2.new(1, -(HEADER_LEFT + HEADER_RIGHT), 1, 0),
 			align = Enum.TextXAlignment.Right
 		})
+		statusLbl.TextTruncate = Enum.TextTruncate.AtEnd
 
 		local feed = env.require("ui/transcript").new(window)
 		env.require("ui/composer").new(window, feed, statusLbl)
@@ -71,7 +85,7 @@ return function(env)
 			color = COL.label,
 			size = 8,
 			bg = COL.raised,
-			pos = UDim2.new(0, 131, 0.5, -9),
+			pos = UDim2.new(1, -124, 0.5, -9),
 			dim = UDim2.new(0, 34, 0, 18),
 			radius = 4,
 			stroke = COL.strokeSoft

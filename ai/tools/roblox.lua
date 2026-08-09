@@ -1,6 +1,5 @@
 -- Roblox-side tools: version lookup, instance tree inspection, live Luau exec.
 local EXEC_TIMEOUT = 10
-local EXEC_POLL = 0.05
 
 return function(env)
 	local hs = env.hs
@@ -91,13 +90,20 @@ return function(env)
 					done = true
 				end)
 
-				-- A thread that yields (task.wait, event waits, RequestAsync) hands
-				-- control back here, so the deadline is reachable. Code that never
-				-- yields cannot be interrupted by anything in Luau, which is what
-				-- the loop guard above is for.
-				local deadline = os.clock() + EXEC_TIMEOUT
-				while not done and os.clock() < deadline do
-					task.wait(EXEC_POLL)
+				-- task.spawn runs the body inline until its first yield, so code that
+				-- never yields is already finished here and must not be made to wait:
+				-- polling first would put a scheduler tick on every single call.
+				-- Anything that did yield is polled per frame rather than on a fixed
+				-- sleep, so a script finishing in 10ms is not billed for a 50ms nap.
+				-- Elapsed comes from task.wait's own delta, not os.clock: os.clock
+				-- reports CPU time, which stalls while a thread is yielded, so a
+				-- script full of task.wait would blow far past the deadline in real
+				-- seconds before the budget looked spent.
+				if not done then
+					local elapsed = 0
+					repeat
+						elapsed = elapsed + (task.wait() or 0)
+					until done or elapsed >= EXEC_TIMEOUT
 				end
 
 				if not done then
