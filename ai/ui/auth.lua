@@ -189,9 +189,19 @@ return function(env)
 			local body = hs:JSONEncode({ user = uText, pass = pText })
 			local res = net.request("/api/login", "POST", { ["Content-Type"] = "application/json" }, body)
 			if res and res.StatusCode == 200 then
+				-- The session cookie is the whole point of logging in: routes set to
+				-- "Signed-in only" verify its HMAC, so a placeholder here would read
+				-- as authenticated locally and then 401 on the first message.
+				local token = st.readSessionCookie(net.header(res, "Set-Cookie"))
+				if not token then
+					errLbl.Text = "Login failed: no session returned"
+					return
+				end
 				st.session.mode = "free"
-				st.session.token = "active"
+				st.session.token = token
 				finish()
+			elseif res and res.StatusCode == 403 then
+				errLbl.Text = "Login failed: account disabled"
 			else
 				errLbl.Text = "Login failed: Check credentials"
 			end

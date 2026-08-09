@@ -49,7 +49,11 @@ return function(env)
 			dim = UDim2.new(0, 52, 1, 0)
 		})
 
-		env.require("ui/modelmenu").new(window, header)
+		-- Free mode's model is the server's to pick, so the picker only appears
+		-- for API-key sessions where the choice actually reaches the upstream.
+		if st.session.mode ~= "free" then
+			env.require("ui/modelmenu").new(window, header)
+		end
 
 		local statusLbl = kit.label(header, {
 			text = "ready",
@@ -92,15 +96,22 @@ return function(env)
 			radius = 4,
 			stroke = Color3.fromRGB(45, 35, 35)
 		})
-		logoutBtn.MouseButton1Click:Connect(function()
-			st.session.mode = ""
-			st.session.token = ""
-			st.session.apiKey = ""
-			st.save()
-			window:Destroy()
-			window = nil
+		-- Shared by the button and by an expired session: both have to drop the
+		-- credentials, tear the panel down and hand back to the login window.
+		local function logout()
+			st.clearCredentials()
+			if window then
+				window:Destroy()
+				window = nil
+			end
 			if onLogout then onLogout() end
-		end)
+		end
+
+		logoutBtn.MouseButton1Click:Connect(logout)
+
+		-- The agent loop cannot reach the UI, so it calls this after clearing a
+		-- token the server rejected.
+		env.require("agent").onSessionExpired = logout
 
 		local minBtn = kit.textButton(header, {
 			text = "-",

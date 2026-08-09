@@ -32,17 +32,21 @@ return function(env)
 		session.history = trimmed
 	end
 
+	-- Free mode goes through the server's custom route, which supplies the model
+	-- and the key upstream. The plain /free/v1/chat/completions path instead
+	-- rejects any model that isn't the operator's current default with a 400, so
+	-- picking a model here used to break the moment the server default moved.
 	local function authHeaders(session)
 		local headers = { ["Content-Type"] = "application/json" }
 		if session.mode == "free" then
 			if #session.token > 0 then
-				headers["Cookie"] = "aidavidcsl_session=" .. session.token
+				headers["Cookie"] = st.SESSION_COOKIE .. "=" .. session.token
 			end
-			return "/free/v1/chat/completions", headers
+			return st.FREE_PATH, headers
 		end
 		headers["Authorization"] = "Bearer " .. session.apiKey
 		headers["x-api-key"] = session.apiKey
-		return "/key/v1/chat/completions", headers
+		return st.KEY_PATH, headers
 	end
 
 	local M = {}
@@ -70,11 +74,14 @@ return function(env)
 			updateStatus("Thinking...")
 
 			local payload = {
-				model = session.model,
 				messages = session.history,
 				tools = tools.definitions,
 				max_tokens = 2048
 			}
+			-- Only key mode names a model; in free mode the server decides.
+			if session.mode ~= "free" then
+				payload.model = session.model
+			end
 
 			-- Empty Luau tables encode as [], which the API rejects for properties.
 			local bodyJson = hs:JSONEncode(payload):gsub('"properties":%[%]', '"properties":{}')
@@ -83,6 +90,14 @@ return function(env)
 			local res, err = net.request(endpointPath, "POST", reqHeaders, bodyJson)
 			if not res or res.StatusCode ~= 200 then
 				updateStatus("Error")
+				-- A signed-in route answers 401 once the 12h session lapses. The
+				-- saved token is dead at that point, so drop it and let the caller
+				-- put the login window back up rather than failing forever.
+				if res and res.StatusCode == 401 and session.mode == "free" then
+					st.clearCredentials()
+					if M.onSessionExpired then M.onSessionExpired() end
+					return "Session expired. Please log in again."
+				end
 				return "Request failed: " .. tostring(res and res.StatusCode or err)
 			end
 

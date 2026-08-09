@@ -8,10 +8,29 @@ return function(env)
 	M.AUTH_FILE = "ProjectAI/auth.json"
 	M.REF_LINK = "https://agentrouter.org/register?aff=4pqF"
 	M.DEFAULT_ENDPOINT = "https://ai.davidcsl.me"
+	-- Free mode uses the server's custom route: it carries its own upstream and
+	-- key, and unlike /free/v1/chat/completions it does not reject requests whose
+	-- model differs from the operator's current default.
+	M.FREE_PATH = "/free/v1/projectai"
+	M.KEY_PATH = "/key/v1/chat/completions"
+	M.SESSION_COOKIE = "aidavidcsl_session"
 	M.MODELS = {
 		"claude-opus-5",
 		"gpt-5.6-sol"
 	}
+
+	-- Pulls the session value out of a Set-Cookie header. The token is a
+	-- payload.signature pair, so it contains dots and base64url characters but
+	-- never a semicolon, which is what ends the value.
+	function M.readSessionCookie(raw)
+		if type(raw) ~= "string" then return nil end
+		local value = raw:match(M.SESSION_COOKIE .. "=([^;]+)")
+		if not value then return nil end
+		value = value:match("^%s*(.-)%s*$")
+		-- A cleared cookie (logout) comes back empty; treat that as no token.
+		if value == "" then return nil end
+		return value
+	end
 
 	M.session = {
 		mode = "free",
@@ -24,8 +43,23 @@ return function(env)
 
 	-- The prompt is a large blob that is only needed once a message is actually
 	-- sent, so it stays behind a lazy require instead of loading with the panel.
+	-- In free mode the server chooses the model, so claiming one here would just
+	-- state something that may well be wrong.
 	function M.systemContent()
-		return "(YOUR MODEL IS " .. tostring(M.session.model):upper() .. ")\n" .. env.require("prompt").text
+		local prompt = env.require("prompt").text
+		if M.session.mode == "free" then return prompt end
+		return "(YOUR MODEL IS " .. tostring(M.session.model):upper() .. ")\n" .. prompt
+	end
+
+	-- Sessions expire server-side after 12h, and the token is persisted, so a
+	-- stale one would otherwise 401 on every message with no way back to the
+	-- login window. Callers drop the credentials and re-prompt.
+	function M.clearCredentials()
+		M.session.mode = ""
+		M.session.token = ""
+		M.session.apiKey = ""
+		M.session.history = {}
+		M.save()
 	end
 
 	function M.save()

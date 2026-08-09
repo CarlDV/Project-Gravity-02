@@ -1552,13 +1552,10 @@ return function(context)
 			if x6.tdlst_container and x6.tdlst_container.Visible then
 				toggle_window(x6.tdlst_container, false)
 			end
-			-- The AI chat, its auth window and the floating "AI" widget are siblings
-			-- of the panel rather than children, so collapsing never reached them and
-			-- they sat mid-screen beside the pill. Same for the reset dialog, a modal
-			-- belonging to a panel that is no longer on screen.
-			if ai_chat_module and ai_chat_module.hide then
-				pcall(ai_chat_module.hide)
-			end
+			-- The AI chat is a sibling of the panel, not a child, and it stays up
+			-- when the panel collapses: a long generation is worth watching while
+			-- the panel is out of the way. The reset dialog still goes, since it is
+			-- a modal belonging to a panel that is no longer on screen.
 			if x6.reset_confirm then
 				if x6.reset_confirm.Parent then
 					x6.reset_confirm:Destroy()

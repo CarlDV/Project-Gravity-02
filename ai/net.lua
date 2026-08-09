@@ -21,7 +21,8 @@ return function(env)
 			if ok and res then
 				return {
 					StatusCode = res.StatusCode or res.Status or 200,
-					Body = res.Body or res.ResponseData or ""
+					Body = res.Body or res.ResponseData or "",
+					Headers = res.Headers or res.ResponseHeaders
 				}
 			end
 			return nil, ok and "empty executor response" or tostring(res)
@@ -30,11 +31,28 @@ return function(env)
 			if ok and res then
 				return {
 					StatusCode = res.StatusCode,
-					Body = res.Body
+					Body = res.Body,
+					Headers = res.Headers
 				}
 			end
 			return nil, ok and "empty HttpService response" or tostring(res)
 		end
+	end
+
+	-- Header lookup is case-insensitive: RequestAsync and the various executors
+	-- disagree on the casing of "Set-Cookie", and HTTP does not care.
+	function M.header(res, name)
+		local tbl = res and res.Headers
+		if type(tbl) ~= "table" then return nil end
+		local want = name:lower()
+		for k, v in pairs(tbl) do
+			if type(k) == "string" and k:lower() == want then
+				-- Some transports hand back a list of values for one header.
+				if type(v) == "table" then return v[1] end
+				return v
+			end
+		end
+		return nil
 	end
 
 	function M.urlEncode(str)
