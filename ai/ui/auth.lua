@@ -189,16 +189,13 @@ return function(env)
 			local body = hs:JSONEncode({ user = uText, pass = pText })
 			local res = net.request("/api/login", "POST", { ["Content-Type"] = "application/json" }, body)
 			if res and res.StatusCode == 200 then
-				-- The session cookie is the whole point of logging in: routes set to
-				-- "Signed-in only" verify its HMAC, so a placeholder here would read
-				-- as authenticated locally and then 401 on the first message.
-				local token = st.readSessionCookie(net.header(res, "Set-Cookie"))
-				if not token then
-					errLbl.Text = "Login failed: no session returned"
-					return
-				end
+				-- Capture the real session cookie when the transport exposes it:
+				-- routes set to "Signed-in only" verify its HMAC. Roblox's
+				-- HttpService filters Set-Cookie out of responses and executors
+				-- differ, so a missing cookie is normal and must not fail a login
+				-- the server already accepted -- an "Anyone" route needs no token.
 				st.session.mode = "free"
-				st.session.token = token
+				st.session.token = st.readSessionCookie(net.header(res, "Set-Cookie")) or ""
 				finish()
 			elseif res and res.StatusCode == 403 then
 				errLbl.Text = "Login failed: account disabled"

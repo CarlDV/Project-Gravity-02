@@ -1,4 +1,7 @@
 -- Roblox-side tools: version lookup, instance tree inspection, live Luau exec.
+local EXEC_TIMEOUT = 10
+local EXEC_POLL = 0.05
+
 return function(env)
 	local hs = env.hs
 	local net = env.require("net")
@@ -53,6 +56,16 @@ return function(env)
 			run = function(args)
 				local code = tostring(args.code or "")
 				if code == "" then return "Code buffer empty" end
+
+				-- A loop that never yields blocks the Luau scheduler outright, so no
+				-- timeout, thread or Stop button can reach it. These two forms are
+				-- unconditional freezes with no legitimate use, so they get a yield.
+				-- Loops with a real body are left alone: injecting a wait into one
+				-- that already yields would silently halve its speed.
+				code = code
+					:gsub("while%s+true%s+do%s*end", "while true do task.wait() end")
+					:gsub("repeat%s*until%s+false", "repeat task.wait() until false")
+
 				local loadFn = loadstring or (getgenv and getgenv().loadstring)
 				if not loadFn then return "loadstring unavailable" end
 				local fn, err = loadFn(code)
@@ -67,7 +80,32 @@ return function(env)
 					end
 				}, { __index = genv, __newindex = genv })
 				if setfenv then pcall(setfenv, fn, customEnv) end
-				local ok, res = pcall(fn)
+
+				-- Generated code used to run inline, so a loop that never returned
+				-- froze the client with no way out -- not even the Stop button, since
+				-- the agent thread was the one blocked. It now runs on its own thread
+				-- and this one stops waiting after EXEC_TIMEOUT.
+				local done, ok, res = false, false, nil
+				task.spawn(function()
+					ok, res = pcall(fn)
+					done = true
+				end)
+
+				-- A thread that yields (task.wait, event waits, RequestAsync) hands
+				-- control back here, so the deadline is reachable. Code that never
+				-- yields cannot be interrupted by anything in Luau, which is what
+				-- the loop guard above is for.
+				local deadline = os.clock() + EXEC_TIMEOUT
+				while not done and os.clock() < deadline do
+					task.wait(EXEC_POLL)
+				end
+
+				if not done then
+					-- The thread is abandoned, not killed: it keeps running until it
+					-- finishes on its own. Say so rather than implying it stopped.
+					return ("Timed out after %ds and was left running in the background. "):format(EXEC_TIMEOUT)
+						.. "Do not retry the same code; make it finish or yield instead."
+				end
 				if not ok then return "Runtime error: " .. tostring(res) end
 				local out = #logs > 0 and ("\nLogs:\n" .. table.concat(logs, "\n")) or ""
 				local ret = res ~= nil and ("\nReturned: " .. tostring(res)) or ""

@@ -1,6 +1,6 @@
 -- The tool-calling loop: send history, run any requested tools, repeat until the
 -- model answers with plain text.
-local MAX_TURNS = 30
+local MAX_TURNS = 40
 local HISTORY_LIMIT = 12
 local HISTORY_KEEP = 10
 local REPEAT_LIMIT = 3
@@ -92,8 +92,11 @@ return function(env)
 				updateStatus("Error")
 				-- A signed-in route answers 401 once the 12h session lapses. The
 				-- saved token is dead at that point, so drop it and let the caller
-				-- put the login window back up rather than failing forever.
-				if res and res.StatusCode == 401 and session.mode == "free" then
+				-- put the login window back up rather than failing forever. Only
+				-- when a token was actually stored: with no cookie to blame, a 401
+				-- is the route rejecting the server's own key, and logging the user
+				-- out would just loop them through a login that cannot help.
+				if res and res.StatusCode == 401 and session.mode == "free" and #session.token > 0 then
 					st.clearCredentials()
 					if M.onSessionExpired then M.onSessionExpired() end
 					return "Session expired. Please log in again."

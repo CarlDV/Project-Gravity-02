@@ -93,7 +93,10 @@ return function(env)
 			M.session.token = decoded.token or ""
 			M.session.apiKey = decoded.apiKey or ""
 			M.session.model = (decoded.model and table.find(M.MODELS, decoded.model)) and decoded.model or M.MODELS[1]
-			return (M.session.mode == "free" and #M.session.token > 0) or (M.session.mode == "key" and #M.session.apiKey > 0)
+			-- A free session counts as logged in even with an empty token: the
+			-- transport often cannot read Set-Cookie, and routes open to "Anyone"
+			-- never ask for one. Key mode still needs its key.
+			return M.session.mode == "free" or (M.session.mode == "key" and #M.session.apiKey > 0)
 		end
 		return false
 	end

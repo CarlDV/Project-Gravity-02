@@ -131,9 +131,18 @@ return function(env)
 		end
 	end
 
+	-- Reasoning models tend to open their reply with blank lines, and removing a
+	-- ```lua fence leaves the newline that followed it. Both survive into a
+	-- wrapped, auto-sized label as empty rows above the text, so the result is
+	-- trimmed at both ends and runs of blank lines are collapsed to one.
 	function M.stripMarkdown(str)
 		if type(str) ~= "string" then return "" end
-		return (str:gsub("```%w*", ""):gsub("```", ""):gsub("`", ""):gsub("%*%*", ""):gsub("^#+%s*", ""))
+		local out = str:gsub("```%w*", ""):gsub("```", ""):gsub("`", ""):gsub("%*%*", "")
+		out = out:gsub("\r\n", "\n"):gsub("\r", "\n")
+		-- Headings can appear on any line once fences are gone, not just line one.
+		out = out:gsub("^#+%s*", ""):gsub("\n#+%s*", "\n")
+		out = out:gsub("[ \t]+\n", "\n"):gsub("\n\n\n+", "\n\n")
+		return (out:match("^%s*(.-)%s*$"))
 	end
 
 	-- Replaces the deprecated Frame.Draggable on this module's windows. Draggable
