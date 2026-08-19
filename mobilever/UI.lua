@@ -24,11 +24,17 @@ return function(context)
 
 	local Lighting = game:GetService("Lighting")
 	
+	-- Weak keys, the same reason scaled_windows below uses them. These tables are
+	-- keyed by every BasePart, PostEffect and emitter in the map, so with strong keys
+	-- every one destroyed after the snapshot was pinned until the toggle went off --
+	-- in a map with any part churn that is an unbounded leak. The restore functions
+	-- already expect entries to go dead (they test part.Parent), so dropping them
+	-- early changes nothing they do.
 	local PerfOriginals = {
 		Shadows = nil,
-		FX = {},
-		Materials = {},
-		Particles = {}
+		FX = setmetatable({}, { __mode = "k" }),
+		Materials = setmetatable({}, { __mode = "k" }),
+		Particles = setmetatable({}, { __mode = "k" })
 	}
 	
 	local function RestorePerfShadows()
@@ -132,8 +138,19 @@ return function(context)
 		RestorePerfMaterials()
 		RestorePerfParticles()
 	end
-	local UI_elements = load_module(SUB_DIR .. "UI_elements.lua")(context)
-	local ai_chat_module = load_module("ai_chat.lua")(context)
+	-- UI_elements is a hard dependency, so fail with a message that says which
+	-- module rather than "attempt to call a nil value" out of load_module's
+	-- failure path, the way main.lua:553 does for UI and System.
+	local UI_elements_builder = load_module(SUB_DIR .. "UI_elements.lua")
+	if not UI_elements_builder then
+		error("Failed to load UI_elements", 0)
+	end
+	local UI_elements = UI_elements_builder(context)
+	-- The AI chat is optional: the call sites below already nil-guard it. Calling
+	-- load_module's result directly meant a nil threw here first, so one flaky
+	-- fetch for the chat took the whole panel down.
+	local ai_chat_builder = load_module("ai_chat.lua")
+	local ai_chat_module = ai_chat_builder and ai_chat_builder(context)
 	local es, et, eb, eh = UI_elements.s, UI_elements.t, UI_elements.b, UI_elements.h
 	local etb = UI_elements.tb
 
@@ -347,6 +364,9 @@ return function(context)
 		hud.BackgroundTransparency = 1
 		hud.Position = UDim2.new(0.5, -150, 0, 10)
 		hud.Size = UDim2.new(0, 300, 0, 30)
+
+		-- Scaled like every other element; the HUD was the one thing left out.
+		register_window(hud, 1)
 
 		local hud_l = Instance.new("TextLabel", hud)
 		hud_l.BackgroundTransparency = 1
@@ -720,6 +740,26 @@ return function(context)
 				save_settings()
 			end)
 
+			-- The writer for a flag this tree only ever read. SimpleMode round-trips
+			-- through the shared settings file, so turning it on from desktop hid
+			-- Anti-Fling, Force Smooth, Realistic Liftoff, Target Everyone and the
+			-- whole per-shape control block here with no way to turn it back off --
+			-- a full RESET ALL SETTINGS was the only escape. Left outside the
+			-- SimpleMode gate below on purpose: a toggle you cannot reach is the bug.
+			et(gsc, "Simplified Interface", x1.SimpleMode, function(v)
+				x1.SimpleMode = v
+				save_settings()
+				f1()
+			end, "Hides the advanced toggles and the per-shape controls.")
+
+			-- The touch stand-in for holding Shift in the sculptor. Read by
+			-- System_sculptor on this tree and written nowhere, so tapping could never
+			-- deselect a part or add to a selection.
+			et(gsc, "Sculptor · Add on Tap", x1.SculptorMultiSelect == true, function(v)
+				x1.SculptorMultiSelect = v
+				save_settings()
+			end, "Tapping adds to the selection instead of replacing it.")
+
 			if not x1.SimpleMode then
 				et(gsc, "Anti-Fling", x1.AntiFling, function(v)
 					x1.AntiFling = v
@@ -886,7 +926,7 @@ return function(context)
 							s[ctrl.Key] = ctrl.Div and (current_val / ctrl.Div) or current_val
 							es(p_frame, ctrl.Name, ctrl.Min, max_val, current_val, function(v)
 								if ctrl.Div then s[ctrl.Key] = v / ctrl.Div else s[ctrl.Key] = v end
-							end, ctrl.IntOnly)
+							end, ctrl.IntOnly, ctrl.Desc)
 						elseif ctrl.Type == "Toggle" then
 							if type(current_val) ~= "boolean" then
 								current_val = ctrl.Default == true
@@ -898,7 +938,7 @@ return function(context)
 							s[ctrl.Key] = current_val
 							et(p_frame, ctrl.Name, current_val, function(v)
 								s[ctrl.Key] = v
-							end)
+							end, ctrl.Desc)
 						elseif ctrl.Type == "TextBox" and etb then
 							if type(current_val) ~= "string" then
 								current_val = type(ctrl.Default) == "string" and ctrl.Default or ""
@@ -1139,7 +1179,10 @@ return function(context)
 			end)
 
 			for _, mn in ipairs(modes) do
-				if filter ~= "" and not mn:lower():find(filter:lower()) then
+				-- Plain search: without the flag the typed text is a Lua pattern, so a
+				-- single "(" throws out of the Text callback after ClearAllChildren
+				-- has already run, leaving the list permanently empty.
+				if filter ~= "" and not mn:lower():find(filter:lower(), 1, true) then
 					continue
 				end
 
@@ -1285,7 +1328,7 @@ return function(context)
 
 			for _, pl in ipairs(v2:GetPlayers()) do
 				if pl == v8 then continue end
-				if filter_text ~= "" and not (pl.DisplayName:lower():find(filter_text:lower()) or pl.Name:lower():find(filter_text:lower())) then
+				if filter_text ~= "" and not (pl.DisplayName:lower():find(filter_text:lower(), 1, true) or pl.Name:lower():find(filter_text:lower(), 1, true)) then
 					continue
 				end
 

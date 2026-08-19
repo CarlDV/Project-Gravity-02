@@ -14,10 +14,13 @@ local R3_B = 0.6710436067037893
 local R3_C = 0.5497004779019702
 local PHI = 0.6180339887498949
 
--- Which swinging limb a part belongs to, by name. 0 is body: torso, head, and
--- anything unrecognised, which all stay rigid. Matching on name covers R6 and
--- R15 together -- "Left Arm" and "LeftUpperArm" both land on the same limb --
--- and anything exotic falls through to body rather than flailing.
+local function gcd(a, b)
+	while b ~= 0 do
+		a, b = b, a % b
+	end
+	return a
+end
+
 local function root_of(char)
 	if not char then
 		return nil
@@ -25,34 +28,22 @@ local function root_of(char)
 	return char:FindFirstChild("HumanoidRootPart") or char:FindFirstChildWhichIsA("BasePart")
 end
 
-local LIMB_NONE, LIMB_LARM, LIMB_RARM, LIMB_LLEG, LIMB_RLEG = 0, 1, 2, 3, 4
-
--- Natural gait counter-rotates: the left arm leads with the right leg.
-local LIMB_SWING = { 1, -1, -1, 1 }
-
-local function limb_of(name)
-	local n = string.lower(name)
-	local side = string.find(n, "left", 1, true) and 1
-		or (string.find(n, "right", 1, true) and 2 or 0)
-	if side == 0 then
-		return LIMB_NONE
-	end
-	if string.find(n, "arm", 1, true) or string.find(n, "hand", 1, true) then
-		return side == 1 and LIMB_LARM or LIMB_RARM
-	end
-	if string.find(n, "leg", 1, true) or string.find(n, "foot", 1, true) then
-		return side == 1 and LIMB_LLEG or LIMB_RLEG
-	end
-	return LIMB_NONE
-end
-
--- Samples the player's own character into a point cloud in root-local space.
+-- Samples the player's own character into a point cloud.
 --
--- Reading the live BaseParts rather than hardcoding a rig means R6 and R15 both
--- work with no branching, and any bundle, package or scaling the player is
--- wearing is reproduced as-is. Each part contributes points in proportion to its
--- volume, so the torso reads solid while arms stay thin instead of every limb
--- getting an equal share and the hands looking as dense as the chest.
+-- The offsets stored here are PART-LOCAL, not root-local, and each point records
+-- which part owns it. That is the whole basis of the tracking: px re-reads every
+-- part's live CFrame once per bucket cycle, so recomposing owner_transform *
+-- offset reproduces the character's actual pose -- every joint angle, a jump, a
+-- crouch, a tool pose, an emote, ragdoll -- rather than a canned gait played over
+-- a snapshot. It also means R6 and R15 both work with no branching, and any
+-- bundle, package or scaling the player wears is reproduced as-is.
+--
+-- pts[] keeps the pose at build time as a rest reference so Motion Gain can
+-- interpolate: gain 1 is exactly the live pose, 0 is rigid, above 1 exaggerates.
+--
+-- Each part contributes points in proportion to its volume, so the torso reads
+-- solid while arms stay thin instead of every limb getting an equal share and the
+-- hands looking as dense as the chest.
 local function build_cloud(char, detail)
 	local root = root_of(char)
 	if not root then
@@ -68,10 +59,10 @@ local function build_cloud(char, detail)
 			if vol > 0 then
 				total = total + vol
 				boxes[#boxes + 1] = {
+					part = part,
 					cf = inv * part.CFrame,
 					size = sz,
 					vol = vol,
-					limb = limb_of(part.Name),
 				}
 			end
 		end
@@ -80,103 +71,65 @@ local function build_cloud(char, detail)
 		return nil
 	end
 
-	local pts, limbs, n = table.create(detail), table.create(detail), 0
-	local hi = 0
-	-- Lowest point in root-local space, so f2 can keep the feet on the floor at
-	-- any size. Without it a scaled cloud scales its downward offsets too and the
-	-- mech sinks: cen sits about 3 studs up, so at a large Size the legs end up
-	-- entirely underground and only the torso shows.
-	local lo = 0
-	-- Where each swinging limb hinges: the top of its own points, at their mean
-	-- across and fore-aft. Measured rather than assumed, so an R15 arm made of
-	-- three parts hinges at the shoulder and not at each elbow, and an oversized
-	-- avatar hinges in the right place too.
-	local piv = {}
-	for l = LIMB_LARM, LIMB_RLEG do
-		piv[l] = { top = -math.huge, sx = 0, sz = 0, count = 0 }
-	end
+	local pts = table.create(detail)
+	local offs = table.create(detail)
+	local owner = table.create(detail)
+	local n = 0
 
-	for _, b in ipairs(boxes) do
+	for bi, b in ipairs(boxes) do
 		local want = math.floor(detail * (b.vol / total) + 0.5)
 		if want < 1 then
 			want = 1
 		end
 		local sx, sy, sz = b.size.X, b.size.Y, b.size.Z
-		local acc = piv[b.limb]
 		for i = 1, want do
-			local ox = ((i * R3_A) % 1 - 0.5) * sx
-			local oy = ((i * R3_B) % 1 - 0.5) * sy
-			local oz = ((i * R3_C) % 1 - 0.5) * sz
-			local lp = b.cf * Vector3.new(ox, oy, oz)
+			local off = Vector3.new(
+				((i * R3_A) % 1 - 0.5) * sx,
+				((i * R3_B) % 1 - 0.5) * sy,
+				((i * R3_C) % 1 - 0.5) * sz
+			)
 			n = n + 1
-			pts[n] = lp
-			limbs[n] = b.limb
-			local m = lp.Magnitude
-			if m > hi then
-				hi = m
-			end
-			if lp.Y < lo then
-				lo = lp.Y
-			end
-			if acc then
-				if lp.Y > acc.top then
-					acc.top = lp.Y
-				end
-				acc.sx = acc.sx + lp.X
-				acc.sz = acc.sz + lp.Z
-				acc.count = acc.count + 1
-			end
+			offs[n] = off
+			owner[n] = bi
+			pts[n] = b.cf * off
 		end
 	end
 	if n == 0 then
 		return nil
 	end
 
-	local pivots = {}
-	for l = LIMB_LARM, LIMB_RLEG do
-		local acc = piv[l]
-		if acc.count > 0 then
-			pivots[l] = Vector3.new(acc.sx / acc.count, acc.top, acc.sz / acc.count)
-		end
-	end
-
-	-- Coprime-ish stride so consecutive ids land on unrelated points: thinning
-	-- degrades the whole silhouette evenly instead of erasing a limb.
+	-- Stride that shares no factor with n, so consecutive ids land on unrelated
+	-- points and thinning degrades the whole silhouette evenly instead of erasing
+	-- a limb. Testing `n % step == 0` only rules out step *dividing* n, which
+	-- leaves every shared factor in place -- at n = 1200 that reached 400 of the
+	-- 1200 slots and silently tripled the effective spacing. Same real gcd walk
+	-- Hover Text uses.
 	local step = math.floor(n * PHI)
 	if step < 1 then
 		step = 1
 	end
-	while n % step == 0 and step > 1 do
-		step = step - 1
+	while n > 1 and gcd(step, n) ~= 1 do
+		step = step + 1
+		if step >= n then
+			step = 1
+			break
+		end
 	end
-	return { pts = pts, limbs = limbs, pivots = pivots, n = n, step = step, reach = hi, low = lo }
+	return { boxes = boxes, pts = pts, offs = offs, owner = owner, n = n, step = step }
 end
 
--- Rebuilds the cloud on respawn or a detail change, then stamps the placement
--- basis once per bucket cycle.
+-- Re-reads the live pose, then stamps the placement basis once per bucket cycle.
 --
 -- The cycle gate is what holds the mech rigid: f2 runs per part on one frame in
 -- et (k7), so if each part read the live placement the body would shear across
--- frames — the constraint Hover Text.lua:139 documents. Rebuilds are keyed on
--- the character instance and part count, so a respawn or a limb being added
--- refreshes it, but a stationary mech costs nothing per frame.
+-- frames -- the constraint Hover Text.lua:139 documents. The pose is refreshed on
+-- the same gate for the same reason: every part in a cycle must agree on which
+-- frame of the animation it is drawing.
 function M.px(t, c, x6, x9, x1)
 	local st = x6.pre["Mech Suit"]
 	if not st then
 		st = {}
 		x6.pre["Mech Suit"] = st
-	end
-
-	-- Gait runs every frame, ahead of the bucket gate, so the stride integrates
-	-- against real elapsed time rather than stepping once per cycle. Only the
-	-- published pair below is read by f2, which is what keeps the limbs in
-	-- agreement with each other.
-	local dt = t - (st.t or t)
-	st.t = t
-	if dt <= 0 then
-		dt = 1 / 60
-	elseif dt > 0.25 then
-		dt = 0.25
 	end
 
 	local et = x1 and x1.k7
@@ -196,6 +149,7 @@ function M.px(t, c, x6, x9, x1)
 	local root = root_of(char)
 	if not root then
 		st.cloud = nil
+		st.xf = nil
 		return
 	end
 
@@ -219,13 +173,6 @@ function M.px(t, c, x6, x9, x1)
 		end
 	end
 
-	-- Stride advances with ground speed, so it keeps step with the actual walk
-	-- instead of running at a fixed cadence, and stops dead when the body does.
-	-- Vertical speed is dropped: falling is not walking.
-	local vel = anchor_root.AssemblyLinearVelocity
-	local ground = vel and Vector3.new(vel.X, 0, vel.Z).Magnitude or 0
-	st.gait = (st.gait or 0) + dt * ground * 0.34
-
 	local gen = math.floor((x6.f or 0) / et)
 	if st.gen == gen then
 		return
@@ -243,15 +190,53 @@ function M.px(t, c, x6, x9, x1)
 		st.cloud = build_cloud(char, detail)
 		st.char, st.detail, st.live = char, detail, live
 	end
+	local cloud = st.cloud
+	if not cloud then
+		st.xf = nil
+		return
+	end
 
-	-- Swing eases in with speed and back out to zero, so the limbs settle to rest
-	-- when you stop rather than freezing mid-stride.
-	local swing = (c.k18 or 35) * (math.pi / 180)
-	local ramp = math.clamp(ground / 14, 0, 1)
-	st.pub_swing = math.sin(st.gait) * swing * ramp
-	-- A small vertical bob on twice the stride: one rise per footfall, not per
-	-- full cycle.
-	st.pub_bob = math.cos(st.gait * 2) * (c.k19 or 0) * 0.1 * ramp
+	-- The live pose. One inverse-root compose per BasePart -- six for R6, fifteen
+	-- for R15 -- and f2 then costs a single CFrame*Vector3 per part it touches.
+	--
+	-- low and reach are re-derived here rather than cached on the cloud because
+	-- both move with the pose: crouching raises the lowest point, a raised arm
+	-- extends the reach. Each is taken from the part's oriented box projected onto
+	-- the axis of interest, which is exact for a box and costs no per-point work.
+	local inv = root_of(char).CFrame:Inverse()
+	local xf = st.xf
+	if not xf then
+		xf = {}
+		st.xf = xf
+	end
+	local low, reach = 0, 0
+	for bi, b in ipairs(cloud.boxes) do
+		local part = b.part
+		-- Not gated on part.Parent. A BasePart answers CFrame whether or not it is
+		-- parented, and gating on it froze the whole silhouette any frame a limb was
+		-- momentarily detached. A part that has genuinely gone is caught by the live
+		-- count check above, which rebuilds the cloud.
+		xf[bi] = inv * part.CFrame
+	end
+	-- low and reach are measured over the sampled points, not the parts' boxes.
+	-- f2 places a part at origin + basis * lp * scale, so the lowest thing drawn is
+	-- at origin.Y + min(lp.Y) * scale -- and the lift term below cancels the scale
+	-- against exactly that number to keep the feet still. Measuring the full oriented
+	-- box instead over-corrects, because the low-discrepancy offsets sit inside the
+	-- box and only approach its corners. One pass per bucket cycle, which is the same
+	-- order of work f2 already does per frame.
+	local offs, owner = cloud.offs, cloud.owner
+	for i = 1, cloud.n do
+		local lp = xf[owner[i]] * offs[i]
+		if lp.Y < low then
+			low = lp.Y
+		end
+		local m = lp.Magnitude
+		if m > reach then
+			reach = m
+		end
+	end
+	st.low, st.reach = low, reach
 
 	local cf = anchor_root.CFrame
 	local lv = cf.LookVector
@@ -259,13 +244,19 @@ function M.px(t, c, x6, x9, x1)
 	local fwd = (flat.Magnitude > 0.001) and flat.Unit or WORLD_FWD
 	st.player_pos = cf.Position
 	st.player_fwd = fwd
+	-- The tracked body's own up axis, so pitch and roll carry through: lie down,
+	-- ragdoll or swim and the mech goes with you. Yaw is deliberately not taken
+	-- from here -- placement and Face You own that -- so this is only the tilt.
+	st.player_up = cf.UpVector
 	-- Where you actually are, which is what Face You turns toward. Separate from
 	-- player_pos now that the mech can be standing on somebody else.
 	st.host_pos = root.Position
 
 	-- Stationary latches a world pose the first cycle it is on, so the mech is
-	-- left standing where you were rather than snapping to the origin. Cleared
-	-- when the toggle goes off so re-arming re-latches at the new spot.
+	-- left standing where you were rather than snapping to the origin. Position
+	-- and facing only: the pose keeps tracking, because Stationary is about not
+	-- following you around, not about freezing the animation. Cleared when the
+	-- toggle goes off so re-arming re-latches at the new spot.
 	if c.k14 == true then
 		if not st.anchor then
 			st.anchor, st.anchor_fwd = cf.Position, fwd
@@ -279,7 +270,8 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local wp = p.Position
 	local st = x6.pre and x6.pre["Mech Suit"]
 	local cloud = st and st.cloud
-	if not cloud then
+	local xf = st and st.xf
+	if not cloud or not xf then
 		return ANTI_SLEEP, nil
 	end
 
@@ -291,7 +283,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	-- Placement offset. Clearance scales with the mech so a big one does not end
 	-- up standing inside you: reach is the cloud's furthest point from the root.
 	local place = math.floor(c.k13 or 2)
-	local gap = (c.k12 or 30) + (cloud.reach or 3) * scale
+	local gap = (c.k12 or 30) + (st.reach or 3) * scale
 	local origin = base
 	if place == 2 then
 		origin = base + fwd * gap
@@ -309,7 +301,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	-- lowers, and at Size 10 the term is 0 and the mech lines up with your body.
 	-- The slider is then a plain stud nudge on top, so its numbers mean the same
 	-- thing at every size.
-	local lift = (cloud.low or 0) * (1 - scale) + (c.k17 or 0) + (st.pub_bob or 0) * scale
+	local lift = (st.low or 0) * (1 - scale) + (c.k17 or 0)
 	origin = origin + UP * lift
 
 	-- Face You turns the mech to look back at you; otherwise it faces the same way
@@ -324,35 +316,57 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			f = flat.Unit
 		end
 	end
-	local r = f:Cross(UP)
+
+	-- Body basis. Tilt Track blends world up toward the tracked body's own up, so
+	-- 0 keeps the mech standing however you are lying and 1 matches you exactly.
+	-- The forward axis is then re-orthogonalised against that up rather than used
+	-- raw, otherwise a tilted basis would shear the whole silhouette.
+	local u = UP
+	local tilt = c.k19
+	if tilt == nil then
+		tilt = 1
+	end
+	if tilt > 0 and st.player_up then
+		u = (tilt >= 1) and st.player_up or UP:Lerp(st.player_up, tilt)
+		local um = u.Magnitude
+		u = (um > 0.001) and (u / um) or UP
+	end
+	local r = f:Cross(u)
+	if r.Magnitude < 0.0001 then
+		r = f:Cross(UP)
+		if r.Magnitude < 0.0001 then
+			r = Vector3.new(1, 0, 0)
+		end
+	end
+	r = r.Unit
+	f = u:Cross(r)
 
 	local id = d.id or 1
 	local n = cloud.n
 	local i = (id * cloud.step) % n + 1
-	local lp = cloud.pts[i]
 
-	-- Walk cycle. Each limb rotates about its own hinge in the fore-aft plane,
-	-- arms counter to legs, so a claimed-part body reads as striding rather than
-	-- sliding. Body points are untouched, and with swing at rest this is a single
-	-- comparison per part.
-	local swing = st.pub_swing or 0
-	if swing ~= 0 then
-		local limb = cloud.limbs[i]
-		if limb ~= LIMB_NONE then
-			local pivot = cloud.pivots[limb]
-			if pivot then
-				local ang = swing * LIMB_SWING[limb]
-				local ca, sa = math.cos(ang), math.sin(ang)
-				local dx, dy, dz = lp.X - pivot.X, lp.Y - pivot.Y, lp.Z - pivot.Z
-				-- Rotate about root-local X: Y is up and Z is aft, so this swings the
-				-- limb forward and back around its hinge.
-				lp = Vector3.new(
-					pivot.X + dx,
-					pivot.Y + dy * ca - dz * sa,
-					pivot.Z + dy * sa + dz * ca
-				)
-			end
-		end
+	-- The tracked point. owner tells us which part carries this sample, xf holds
+	-- that part's live transform in root space, so this single compose is what
+	-- makes the mech mirror the character instead of replaying a fixed pose.
+	local m = xf[cloud.owner[i]]
+	local off = cloud.offs[i]
+	local lp
+	if m then
+		lp = m * off
+	else
+		lp = cloud.pts[i]
+	end
+
+	-- Motion Gain interpolates against the pose the cloud was built in: 1 is the
+	-- live pose untouched, 0 freezes the mech rigid, above 1 overdrives every
+	-- joint away from rest. Skipped entirely at 1, which is the default.
+	local gain = c.k18
+	if gain == nil then
+		gain = 1
+	end
+	if gain ~= 1 then
+		local rest = cloud.pts[i]
+		lp = rest + (lp - rest) * gain
 	end
 
 	-- Parts beyond the point count shell outward in golden-angle rings instead of
@@ -370,7 +384,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	end
 
 	local sc = scale * (1 + ex * 0.06)
-	local target_pos = origin + (r * lp.X + UP * lp.Y + f * -lp.Z) * sc
+	local target_pos = origin + (r * lp.X + u * lp.Y + f * -lp.Z) * sc
 
 	return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
@@ -383,14 +397,14 @@ end
 
 M.Controls = {
 	{ Type = "Slider", Name = "Size", Min = 5, Max = 120, Key = "k11", Default = 2, Div = 10 },
-	{ Type = "Slider", Name = "Place (1 On You, 2 Front, 3 Behind, 4 Beside)", Min = 1, Max = 4, Key = "k13", Default = 2, IntOnly = true },
+	{ Type = "Slider", Name = "Place (1 On You, 2 Front, 3 Behind, 4 Beside)", Min = 1, Max = 4, Key = "k13", Default = 2, IntOnly = true, Desc = "1 on you, 2 in front, 3 behind, 4 beside." },
 	{ Type = "Slider", Name = "Standoff", Min = 0, Max = 200, Key = "k12", Default = 30 },
 	{ Type = "Slider", Name = "Height", Min = -100, Max = 300, Key = "k17", Default = 0 },
 	{ Type = "Slider", Name = "Detail", Min = 200, Max = 4000, Key = "k16", Default = 1200, IntOnly = true },
-	{ Type = "Slider", Name = "Walk · Swing", Min = 0, Max = 90, Key = "k18", Default = 35 },
-	{ Type = "Slider", Name = "Walk · Bob", Min = 0, Max = 40, Key = "k19", Default = 6 },
-	{ Type = "Toggle", Name = "Stationary", Key = "k14", Default = false },
-	{ Type = "Toggle", Name = "Face You", Key = "k15", Default = true },
+	{ Type = "Slider", Name = "Motion Gain", Min = 0, Max = 200, Key = "k18", Default = 1, Div = 100, Desc = "100 mirrors you exactly. 0 stands rigid. Above 100 overdrives every joint." },
+	{ Type = "Slider", Name = "Tilt Track", Min = 0, Max = 100, Key = "k19", Default = 1, Div = 100, Desc = "How much of your pitch and roll the mech copies. 0 always stands upright." },
+	{ Type = "Toggle", Name = "Stationary", Key = "k14", Default = false, Desc = "Leaves the mech standing where it was instead of following you." },
+	{ Type = "Toggle", Name = "Face You", Key = "k15", Default = true, Desc = "Turns the mech to look back at you." },
 }
 
 return M

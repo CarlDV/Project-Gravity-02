@@ -33,6 +33,18 @@ return {
 		-- from this table. A key the UI writes but this table omits therefore both
 		-- forgets itself between sessions and survives "Reset All Settings".
 		SimpleMode = false,
+		-- Written by the mobile Advanced panel and read by main.lua's setfpscap call.
+		-- With no default here load_settings could never restore it -- it only
+		-- restores a key that already exists with a matching type -- so the cap
+		-- reverted to 60 every launch, and reset_config never snapshotted it either,
+		-- so it survived "Reset All Settings". Exactly the failure the note above
+		-- describes.
+		FPSCap = 60,
+		-- The touch substitute for holding Shift in the sculptor. Read by
+		-- System_sculptor on the mobile tree; it had no writer and no default at all,
+		-- so it was permanently false and a touch user could never deselect a part or
+		-- add to a selection.
+		SculptorMultiSelect = false,
 		Perf_DisableShadows = false,
 		Perf_DisablePostFX = false,
 		Perf_PotatoMaterials = false,
@@ -93,7 +105,11 @@ return {
 		["Light Light no Mi"] = { k11 = 150, k12 = 400, k13 = 3, k14 = 2, k18 = true },
 		["Quantum Core"] = { k11 = 100, k12 = 30, k13 = 40, k14 = 50, k15 = 0, k16 = 0, k17 = 0, k23 = false },
 		["Galactic Web"] = { k11 = 400, k12 = 10, k13 = 5, k14 = 0, k15 = 0, k16 = 0, k17 = 0, k23 = false, k24 = 200 },
-		["Quantum Entanglement"] = { k11 = 50, k12 = 100, k13 = 200, k14 = 3, k15 = 2, k16 = 5 },
+		-- k14/k15/k16 carry Div = 10, so the value here is what the shape reads and
+		-- the panel shows it ten times larger. Written pre-multiplied these were
+		-- ten times too big: 3 displayed as 30 against a 1..20 slider, so the first
+		-- time the panel opened UI.lua:1223-1225 clamped it and wrote back 2.
+		["Quantum Entanglement"] = { k11 = 50, k12 = 100, k13 = 200, k14 = 0.3, k15 = 0.2, k16 = 0.5 },
 		["Meteor Shower"] = { k11 = 500, k12 = 300, k13 = 150, k15 = 0, k16 = 0, k17 = 0, k23 = false },
 		["World Serpent"] = { k11 = 400, k12 = 100, k13 = 20, k14 = 20, k15 = 0, k16 = 0, k17 = 0, k23 = false },
 		["Aurora Borealis"] = { k11 = 600, k12 = 300, k13 = 15, k14 = 100, k15 = 0, k16 = 0, k17 = 0, k23 = false },
@@ -133,9 +149,13 @@ return {
 			k17 = 45, k18 = 60, k19 = 10, k20 = 1, k21 = false, k22 = 4,
 		},
 		-- k14 and k15 are toggles and must stay booleans. k11 carries Div = 10.
+		-- k18 (Motion Gain) and k19 (Tilt Track) carry Div = 100, so 1 here is the
+		-- 100 the panel shows: the mech mirrors your live pose exactly. They used to
+		-- drive a synthetic walk cycle, which is what stopped the suit from tracking
+		-- the character.
 		["Mech Suit"] = {
 			k11 = 2, k12 = 30, k13 = 2, k14 = false, k15 = true, k16 = 1200,
-			k17 = 0, k18 = 35, k19 = 6,
+			k17 = 0, k18 = 1, k19 = 1,
 		},
 		["Big Bad Broom"] = {
 			k11 = 60, k12 = 30, k13 = 35, k14 = 25, k15 = 1,

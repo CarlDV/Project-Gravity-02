@@ -145,6 +145,20 @@ local function load_module(path)
 end
 
 local config = load_module("config.lua")
+-- load_module returns nil on a failed download or a syntax error, and this is
+-- above the init pcall, so a bare config.x1 threw with the loading spinner still
+-- on screen and its RenderStepped still connected -- no message, no way to clear
+-- it, and _GRAVITY_DESTROY not yet set for a re-execution to clean up.
+if not config or type(config.x1) ~= "table" or type(config.x2) ~= "table" then
+	if spin_conn then
+		pcall(function() spin_conn:Disconnect() end)
+	end
+	if loading_sg then
+		pcall(function() loading_sg:Destroy() end)
+	end
+	warn("Project Gravity: could not load config.lua -- aborting.")
+	return
+end
 local x1 = config.x1
 local x2 = config.x2
 x1.S = x2
@@ -162,27 +176,53 @@ if isfolder and makefolder and listfiles and readfile then
 				if name then
 					local_shapes[name] = file
 					if not x2[name] then
-						x2[name] = {}
+						-- The slot is claimed only after the module proves it loads.
+						-- Claiming it first left x2[name] as a truthy empty table on every
+						-- failure path, which defeated the k6 repair further down: a local
+						-- shape with a syntax error stayed selected, get_shape returned
+						-- nil, shape_f2 stayed nil, and every claimed part fell through to
+						-- ANTI_SLEEP -- the script grabbed the map and did nothing, which
+						-- is the exact failure that repair exists to prevent. The AI writes
+						-- these files, so a bad one is not a remote possibility.
 						local read_success, code = pcall(readfile, file)
+						local shape_mod
 						if read_success and code then
 							local func = loadstring(code)
 							if func then
-								local load_success, shape_mod = pcall(func)
-								if load_success and type(shape_mod) == "table" and shape_mod.Controls then
-									for _, ctrl in ipairs(shape_mod.Controls) do
-										if type(ctrl) == "table" and ctrl.Key then
-											local default_val = ctrl.Default
-											if default_val == nil then
-												default_val = ctrl.Min or 0
-											end
+								local load_success, result = pcall(func)
+								if load_success and type(result) == "table" then
+									shape_mod = result
+								end
+							end
+						end
+						if shape_mod then
+							local block = {}
+							if shape_mod.Controls then
+								for _, ctrl in ipairs(shape_mod.Controls) do
+									if type(ctrl) == "table" and ctrl.Key then
+										local default_val = ctrl.Default
+										if default_val == nil then
+											-- Min is a *display* bound, so it needs the divide to
+											-- become a stored value. Default does not: it is already
+											-- in stored units, which is why UI.lua:1223 multiplies it
+											-- by Div to get the display value. Dividing both made the
+											-- two paths disagree by Div squared, so a local shape
+											-- with Div = 10 and Default = 1.2 was seeded 0.12,
+											-- displayed as 1.2, clamped up to Min and written back
+											-- as 0.1.
+											default_val = ctrl.Min or 0
 											if ctrl.Div then
 												default_val = default_val / ctrl.Div
 											end
-											x2[name][ctrl.Key] = default_val
 										end
+										block[ctrl.Key] = default_val
 									end
-								end	
+								end
 							end
+							x2[name] = block
+						else
+							warn("Project Gravity: local shape '" .. name .. "' failed to load; skipping it.")
+							local_shapes[name] = nil
 						end
 					end
 				end
@@ -207,6 +247,10 @@ local function copy_table(t)
 	return res
 end
 
+-- Forward-declared so reset_config below can reach x4 at call time. The table
+-- itself is built further down, once every field it carries exists.
+local context
+
 local default_x1 = {}
 for k, v in pairs(x1) do
 	-- S is x2 under another name and Targets holds live Players; reset_config
@@ -227,7 +271,19 @@ for mk, mv in pairs(x2) do
 	end
 end
 
+-- Restores the defaults, then hands the three settings that own live state to the
+-- code that owns them. The generic loop cannot know that Disabled has to go through
+-- x4.apply_disabled (System.lua:1061 calls that "the one entry point"), that a k6
+-- change has to arm the shape transition, or that the Perf_* flags describe things
+-- already done to the game. Assigning them directly left the flag saying one thing
+-- and the world doing another.
+--
+-- context.x4 / x5 are read at call time, not captured: reset_config is built before
+-- either exists.
 local function reset_config()
+	local was_disabled = x1.Disabled
+	local was_shape = x1.k6
+
 	for k, v in pairs(default_x1) do
 		if k ~= "S" and k ~= "Targets" then
 			if typeof(v) == "table" then
@@ -243,12 +299,51 @@ local function reset_config()
 			for sk, sv in pairs(mv) do
 				x2[mk][sk] = sv
 			end
+		else
+			-- A shape registered after startup -- a local or AI-authored one -- was
+			-- never in the default_x2 snapshot, so it kept its tuned values through a
+			-- reset while every shipped shape went back. Seeding the block here means
+			-- the reset covers it too.
+			x2[mk] = {}
+			for sk, sv in pairs(mv) do
+				x2[mk][sk] = sv
+			end
 		end
 	end
 	x1.S = x2
+
+	local x4 = context and context.x4
+	-- Disabled: route the transition rather than the flag. apply_disabled re-seats
+	-- every claimed part; skipping it left them holding a whole fall's worth of
+	-- stale smoothing terms, which is the re-seat fling System.lua:1052 describes.
+	if x4 and x4.apply_disabled and was_disabled ~= x1.Disabled then
+		local target = x1.Disabled
+		x1.Disabled = was_disabled
+		pcall(x4.apply_disabled, target)
+	end
+	-- k6: switch_shape owns d.trans_vl, which System.lua:1140 notes cannot be
+	-- derived after the fact because it needs the velocity from before the switch.
+	-- Without it every part jumps between velocity fields in a single frame.
+	if x4 and x4.switch_shape and was_shape ~= x1.k6 then
+		local target = x1.k6
+		x1.k6 = was_shape
+		pcall(x4.switch_shape, target)
+	end
 end
 
 local serialization = load_module("math/serialization.lua")
+-- Same reasoning as config.lua above: this is the other hard dependency fetched
+-- outside the init pcall, and settings cannot round-trip without it.
+if not serialization or type(serialization.sanitize) ~= "function" or type(serialization.desanitize) ~= "function" then
+	if spin_conn then
+		pcall(function() spin_conn:Disconnect() end)
+	end
+	if loading_sg then
+		pcall(function() loading_sg:Destroy() end)
+	end
+	warn("Project Gravity: could not load math/serialization.lua -- aborting.")
+	return
+end
 local sanitize = serialization.sanitize
 local desanitize = serialization.desanitize
 
@@ -279,8 +374,24 @@ local function save_settings()
 	task.delay(0.5, function()
 		save_pending = false
 		local data = { x1 = sanitize(x1), x2 = sanitize(x2) }
-		data.x1.Tgt = nil
+		-- x1.S is x2 under another name (line 150) and sanitize recurses into
+		-- tables, so without this every autosave carried a second complete copy of
+		-- all 51 shape blocks -- which load_settings then desanitized and threw away
+		-- at its k ~= "S" test. Doubled the file and the encode cost on every
+		-- slider release.
+		data.x1.S = nil
+		-- Targets, not Tgt. x1.Tgt was replaced by x1.Targets and this line has been
+		-- guarding a key that does not exist; the live targets were kept out only
+		-- because sanitize drops Instance values. TgtActive goes with it, since a
+		-- restored "targeting on" with no targets means nothing.
+		data.x1.Targets = nil
+		data.x1.TgtActive = nil
 		data.x1.IsLaunching = nil
+		-- Paused is live state, not a preference. It persisted, so quitting while
+		-- paused brought the next session up frozen -- and the desktop panel has no
+		-- Paused control at all, only the rebindable P hotkey, so if that was unbound
+		-- there was no way to resume.
+		data.x1.Paused = nil
 		local success, json = pcall(function()
 			return HttpService:JSONEncode(data)
 		end)
@@ -288,6 +399,9 @@ local function save_settings()
 			pcall(function()
 				writefile("GravitySettings_Auto.json", json)
 			end)
+		else
+			-- Silence here meant settings stopped persisting with no way to tell.
+			warn("Project Gravity: could not encode settings -- not saved. " .. tostring(json))
 		end
 	end)
 end
@@ -358,6 +472,13 @@ local function get_shape(name)
 		if not success then
 			local url = BASE_URL .. "shapes/" .. HttpService:UrlEncode(name) .. ".lua"
 			local code = safe_http_get(url)
+			-- The 404 test load_module already does. Without it the literal body
+			-- "404: Not Found" went to loadstring and a missing shape was reported as
+			-- a syntax error in its source, which sends you looking in the wrong place.
+			if code and string.match(code, "^404: Not Found") then
+				code = nil
+				result = "Not found on the server"
+			end
 			if code then
 				local func, err = loadstring(code)
 				if func then
@@ -365,7 +486,7 @@ local function get_shape(name)
 				else
 					result = "Syntax error in shape source: " .. tostring(err)
 				end
-			else
+			elseif not result then
 				result = "HTTP Request Failed"
 			end
 		end
@@ -414,6 +535,12 @@ get_shape(x1.k6)
 
 coroutine.wrap(function()
 	for mn, _ in pairs(x2) do
+		-- Stop if the session was torn down or superseded while we were waiting.
+		-- This loop runs for ten seconds or more, so it easily outlives a
+		-- re-execution, and anything it loaded afterwards was never cleaned up.
+		if x6.torn_down or getgenv()._GRAVITY_SESSION_ID ~= SESSION_ID then
+			return
+		end
 		if mn ~= x1.k6 then
 			pcall(function()
 				get_shape(mn)
@@ -467,7 +594,7 @@ local ANIM = {
 	RESCALE = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 }
 
-local context = {
+context = {
 	v1 = v1,
 	v2 = v2,
 	v3 = v3,
@@ -495,6 +622,11 @@ local context = {
 }
 
 local function destroy()
+	-- Read by the preload coroutine below, which task.waits its way through every
+	-- shape and cannot otherwise be stopped: without this it keeps fetching and
+	-- writing into loaded_shapes after teardown, and anything it adds after the
+	-- cleanup sweep further down is never cleaned up at all.
+	x6.torn_down = true
 	if spin_conn then
 		pcall(function() spin_conn:Disconnect() end)
 		spin_conn = nil
@@ -510,6 +642,34 @@ local function destroy()
 	for i = #x6.run_connections, 1, -1 do
 		pcall(function() x6.run_connections[i]:Disconnect() end)
 		x6.run_connections[i] = nil
+	end
+	-- The third list. f1() disconnects the previous generation on every rebuild, so
+	-- this is bounded at one per session -- but that last one is a live Heartbeat
+	-- holding the whole f1 closure, and nothing here was releasing it.
+	if x6.f1_connections then
+		for i = #x6.f1_connections, 1, -1 do
+			pcall(function() x6.f1_connections[i]:Disconnect() end)
+			x6.f1_connections[i] = nil
+		end
+	end
+	-- SelectionBoxes the sculptor parented onto world parts. No shape owns them
+	-- (Sculptor has no cleanup) so the sweep below cannot reach them, and the next
+	-- session starts with a fresh table that has no record of them -- so if they
+	-- are not destroyed here they are in the world permanently.
+	if x6.sculptor_clear then
+		pcall(x6.sculptor_clear)
+	elseif x6.sculptor_highlights then
+		for _, hl in pairs(x6.sculptor_highlights) do
+			pcall(function() hl:Destroy() end)
+		end
+		table.clear(x6.sculptor_highlights)
+	end
+	if x6.sculptor_selected then
+		table.clear(x6.sculptor_selected)
+	end
+	if x6.sculptor_box then
+		pcall(function() x6.sculptor_box:Destroy() end)
+		x6.sculptor_box = nil
 	end
 	-- Shapes that own an instance hand it back here. Every loaded shape is asked,
 	-- not just the current one, because this is the teardown that runs when the
@@ -535,15 +695,33 @@ local function destroy()
 	end
 	x6.a = setmetatable({}, {__mode = "k"})
 	if x6.b then
+		-- The core lives inside a Folder System.lua creates for it (line 944).
+		-- x4.f5 destroys the folder; this path only ever destroyed the part, so
+		-- every re-execution left an empty Workspace.AS behind -- and the next
+		-- session's seed walk picked it straight back up.
+		local holder = x6.b.Parent
 		pcall(function() x6.b:Destroy() end)
 		x6.b = nil
+		if holder and holder ~= v4 and holder.Name == "AS" then
+			pcall(function()
+				if holder:IsA("Folder") then
+					holder:Destroy()
+				end
+			end)
+		end
 	end
 	if x6.sg then
 		pcall(function() x6.sg:Destroy() end)
 		x6.sg = nil
 	end
-	getgenv()._GRAVITY_SESSION_ID = nil
-	getgenv()._GRAVITY_DESTROY = nil
+	-- Only clear the handles if they are still ours. A superseded session tears
+	-- itself down after a newer one has already registered, so clearing
+	-- unconditionally would deregister the session that is actually running and
+	-- leave the next re-execution with nothing to call.
+	if getgenv()._GRAVITY_SESSION_ID == SESSION_ID then
+		getgenv()._GRAVITY_SESSION_ID = nil
+		getgenv()._GRAVITY_DESTROY = nil
+	end
 end
 
 getgenv()._GRAVITY_DESTROY = destroy
@@ -578,10 +756,28 @@ local success, err = pcall(function()
 	end
 end)
 
-spin_conn:Disconnect()
-loading_sg:Destroy()
-spin_conn = nil
-loading_sg = nil
+-- Guarded, and nil-checked. destroy() nils these same two upvalues, and it is
+-- reachable from another thread the whole time the pcall above is yielding on its
+-- HTTP fetches: a re-execution calls this session's _GRAVITY_DESTROY (line 5), so
+-- the old thread used to resume here and throw on a nil spin_conn -- outside every
+-- pcall, which meant the lines below never ran and the superseded session was
+-- never torn down at all.
+if spin_conn then
+	pcall(function() spin_conn:Disconnect() end)
+	spin_conn = nil
+end
+if loading_sg then
+	pcall(function() loading_sg:Destroy() end)
+	loading_sg = nil
+end
+
+-- Another execution took over while this one was still loading. Everything this
+-- session built has to go; destroy() now leaves the newer session's handles alone.
+if getgenv()._GRAVITY_SESSION_ID ~= SESSION_ID then
+	pcall(destroy)
+	warn("Project Gravity: a newer execution took over during load; this one stopped.")
+	return
+end
 
 if not success then
 	destroy()

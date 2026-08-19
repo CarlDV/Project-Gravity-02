@@ -14,6 +14,15 @@ function M.px(t, c, x6, x9)
 	local s, w, h, l = (c.k13 or 10) * x9.c2, (c.k11 or 8), c.k14 or 50, (c.k16 or x9.c5) * 100
 	local dt = t - meta.last_t
 	meta.last_t = t
+	-- Clamped like Spinning Cube:24-28 and Platform:345-349. meta lives in x6.pre,
+	-- which survives a shape switch, and t is time(), which keeps advancing while
+	-- another shape is selected -- so coming back after a minute handed this a dt of
+	-- 60 and walked the phase a whole minute forward in one frame.
+	if dt <= 0 then
+		dt = 1 / 60
+	elseif dt > 0.25 then
+		dt = 0.25
+	end
 	meta.phase = meta.phase + dt * s
 
 	local res = 200
@@ -110,6 +119,20 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	end
 	local target_pos = cen + fin
 	return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
+end
+
+-- Drops the meta block and every per-dragon spine buffer. Without this they all
+-- survive a shape switch (System.lua:152 only runs M.cleanup), so meta.last_t came
+-- back stale and lowering Dragon Count from 8 to 1 orphaned seven 200-node buffers
+-- that nothing could ever reach again.
+function M.cleanup(x6, x1)
+	if not x6.pre then
+		return
+	end
+	x6.pre["Celestial Ribbon_meta"] = nil
+	for i = 1, 8 do
+		x6.pre["Celestial Ribbon_" .. i] = nil
+	end
 end
 
 M.Controls = {

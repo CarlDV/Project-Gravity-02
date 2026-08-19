@@ -19,10 +19,18 @@ function M.sanitize(t)
 			end
 		elseif typeof(v) == "table" then
 			res[k] = M.sanitize(v)
-		elseif typeof(v) == "Instance" or typeof(v) == "function" or typeof(v) == "userdata" then
-		else
+		elseif typeof(v) == "string" or typeof(v) == "boolean" then
 			res[k] = v
 		end
+		-- Anything not named above is dropped, deliberately. This was a denylist of
+		-- Instance/function/userdata, which cannot work: Luau's typeof never returns
+		-- "userdata" for a Roblox datatype, it returns the concrete name -- "CFrame",
+		-- "UDim2", "EnumItem", "NumberSequence". So every one of those fell through
+		-- to the else, reached JSONEncode, and threw. main.lua swallows that in a
+		-- pcall, so one such value anywhere in x1 or x2 silently stopped settings
+		-- from saving for that session and every session after it, with no
+		-- diagnostic at all. An allowlist fails safe instead: an unsupported type
+		-- loses that one key rather than the whole file.
 	end
 	return res
 end

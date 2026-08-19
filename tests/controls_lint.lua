@@ -41,7 +41,9 @@ for _, name in ipairs(names) do
 	fh:close()
 	-- `continue` is Luau-only and LuaJIT cannot parse it; the substitution keeps
 	-- the surrounding structure intact, which is all this check needs.
-	src = src:gsub("([^%w_])continue([^%w_])", "%1do end%2")
+	-- The continue -> "do end" rewrite that used to be here is gone: current LuaJIT
+	-- parses Luau's continue natively, and the rewrite turned a skip into a fall-
+	-- through, so any shape using it was linted as different code than it ships.
 
 	local chunk = load(src, name)
 	if not chunk then

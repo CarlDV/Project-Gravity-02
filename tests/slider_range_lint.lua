@@ -30,11 +30,25 @@ pf:close()
 local problems = 0
 for _, name in ipairs(names) do
 	local fh = assert(io.open("shapes/" .. name .. ".lua"))
-	local src = fh:read("a"):gsub("([^%w_])continue([^%w_])", "%1do end%2")
+	-- The continue -> "do end" rewrite this used to do is gone: current LuaJIT parses
+	-- Luau's continue natively, and rewriting it to a no-op changed the semantics of
+	-- any loop that used it.
+	local src = fh:read("a")
 	fh:close()
-	local chunk = load(src, name)
+	local chunk, cerr = load(src, name)
+	-- Nil-checked. Without this a shape that fails to compile made pcall(nil) return
+	-- false, the whole branch was skipped, and the harness printed "0 out-of-range"
+	-- and exited 0 having examined that shape's sliders not at all. controls_lint
+	-- reports the same case loudly as PARSE FAIL.
+	if not chunk then
+		print(("PARSE FAIL  %-22s %s"):format(name, tostring(cerr)))
+		problems = problems + 1
+	elseif not x2[name] then
+		print(("NO x2 BLOCK %-22s"):format(name))
+		problems = problems + 1
+	else
 	local ok, M = pcall(chunk)
-	if ok and type(M) == "table" and M.Controls and x2[name] then
+	if ok and type(M) == "table" and M.Controls then
 		for _, ctl in ipairs(M.Controls) do
 			if ctl.Type == "Slider" and ctl.Key and ctl.Min and ctl.Max then
 				local stored = x2[name][ctl.Key]
@@ -57,7 +71,8 @@ for _, name in ipairs(names) do
 			end
 		end
 	end
+	end
 end
 
-print(("\n%d out-of-range slider defaults"):format(problems))
+print(("\n%d shapes checked, %d problems"):format(#names, problems))
 os.exit(problems == 0 and 0 or 1)

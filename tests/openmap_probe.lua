@@ -4,6 +4,20 @@
 --
 --   luajit tests/openmap_probe.lua
 
+-- This harness only printed. With no assertions, no counter and no exit code it
+-- could never fail a run, so a regression in any of the three shapes it covers
+-- showed up as different numbers nobody was comparing against anything.
+local fails, checks = 0, 0
+local function check(cond, msg)
+	checks = checks + 1
+	if cond then
+		print("  ok   " .. msg)
+	else
+		fails = fails + 1
+		print("  FAIL " .. msg)
+	end
+end
+
 package.path = "tests/?.lua;" .. package.path
 local rm = require("robloxmath")
 Vector3, CFrame = rm.Vector3, rm.CFrame
@@ -60,13 +74,39 @@ Enum = setmetatable({}, {
 	__index = function() return setmetatable({}, { __index = function() return 0 end }) end,
 })
 
+-- shapes/ first, then shapes-onreview/. Three shapes moved to the review folder and
+-- this asserted straight onto the old path, so both harnesses crashed on load --
+-- shapes_smoke before it reached any of its geometry checks at all.
 local function load_shape(name)
-	local f = assert(io.open("shapes/" .. name .. ".lua"))
+	local f = io.open("shapes/" .. name .. ".lua")
+	local from = "shapes/"
+	if not f then
+		f = io.open("shapes-onreview/" .. name .. ".lua")
+		from = "shapes-onreview/"
+	end
+	assert(f, "cannot find " .. name .. ".lua in shapes/ or shapes-onreview/")
 	local src = f:read("a"); f:close()
-	return assert(load(src, name))()
+	return assert(load(src, from .. name))()
 end
 local function shape_cfg(name)
 	local cfg = assert(loadfile("config.lua"))().x2[name]
+	-- The shapes in shapes-onreview/ deliberately have no config block yet, so seed
+	-- from the module's own Controls the way main.lua's local-shape loader does.
+	if not cfg then
+		local mod = load_shape(name)
+		local seeded = {}
+		for _, ctl in ipairs(mod.Controls or {}) do
+			if type(ctl) == "table" and ctl.Key then
+				local dv = ctl.Default
+				if dv == nil then
+					dv = ctl.Min or 0
+					if ctl.Div then dv = dv / ctl.Div end
+				end
+				seeded[ctl.Key] = dv
+			end
+		end
+		return seeded
+	end
 	local copy = {}
 	for k, v in pairs(cfg) do copy[k] = v end
 	return copy
@@ -88,9 +128,13 @@ local function stats(name, tps, cen)
 		local key = ("%.0f,%.0f,%.0f"):format(tp.X, tp.Y, tp.Z)
 		if not seen[key] then seen[key] = true; uniq = uniq + 1 end
 	end
+	-- #tps can be zero when the stubbed world produces no target at all; the two
+	-- guarded call sites further down already knew that, this one did not and printed
+	-- nan.
+	local avg = (#tps > 0) and (sum / #tps) or 0
 	print(("  %-22s n=%d  radius min=%.0f avg=%.0f max=%.0f  distinct=%d")
-		:format(name, #tps, minr, sum / #tps, maxr, uniq))
-	return minr, sum / #tps, maxr
+		:format(name, #tps, minr, avg, maxr, uniq))
+	return minr, avg, maxr
 end
 
 print("=== Yamata no Orochi, open baseplate, core standing still ===")
@@ -105,8 +149,10 @@ do
 		x6.f = frame
 		S.px(frame / 60, cfg, x6, x9, x1)
 	end
+	check(RAYS_CAST > 0, "the envelope probe cast at least one ray")
+	local open_pct = (RAYS_CAST > 0) and (100 - RAY_HITS / RAYS_CAST * 100) or 0
 	print(("  rays cast=%d  hits=%d (%.0f%% of the sphere is open sky)")
-		:format(RAYS_CAST, RAY_HITS, 100 - RAY_HITS / RAYS_CAST * 100))
+		:format(RAYS_CAST, RAY_HITS, open_pct))
 	local st = x6.pre["World Envelope"]
 	print(("  heads published=%d"):format(st.pK or 0))
 	for i = 1, (st.pK or 0) do
@@ -119,7 +165,10 @@ do
 		local _, tp = S.f2(part(Vector3.new(0, 0, 0)), cen, { id = id }, 4.0, cfg, x1, x6, x9)
 		tps[#tps + 1] = tp
 	end
-	stats("part targets", tps, cen)
+	check(#tps > 0, "every id got a target on an open baseplate")
+	if #tps > 0 then
+		stats("part targets", tps, cen)
+	end
 	local below = 0
 	for _, tp in ipairs(tps) do if tp.Y < 0 then below = below + 1 end end
 	print(("  parts driven under the floor: %d/%d"):format(below, #tps))
@@ -169,5 +218,9 @@ for _, name in ipairs({ "Dragons Teeth", "Mugen Train" }) do
 		if tp == nil then anti = anti + 1 else tps[#tps + 1] = tp end
 	end
 	print(("  %s: %d/401 no target"):format(name, anti))
+	check(anti < 401, ("%s returns a target for at least some ids"):format(name))
 	if #tps > 0 then stats(name .. " targets", tps, cen) end
 end
+
+print(("\n%d checks, %d failures"):format(checks, fails))
+os.exit(fails == 0 and 0 or 1)

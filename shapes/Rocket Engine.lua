@@ -133,7 +133,9 @@ function M.px(t, c, x6, x9, x1)
 		end
 
 		if #roster == 0 then
-			st.hunt, st.hunt_at = nil, nil
+			-- hunt_root goes with them, or a dangling reference to a departed player
+			-- is held for the rest of the session.
+			st.hunt, st.hunt_at, st.hunt_root, st.hunt_i = nil, nil, nil, nil
 			return
 		end
 
@@ -153,6 +155,12 @@ function M.px(t, c, x6, x9, x1)
 		-- Keep tracking the quarry between rebuilds, so the rocket chases a moving
 		-- player rather than the spot they stood on when the dwell began.
 		st.hunt = st.hunt_root.Position
+	else
+		-- The quarry died or left mid-dwell. Falling through used to leave st.hunt
+		-- holding their last position, so with Hunt · Seconds Each at its maximum the
+		-- rocket orbited the spot where they died for up to thirty seconds. Expiring
+		-- the dwell now re-rosters on the next call.
+		st.hunt, st.hunt_at, st.hunt_root = nil, nil, nil
 	end
 end
 
@@ -259,6 +267,15 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	end
 
 	return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
+end
+
+-- x6.pre survives a shape switch (System.lua:152 only runs M.cleanup), so without
+-- this st.hunt_root held a strong reference to another player's HumanoidRootPart
+-- for the rest of the session, and st.t came back stale.
+function M.cleanup(x6, x1)
+	if x6.pre then
+		x6.pre["Rocket Engine"] = nil
+	end
 end
 
 M.Controls = {

@@ -9,8 +9,14 @@ return function(context, x7)
 					highlight:Destroy()
 				end
 			end
-			x6.sculptor_highlights = {}
+			table.clear(x6.sculptor_highlights)
 		end
+		-- Published so the teardown paths can reach it. This function had no callers
+		-- at all: the only way a SelectionBox was ever removed was a user click, so
+		-- stopping the script, switching away, or re-executing left one adorned to
+		-- every selected part -- and the next session gets a fresh table with no
+		-- record of them, so nothing could remove them after that either.
+		x6.sculptor_clear = sculptor_clear_highlights
 
 		local function sculptor_add_highlight(part)
 			if x6.sculptor_highlights[part] then
@@ -38,7 +44,7 @@ return function(context, x7)
 				for p, _ in pairs(x6.sculptor_selected) do
 					sculptor_remove_highlight(p)
 				end
-				x6.sculptor_selected = {}
+				table.clear(x6.sculptor_selected)
 			end
 			if part and x6.a[part] then
 				x6.sculptor_selected[part] = Vector3.zero
@@ -121,10 +127,14 @@ return function(context, x7)
 							for p, _ in pairs(x6.sculptor_selected) do
 								sculptor_remove_highlight(p)
 							end
-							x6.sculptor_selected = {}
+							table.clear(x6.sculptor_selected)
 						end
 						x6.sculptor_box_start = v1:GetMouseLocation()
-						if not x6.sculptor_box and x6.sg then
+						-- .Parent as well as nil: the Frame lives inside the panel's ScreenGui, so
+		-- closing the panel destroys it while x6.sculptor_box stays non-nil. The guard
+		-- then never rebuilt and every marquee wrote to a destroyed Frame -- selection
+		-- worked, nothing was drawn, for the rest of the session.
+		if x6.sg and (not x6.sculptor_box or not x6.sculptor_box.Parent) then
 							x6.sculptor_box = Instance.new("Frame", x6.sg)
 							x6.sculptor_box.BackgroundColor3 = Color3.fromRGB(0, 255, 200)
 							x6.sculptor_box.BackgroundTransparency = 0.7

@@ -12,6 +12,14 @@ function M.px(t, c, x6, x9)
 		(c.k13 or 10) * x9.c2, (c.k11 or 8), c.k14 or 50, (c.k15 or 10) * x9.c7, (c.k16 or x9.c5) * 100
 	local dt = t - meta.last_t
 	meta.last_t = t
+	-- Clamped like Spinning Cube:24-28. meta lives in x6.pre, which survives a
+	-- shape switch, and t keeps advancing while another shape is selected, so
+	-- returning after a minute jumped the phase a minute forward in one frame.
+	if dt <= 0 then
+		dt = 1 / 60
+	elseif dt > 0.25 then
+		dt = 0.25
+	end
 	meta.phase = meta.phase + dt * s
 
 	local r = x6.pre["Hollow Worm"]
@@ -53,6 +61,16 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			local rd = Vector3.new(d.v4.X * cx - d.v4.Z * sx_spin, d.v4.Y, d.v4.X * sx_spin + d.v4.Z * cx).Unit
 			local target_pos = cen + center_pos + (rd * r)
 			return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
+end
+
+-- x6.pre survives a shape switch (System.lua:152 only runs M.cleanup), so without
+-- this meta.last_t came back stale and the 200-node buffer stayed allocated.
+function M.cleanup(x6, x1)
+	if not x6.pre then
+		return
+	end
+	x6.pre["Hollow Worm"] = nil
+	x6.pre["Hollow Worm_meta"] = nil
 end
 
 M.Controls = {

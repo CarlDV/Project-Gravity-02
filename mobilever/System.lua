@@ -24,6 +24,12 @@ return function(context)
 		end)
 	end
 
+	-- The panel needs somewhere to send a rejected-keybind message, and x7 is
+	-- local to this module. main.lua:577 calls this unguarded on the startup
+	-- Testing notice, so leaving it off the mobile tree took the whole script
+	-- down on any device whose saved shape was still in testing.
+	x8.notify = x7.n
+
 	local EXCLUDED_NAMES = {
 		Baseplate = true,
 		HumanoidRootPart = true,
@@ -160,6 +166,12 @@ return function(context)
 		end
 	end
 
+	-- Forward-declared: f3_body's drop branch restores a part whose Parent went away,
+	-- and the definition lives further down next to x4.f2. Without this the name
+	-- resolved to a nil global inside f3_body and the pcall around it swallowed the
+	-- failure, so the restore silently did nothing.
+	local f2_restore
+
 	-- The hot loop lives in its own function so the per-frame pcall does not have
 	-- to allocate a fresh closure sixty times a second.
 	local function f3_body(real_dt)
@@ -190,6 +202,11 @@ return function(context)
 					d.hit_wall = nil
 					d.hover_anchor = nil
 					d.cursed_hover_mode = nil
+					-- room_slot is the field ROOM Ope Ope no Mi actually parks; the two
+					-- names below are left over from an earlier version of that shape and
+					-- are written by nothing, so the list was clearing the dead names and
+					-- missing the live one.
+					d.room_slot = nil
 					d.room_target = nil
 					d.room_orbit_phase = nil
 					d.pika_direction = nil
@@ -417,6 +434,20 @@ return function(context)
 
 				if not d or not p.Parent then
 					if d then
+						-- d holds the only copy of this part's original CanCollide,
+						-- Anchored and CustomPhysicalProperties. Dropping it without
+						-- restoring is unrecoverable: plenty of games pool parts by
+						-- setting Parent = nil and putting them back later, and the
+						-- DescendantAdded hook then re-queues the part, at which point
+						-- x4.f1 re-snapshots the *forced* values -- CanCollide false and
+						-- LIGHT_PHYSICS -- as if they were the originals. That part can
+						-- never be restored again by any release path, including
+						-- teardown. Deliberately not guarded on p.Parent -- this branch
+						-- fires *because* Parent is nil, and an unparented part still
+						-- accepts property writes, which is the whole point. The pcall
+						-- covers the other case, where the part was fully destroyed and
+						-- there is nothing left to write to.
+						pcall(f2_restore, p, d, false)
 						if d.at and d.at.Parent then d.at:Destroy() end
 						if d.lv and d.lv.Parent then d.lv:Destroy() end
 						if d.av and d.av.Parent then d.av:Destroy() end
@@ -768,7 +799,7 @@ return function(context)
 
 	-- Hoisted out of x4.f2 so releasing a few thousand parts does not allocate a
 	-- few thousand closures on the way out.
-	local function f2_restore(p, d, drop_release)
+	function f2_restore(p, d, drop_release)
 		if d then
 			p.CanCollide = d.original_can_collide
 			p.Anchored = d.original_anchored
@@ -862,9 +893,16 @@ return function(context)
 				local now = time()
 				if now - last_upd > 0.5 then
 					last_upd = now
-					for _, p in ipairs(v2:GetPlayers()) do
-						if p ~= v8 then
-							pcall(suppress_player, p)
+					-- Only while the engine is actually running. This writes to *other*
+					-- players, and x4.f5 does not drain x6.c (it cannot -- the hotkey
+					-- listeners live there too, so draining it would make the script
+					-- unrestartable), so without this gate "Stop" left every other
+					-- player pinned at SimulationRadius 0 for the rest of the session.
+					if x6.o then
+						for _, p in ipairs(v2:GetPlayers()) do
+							if p ~= v8 then
+								pcall(suppress_player, p)
+							end
 						end
 					end
 					pcall(wake_self)
@@ -872,6 +910,33 @@ return function(context)
 					pcall(raise_max_radius)
 					pcall(raise_sim_radius)
 					pcall(focus_replication)
+				end
+			end)
+		)
+		-- Targets hold live Player objects and nothing ever pruned them. A player who
+		-- leaves stays in the list: the HUD keeps reading DisplayName off a destroyed
+		-- instance and reports ACTIVE forever, and f3_body tracks Targets[1] -- whose
+		-- root is now nil -- so it returns before the AnchorSelf and mouse-drag
+		-- fallbacks and the core parks with no explanation. Worse on rejoin, since
+		-- Roblox issues a *new* Player object: table.find misses, the row draws
+		-- unselected, and clicking it appends alongside the phantom, so the panel
+		-- reads "Multi-Target (2)" for one person.
+		table.insert(
+			x6.c,
+			v2.PlayerRemoving:Connect(function(pl)
+				local tg = x1.Targets
+				if type(tg) ~= "table" then
+					return
+				end
+				local idx = table.find(tg, pl)
+				while idx do
+					table.remove(tg, idx)
+					idx = table.find(tg, pl)
+				end
+				x1.TgtActive = #tg > 0
+				local ui = context.x5
+				if ui and ui.up then
+					pcall(ui.up)
 				end
 			end)
 		)
@@ -895,7 +960,7 @@ return function(context)
 		table.insert(
 			x6.c,
 			v3.Stepped:Connect(function()
-				if not x1.AntiFling or x1.PreserveCollisions then
+				if not x6.o or not x1.AntiFling or x1.PreserveCollisions then
 					return
 				end
 				-- 20 Hz is plenty. The server is what re-enables collisions, and it
@@ -995,7 +1060,14 @@ return function(context)
 		)
 		x6.o = true
 		x7.n("Sys", "Started", 3)
-		x5.st()
+		-- Refresh the panel if it is open; do not resurrect it if the user closed it.
+		-- x5.st() rebuilds from scratch whenever x5.g is nil, and the panel's X button
+		-- nils it (UI.lua sg.Destroying) -- so pressing Recenter after closing the
+		-- panel used to rebuild the whole thing, and every rebuild strands another
+		-- five service-level connections in x6.c that only full teardown clears.
+		if x5.g then
+			x5.st()
+		end
 		table.insert(
 			x6.run_connections,
 			v3.Heartbeat:Connect(function(real_dt)
@@ -1059,6 +1131,19 @@ return function(context)
 			d.sys_last_t = nil
 			d.parked = nil
 			d.integral = Vector3.zero
+			-- The cached terms above are Lua-side; these are the live properties the
+			-- engine is still holding. f3 returns early while disabled, so nothing
+			-- overwrites them, and MaxForce goes back to x1.k4 (math.huge) here --
+			-- before the sweep next reaches this part, which is only once every
+			-- x1.k7 frames. Left armed, the part is driven at its pre-disable
+			-- velocity at infinite force for those frames: exactly the fling the
+			-- comment above is about.
+			if d.lv then
+				d.lv.VectorVelocity = ZERO_VECTOR
+			end
+			if d.av then
+				d.av.AngularVelocity = ZERO_VECTOR
+			end
 		end
 	end
 
@@ -1114,7 +1199,32 @@ return function(context)
 		table.clear(x6.run_connections or {})
 		table.clear(x6.claim_queue)
 		x6.o = false
-		x5.st()
+		-- Target markers are BillboardGuis parented onto other players' heads, and the
+		-- only code that removed one lived inside f3_body's once-a-second block --
+		-- which stops running the moment the engine stops. So stopping, pausing or
+		-- disabling left the red marker floating over whoever was targeted.
+		for _, pl in ipairs(v2:GetPlayers()) do
+			local ch = pl.Character
+			local head = ch and ch:FindFirstChild("Head")
+			local marker = head and head:FindFirstChild("GravityTargetMarker")
+			if marker then
+				pcall(function()
+					marker:Destroy()
+				end)
+			end
+		end
+		-- Sculptor selections are per-run: the SelectionBoxes are parented to world
+		-- parts, so leaving them adorned after "Stop" leaves cyan boxes in the map.
+		if x6.sculptor_clear then
+			pcall(x6.sculptor_clear)
+		end
+		if x6.sculptor_selected then
+			table.clear(x6.sculptor_selected)
+		end
+		-- Same as f4: refresh an open panel, never rebuild a closed one.
+		if x5.g then
+			x5.st()
+		end
 		x7.n("Sys", "Stopped", 2)
 	end
 
@@ -1132,30 +1242,87 @@ return function(context)
 		return Enum.ContextActionResult.Pass
 	end
 
+	-- Same helper the desktop tree uses. x1.Keybinds is shared through
+	-- GravitySettings_Auto.json, so this tree hardcoding E/Q/P/L meant a rebind made
+	-- on desktop silently did not apply here -- and the ready toast below announced a
+	-- key that was no longer bound.
+	local function key_from_name(name)
+		if type(name) ~= "string" or name == "" then
+			return nil
+		end
+		local ok, code = pcall(function()
+			return Enum.KeyCode[name]
+		end)
+		if ok and typeof(code) == "EnumItem" and code ~= Enum.KeyCode.Unknown then
+			return code
+		end
+		return nil
+	end
+
+	local function bind(action, fn, key_name, fallback)
+		local code = key_from_name(key_name) or fallback
+		if not code then
+			return
+		end
+		-- pcall like the desktop tree: x8.i runs inside main.lua's init pcall, so a
+		-- throw out of BindAction took the whole script down.
+		pcall(function()
+			v7:BindAction(action, fn, false, code)
+		end)
+	end
+
+	-- Touch does not drive Mouse.Target, so acquiring the core by finger needs a real
+	-- raycast -- the same thing System_sculptor in this tree already does. Accepting
+	-- Touch while still testing v9.Target made core dragging unreliable on the only
+	-- devices that load this file.
+	local function pick_at(input)
+		local cam = v4.CurrentCamera
+		if not cam or not input or not input.Position then
+			return nil
+		end
+		local ray = cam:ViewportPointToRay(input.Position.X, input.Position.Y)
+		local rp = RaycastParams.new()
+		rp.FilterType = Enum.RaycastFilterType.Exclude
+		rp.FilterDescendantsInstances = { v8.Character }
+		local hit = workspace:Raycast(ray.Origin, ray.Direction * 1000, rp)
+		return hit and hit.Instance
+	end
+
 	function x8.i()
-		v7:BindAction("C", x8.h, false, Enum.KeyCode.E)
-		v7:BindAction("R", x8.h, false, Enum.KeyCode.Q)
-		v7:BindAction("P", function(_, s)
+		local kb = x1.Keybinds or {}
+		bind("C", x8.h, kb.Recenter, Enum.KeyCode.E)
+		bind("R", x8.h, kb.Reset, Enum.KeyCode.Q)
+		bind("P", function(_, s)
 			if s == Enum.UserInputState.Begin then
 				x1.Paused = not x1.Paused
 				x7.n("Sys", x1.Paused and "Paused" or "Resumed", 2)
 			end
-		end, false, Enum.KeyCode.P)
-		v7:BindAction("Disable", function(_, s)
-			if s == Enum.UserInputState.Begin then
+		end, kb.Pause, Enum.KeyCode.P)
+		bind("Disable", function(_, st)
+			if st == Enum.UserInputState.Begin then
 				x4.apply_disabled(not x1.Disabled)
 				x7.n("Sys", "Script " .. (x1.Disabled and "Disabled" or "Enabled"), 2)
+				-- Repaint, or the panel's Disable toggle keeps the state it was built
+				-- with and its next click is a no-op.
+				local ui = context.x5
+				if ui and ui.up then
+					pcall(ui.up)
+				end
 			end
-		end, false, Enum.KeyCode.L)
+		end, kb.Disable, Enum.KeyCode.L)
 		table.insert(
 			x6.c,
 			v1.InputBegan:Connect(function(i, p)
 				if p or not x6.b then
 					return
 				end
-				if (i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch) and v9.Target == x6.b then
-					x6.d = true
-					x6.p = (v4.CurrentCamera and (x6.b.Position - v4.CurrentCamera.CFrame.Position).Magnitude) or 50
+				local touch = i.UserInputType == Enum.UserInputType.Touch
+				if touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
+					local target = touch and pick_at(i) or v9.Target
+					if target == x6.b then
+						x6.d = true
+						x6.p = (v4.CurrentCamera and (x6.b.Position - v4.CurrentCamera.CFrame.Position).Magnitude) or 50
+					end
 				end
 			end)
 		)
@@ -1168,10 +1335,22 @@ return function(context)
 			end)
 		)
 
-		local sculptor_binder = load_module(SUB_DIR .. "System_sculptor.lua")(context, x7)
-		sculptor_binder()
+		local sculptor_builder = load_module(SUB_DIR .. "System_sculptor.lua")
+		if sculptor_builder then
+			local binder = sculptor_builder(context, x7)
+			if binder then
+				binder()
+			end
+		end
 
-		x7.n("Rdy", "Press 'E'", 5)
+		-- Announce the key that is actually bound, not a literal. The dock is the
+		-- real entry point on touch, so say that when there is no key at all.
+		local recenter = kb.Recenter
+		if type(recenter) == "string" and recenter ~= "" then
+			x7.n("Rdy", "Press '" .. recenter .. "' or tap PLC", 5)
+		else
+			x7.n("Rdy", "Tap PLC to place the core", 5)
+		end
 	end
 
 	return { x4 = x4, x8 = x8 }

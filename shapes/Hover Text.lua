@@ -255,6 +255,17 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	return (target_pos - wp) * (x1.k10 * x9.c1), target_pos
 end
 
+-- Both keys are created from inside f2 and x6.pre survives a shape switch
+-- (System.lua:152 only runs M.cleanup), so without this the pixel arrays and the
+-- stale cycle stamp were held for the life of the session.
+function M.cleanup(x6, x1)
+	if not x6.pre then
+		return
+	end
+	x6.pre["Hover Text"] = nil
+	x6.pre["Hover Text_points"] = nil
+end
+
 M.Controls = {
 	{
 		Type = "TextBox",

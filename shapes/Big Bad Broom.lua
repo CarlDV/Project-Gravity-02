@@ -30,7 +30,12 @@ local function aim_point()
 	end
 	local loc = uis:GetMouseLocation()
 	local ray = cam:ViewportPointToRay(loc.X, loc.Y)
-	local res = workspace:Raycast(ray.Origin, ray.Direction * 2000)
+	-- Claimed parts are all CanCollide = false locally, so respecting collision
+	-- skips the broom's own body. Without this the fallback aims at whichever
+	-- claimed part happens to be in front of the camera instead of the world.
+	local rp = RaycastParams.new()
+	rp.RespectCanCollide = true
+	local res = workspace:Raycast(ray.Origin, ray.Direction * 2000, rp)
 	return res and res.Position or (ray.Origin + ray.Direction * 400)
 end
 
@@ -164,6 +169,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	-- The sweep pivots about an axis you pick: vertical pivots in the horizontal
 	-- plane (a floor sweep), horizontal tips it up and down, side rolls it.
 	local pivot
+	local roll = 0
 	if axis == 2 then
 		pivot = dir:Cross(UP)
 		if pivot.Magnitude < 0.001 then
@@ -171,11 +177,19 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		end
 		pivot = pivot.Unit
 	elseif axis == 3 then
-		pivot = dir
+		-- Roll spins the head around the shaft; the shaft itself does not move.
+		-- Pivoting about dir would be rotating a vector about itself, which is the
+		-- identity for every angle -- the whole axis did nothing, sweep or not. The
+		-- angle is handed to the head basis below instead, which is what actually
+		-- carries the roll.
+		roll = st.pub_sweep or 0
 	else
 		pivot = UP
 	end
-	local shaft = CFrame.fromAxisAngle(pivot, st.pub_sweep or 0) * dir
+	local shaft = dir
+	if pivot then
+		shaft = CFrame.fromAxisAngle(pivot, st.pub_sweep or 0) * dir
+	end
 
 	local hlen = c.k11 or 60
 	local ext = (st.pub_ext or 0) * (c.k14 or 25)
@@ -188,6 +202,11 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	end
 	across = across.Unit
 	local norm = shaft:Cross(across).Unit
+	if roll ~= 0 then
+		local rot = CFrame.fromAxisAngle(shaft, roll)
+		across = rot * across
+		norm = rot * norm
+	end
 
 	local id = d.id or 1
 	local w1 = (id * R2_A) % 1

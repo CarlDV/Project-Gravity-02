@@ -22,11 +22,17 @@ return function(context)
 
 	local Lighting = game:GetService("Lighting")
 	
+	-- Weak keys, the same reason scaled_windows below uses them. These tables are
+	-- keyed by every BasePart, PostEffect and emitter in the map, so with strong keys
+	-- every one destroyed after the snapshot was pinned until the toggle went off --
+	-- in a map with any part churn that is an unbounded leak. The restore functions
+	-- already expect entries to go dead (they test part.Parent), so dropping them
+	-- early changes nothing they do.
 	local PerfOriginals = {
 		Shadows = nil,
-		FX = {},
-		Materials = {},
-		Particles = {}
+		FX = setmetatable({}, { __mode = "k" }),
+		Materials = setmetatable({}, { __mode = "k" }),
+		Particles = setmetatable({}, { __mode = "k" })
 	}
 	
 	local function RestorePerfShadows()
@@ -130,8 +136,20 @@ return function(context)
 		RestorePerfMaterials()
 		RestorePerfParticles()
 	end
-	local UI_elements = load_module("UI_elements.lua")(context)
-	local ai_chat_module = load_module("ai_chat.lua")(context)
+	-- UI_elements is a hard dependency, so fail with a message that says which
+	-- module rather than "attempt to call a nil value" out of load_module's
+	-- failure path, the way main.lua:553 does for UI and System.
+	local UI_elements_builder = load_module("UI_elements.lua")
+	if not UI_elements_builder then
+		error("Failed to load UI_elements", 0)
+	end
+	local UI_elements = UI_elements_builder(context)
+	-- The AI chat is optional: both call sites below already nil-guard it. Calling
+	-- load_module's result directly meant a nil threw here first, so one flaky
+	-- fetch for the chat took the whole panel down and those guards could never
+	-- fire.
+	local ai_chat_builder = load_module("ai_chat.lua")
+	local ai_chat_module = ai_chat_builder and ai_chat_builder(context)
 	local es, et, eb, eh = UI_elements.s, UI_elements.t, UI_elements.b, UI_elements.h
 	local etb = UI_elements.tb
 	local ekb = UI_elements.kb
@@ -360,6 +378,11 @@ return function(context)
 		hud.Position = UDim2.new(0.5, -200, 0, 20)
 		hud.Size = UDim2.new(0, 400, 0, 30)
 
+		-- Scaled like every other element. The HUD was the one thing never registered,
+		-- so at UI Scale 2.0 every window doubled and the status line stayed at 14px,
+		-- against the setting's own description ("Scales the entire interface").
+		register_window(hud, 1)
+
 		local hud_l = Instance.new("TextLabel", hud)
 		hud_l.BackgroundTransparency = 1
 		hud_l.Size = UDim2.new(1, 0, 1, 0)
@@ -491,127 +514,138 @@ return function(context)
 		ac.ScrollBarThickness = 0
 		ac.AutomaticCanvasSize = Enum.AutomaticSize.Y
 		ac.CanvasSize = UDim2.new(0, 0, 0, 0)
-		local acl = Instance.new("UIListLayout", ac)
-		acl.Padding = UDim.new(0, 10)
-		acl.HorizontalAlignment = Enum.HorizontalAlignment.Center
-		local ap = Instance.new("UIPadding", ac)
-		ap.PaddingLeft = UDim.new(0, 20)
-		ap.PaddingRight = UDim.new(0, 20)
+		-- Rebuildable, so a reset can repaint it. Every control in here caches its
+		-- value at build time -- UI_elements M.s keeps `current` as a private local --
+		-- and this block used to be built exactly once. After "Reset All Settings" the
+		-- knobs therefore kept the old numbers while x1 held the defaults, and nudging
+		-- UI Scale committed from the stale value: a reset from 2.0 then one step down
+		-- gave 1.9 instead of 1.1.
+		local function populate_advanced()
+			ac:ClearAllChildren()
+			local acl = Instance.new("UIListLayout", ac)
+			acl.Padding = UDim.new(0, 10)
+			acl.HorizontalAlignment = Enum.HorizontalAlignment.Center
+			local ap = Instance.new("UIPadding", ac)
+			ap.PaddingLeft = UDim.new(0, 20)
+			ap.PaddingRight = UDim.new(0, 20)
 
-		et(ac, "Predictive Tracking", x1.PredictiveTracking ~= false, function(v)
-			x1.PredictiveTracking = v
-			save_settings()
-		end, "Predicts player movement to smooth out parts when targeting them.")
+			et(ac, "Predictive Tracking", x1.PredictiveTracking ~= false, function(v)
+				x1.PredictiveTracking = v
+				save_settings()
+			end, "Predicts player movement to smooth out parts when targeting them.")
 		
-		es(ac, "Prediction Factor", 0, 500, x1.PredictionFactor or 150, function(v)
-			x1.PredictionFactor = v
-			save_settings()
-		end, false, "How far ahead the script predicts the target's movement.")
+			es(ac, "Prediction Factor", 0, 500, x1.PredictionFactor or 150, function(v)
+				x1.PredictionFactor = v
+				save_settings()
+			end, false, "How far ahead the script predicts the target's movement.")
 		
-		es(ac, "Damping", 0, 5, x1.Damping, function(v)
-			x1.Damping = v
-			save_settings()
-		end, false, "Slows down parts to reduce jittering. Higher values = smoother but slower.")
+			es(ac, "Damping", 0, 5, x1.Damping, function(v)
+				x1.Damping = v
+				save_settings()
+			end, false, "Slows down parts to reduce jittering. Higher values = smoother but slower.")
 		
-		es(ac, "Integral Gain", 0, 10, x1.Ki, function(v)
-			x1.Ki = v
-			save_settings()
-		end, false, "Helps parts reach their exact target position faster (fixes sagging).")
+			es(ac, "Integral Gain", 0, 10, x1.Ki, function(v)
+				x1.Ki = v
+				save_settings()
+			end, false, "Helps parts reach their exact target position faster (fixes sagging).")
 		
-		es(ac, "Max Speed", 50, 2000, x1.MaxSpeed or 500, function(v)
-			x1.MaxSpeed = v
-			save_settings()
-		end, false, "Caps the maximum velocity of all parts to prevent them from flinging.")
+			es(ac, "Max Speed", 50, 2000, x1.MaxSpeed or 500, function(v)
+				x1.MaxSpeed = v
+				save_settings()
+			end, false, "Caps the maximum velocity of all parts to prevent them from flinging.")
 		
-		es(ac, "Angular Damp", 0, 1, x1.AngularDamping or 0.5, function(v)
-			x1.AngularDamping = v
-			save_settings()
-		end, false, "Stops parts from spinning uncontrollably on their own axis.")
+			es(ac, "Angular Damp", 0, 1, x1.AngularDamping or 0.5, function(v)
+				x1.AngularDamping = v
+				save_settings()
+			end, false, "Stops parts from spinning uncontrollably on their own axis.")
 		
-		es(ac, "Vert Stiffness", 0.1, 5, x1.VerticalStiffness or 1.0, function(v)
-			x1.VerticalStiffness = v
-			save_settings()
-		end, false, "Multiplies vertical pull to fight Roblox's gravity. Use 1.0 for normal.")
+			es(ac, "Vert Stiffness", 0.1, 5, x1.VerticalStiffness or 1.0, function(v)
+				x1.VerticalStiffness = v
+				save_settings()
+			end, false, "Multiplies vertical pull to fight Roblox's gravity. Use 1.0 for normal.")
 
-		es(ac, "UI Scale", 0.5, 2.0, x1.UIScale or 1.0, function(v)
-			x1.UIScale = v
-			-- Every registered window, not just these two: the mode selector and
-			-- the target list are nested under Main and only carry their pop
-			-- factor, so Main's UIScale covers them; Advanced, Keybinds and the
-			-- dialogs are siblings and used to be missed or overwritten.
-			apply_ui_scale()
-			save_settings()
-		end, false, "Scales the entire interface. 1.0 is default.")
+			es(ac, "UI Scale", 0.5, 2.0, x1.UIScale or 1.0, function(v)
+				x1.UIScale = v
+				-- Every registered window, not just these two: the mode selector and
+				-- the target list are nested under Main and only carry their pop
+				-- factor, so Main's UIScale covers them; Advanced, Keybinds and the
+				-- dialogs are siblings and used to be missed or overwritten.
+				apply_ui_scale()
+				save_settings()
+			end, false, "Scales the entire interface. 1.0 is default.")
 
-		et(ac, "Aggressive Claiming", x1.AggressiveClaim, function(v)
-			x1.AggressiveClaim = v
-			save_settings()
-		end, "WARNING: Spams CFrames into your character to forcefully steal Network Ownership from other scripts.")
+			et(ac, "Aggressive Claiming", x1.AggressiveClaim, function(v)
+				x1.AggressiveClaim = v
+				save_settings()
+			end, "WARNING: Spams CFrames into your character to forcefully steal Network Ownership from other scripts.")
 		
-		et(ac, "Void Protection", x1.VoidProtection, function(v)
-			x1.VoidProtection = v
-			save_settings()
-		end, "Automatically ignores targets that fall into the void to prevent your parts from being destroyed.")
+			et(ac, "Void Protection", x1.VoidProtection, function(v)
+				x1.VoidProtection = v
+				save_settings()
+			end, "Automatically ignores targets that fall into the void to prevent your parts from being destroyed.")
 
-		et(ac, "Disable Shadows", x1.Perf_DisableShadows, function(v)
-			x1.Perf_DisableShadows = v
-			ApplyPerfShadows(v)
-			save_settings()
-		end, "Turns off all game shadows to boost your FPS significantly.")
+			et(ac, "Disable Shadows", x1.Perf_DisableShadows, function(v)
+				x1.Perf_DisableShadows = v
+				ApplyPerfShadows(v)
+				save_settings()
+			end, "Turns off all game shadows to boost your FPS significantly.")
 		
-		et(ac, "Disable Post-FX", x1.Perf_DisablePostFX, function(v)
-			x1.Perf_DisablePostFX = v
-			ApplyPerfPostFX(v)
-			save_settings()
-		end, "Disables Bloom, Blur, SunRays, and ColorCorrection to save performance.")
+			et(ac, "Disable Post-FX", x1.Perf_DisablePostFX, function(v)
+				x1.Perf_DisablePostFX = v
+				ApplyPerfPostFX(v)
+				save_settings()
+			end, "Disables Bloom, Blur, SunRays, and ColorCorrection to save performance.")
 		
-		et(ac, "Potato Materials", x1.Perf_PotatoMaterials, function(v)
-			x1.Perf_PotatoMaterials = v
-			ApplyPerfMaterials(v)
-			save_settings()
-		end, "Forces all parts in the game to use SmoothPlastic to lower rendering load.")
+			et(ac, "Potato Materials", x1.Perf_PotatoMaterials, function(v)
+				x1.Perf_PotatoMaterials = v
+				ApplyPerfMaterials(v)
+				save_settings()
+			end, "Forces all parts in the game to use SmoothPlastic to lower rendering load.")
 		
-		et(ac, "Hide Particles", x1.Perf_HideParticles, function(v)
-			x1.Perf_HideParticles = v
-			ApplyPerfParticles(v)
-			save_settings()
-		end, "Hides fire, smoke, beams, trails, and particle emitters.")
+			et(ac, "Hide Particles", x1.Perf_HideParticles, function(v)
+				x1.Perf_HideParticles = v
+				ApplyPerfParticles(v)
+				save_settings()
+			end, "Hides fire, smoke, beams, trails, and particle emitters.")
 		
-		ApplyPerfShadows(x1.Perf_DisableShadows)
-		ApplyPerfPostFX(x1.Perf_DisablePostFX)
-		ApplyPerfMaterials(x1.Perf_PotatoMaterials)
-		ApplyPerfParticles(x1.Perf_HideParticles)
+			ApplyPerfShadows(x1.Perf_DisableShadows)
+			ApplyPerfPostFX(x1.Perf_DisablePostFX)
+			ApplyPerfMaterials(x1.Perf_PotatoMaterials)
+			ApplyPerfParticles(x1.Perf_HideParticles)
 		
-		local function update_color()
-			if x6.b then
-				x6.b.Color = x1.k3
-				if x6.b:FindFirstChild("Visual") and x6.b.Visual:FindFirstChildOfClass("ImageLabel") then
-					x6.b.Visual:FindFirstChildOfClass("ImageLabel").ImageColor3 = x1.k3
+			local function update_color()
+				if x6.b then
+					x6.b.Color = x1.k3
+					if x6.b:FindFirstChild("Visual") and x6.b.Visual:FindFirstChildOfClass("ImageLabel") then
+						x6.b.Visual:FindFirstChildOfClass("ImageLabel").ImageColor3 = x1.k3
+					end
 				end
+				save_settings()
 			end
-			save_settings()
-		end
 
-		-- Each channel slider rebuilds the whole colour, so it has to hand the other
-		-- two back as the same integers they came in as. Color3 stores 0-1 floats and
-		-- v/255 does not round-trip exactly, so passing the bare product re-quantised
-		-- the untouched channels on every drag and walked the colour off over a
-		-- session of tweaking.
-		local function ch(x)
-			return math.floor(x * 255 + 0.5)
+			-- Each channel slider rebuilds the whole colour, so it has to hand the other
+			-- two back as the same integers they came in as. Color3 stores 0-1 floats and
+			-- v/255 does not round-trip exactly, so passing the bare product re-quantised
+			-- the untouched channels on every drag and walked the colour off over a
+			-- session of tweaking.
+			local function ch(x)
+				return math.floor(x * 255 + 0.5)
+			end
+			es(ac, "Center Color R", 0, 255, ch(x1.k3.R), function(v)
+				x1.k3 = Color3.fromRGB(v, ch(x1.k3.G), ch(x1.k3.B))
+				update_color()
+			end, true)
+			es(ac, "Center Color G", 0, 255, ch(x1.k3.G), function(v)
+				x1.k3 = Color3.fromRGB(ch(x1.k3.R), v, ch(x1.k3.B))
+				update_color()
+			end, true)
+			es(ac, "Center Color B", 0, 255, ch(x1.k3.B), function(v)
+				x1.k3 = Color3.fromRGB(ch(x1.k3.R), ch(x1.k3.G), v)
+				update_color()
+			end, true)
 		end
-		es(ac, "Center Color R", 0, 255, ch(x1.k3.R), function(v)
-			x1.k3 = Color3.fromRGB(v, ch(x1.k3.G), ch(x1.k3.B))
-			update_color()
-		end, true)
-		es(ac, "Center Color G", 0, 255, ch(x1.k3.G), function(v)
-			x1.k3 = Color3.fromRGB(ch(x1.k3.R), v, ch(x1.k3.B))
-			update_color()
-		end, true)
-		es(ac, "Center Color B", 0, 255, ch(x1.k3.B), function(v)
-			x1.k3 = Color3.fromRGB(ch(x1.k3.R), ch(x1.k3.G), v)
-			update_color()
-		end, true)
+		populate_advanced()
+		x5.refresh_advanced = populate_advanced
 
 		local km = Instance.new("CanvasGroup", sg)
 		km.Name = "Keybinds"
@@ -852,7 +886,10 @@ return function(context)
 				end
 				toggle_window(x6.dlst_container, new_state, true)
 				if new_state and x6.populate_modes then
-					x6.populate_modes("")
+					-- The typed filter, not a hardcoded "". msb lives outside f1 so its
+					-- text persists for the session: reopening the dropdown showed the
+					-- full list while the box still read the old search.
+					x6.populate_modes(x6.mode_filter and x6.mode_filter() or "")
 				end
 			end
 		end)
@@ -1021,6 +1058,26 @@ return function(context)
 			local dst2 = Instance.new("UIStroke", tdb)
 			dst2.Color = Color3.fromRGB(40, 40, 45)
 
+			-- Repaints only what the target list feeds -- this button's label and the
+			-- HUD -- so a selection does not have to go through f1(), which destroys
+			-- and rebuilds the picker hidden. Re-closed over tdb on every f1, so it
+			-- always points at the live button. The × affordance appears on the next
+			-- real rebuild, which is enough: clearing is one click on an open list.
+			x5.refresh_body = function()
+				local label = "Select Target"
+				if x1.Targets and #x1.Targets > 0 then
+					if #x1.Targets == 1 then
+						local t1 = x1.Targets[1]
+						label = "Target: " .. (t1.DisplayName or t1.Name)
+					else
+						label = "Multi-Target (" .. tostring(#x1.Targets) .. ")"
+					end
+				end
+				if tdb and tdb.Parent then
+					tdb.Text = "  " .. label:upper()
+				end
+			end
+
 			if x1.Targets and #x1.Targets > 0 then
 				local ctb = Instance.new("TextButton", tdb)
 				ctb.BackgroundTransparency = 1
@@ -1093,7 +1150,7 @@ return function(context)
 					if
 						filter_text ~= ""
 						and not (
-							pl.DisplayName:lower():find(filter_text:lower()) or pl.Name:lower():find(filter_text:lower())
+							pl.DisplayName:lower():find(filter_text:lower(), 1, true) or pl.Name:lower():find(filter_text:lower(), 1, true)
 						)
 					then
 						continue
@@ -1179,7 +1236,14 @@ return function(context)
 							x1.PI_All = false
 						end
 						x1.TgtActive = (#x1.Targets > 0)
-						f1()
+						-- Repaint the HUD and the panel body, but leave this list alone.
+						-- f1() destroys and rebuilds the picker hidden, so selecting three
+						-- players meant reopening it three times -- and the two
+						-- sel_indicator writes above were dead work, overwritten by a
+						-- rebuild microseconds later. Any typed search text survives too.
+						if x5.refresh_body then
+							x5.refresh_body()
+						end
 					end)
 				end
 			end
@@ -1225,7 +1289,7 @@ return function(context)
 							s[ctrl.Key] = ctrl.Div and (current_val / ctrl.Div) or current_val
 							es(p_frame, ctrl.Name, ctrl.Min, max_val, current_val, function(v)
 								if ctrl.Div then s[ctrl.Key] = v / ctrl.Div else s[ctrl.Key] = v end
-							end, ctrl.IntOnly)
+							end, ctrl.IntOnly, ctrl.Desc)
 						elseif ctrl.Type == "Toggle" then
 							if type(current_val) ~= "boolean" then
 								current_val = ctrl.Default == true
@@ -1238,7 +1302,7 @@ return function(context)
 							s[ctrl.Key] = current_val
 							et(p_frame, ctrl.Name, current_val, function(v)
 								s[ctrl.Key] = v
-							end)
+							end, ctrl.Desc)
 						elseif ctrl.Type == "TextBox" and etb then
 							if type(current_val) ~= "string" then
 								current_val = type(ctrl.Default) == "string" and ctrl.Default or ""
@@ -1369,6 +1433,14 @@ return function(context)
 					if reset_config then
 						reset_config()
 						save_settings()
+						-- The four Perf_* flags describe changes already made to the
+						-- game -- Lighting.GlobalShadows, every part's Material, every
+						-- emitter -- and reset_config only puts the flags back to
+						-- false. Without this the config and the save file said
+						-- "shadows on" while the game still had them off, and the
+						-- toggle needed a manual extra click before it would actually
+						-- undo anything.
+						RestoreAllPerf()
 						-- Keybinds and UIScale are both part of the reset, and
 						-- neither takes effect on its own: the hotkeys have to be
 						-- rebound from the restored table and every window
@@ -1379,6 +1451,14 @@ return function(context)
 							pcall(x8.rebind_all)
 						end
 						apply_ui_scale()
+						-- Repaint the two windows that are built once and never rebuilt
+						-- by f1. Every control in them cached its value at build time,
+						-- so without this they all sat showing pre-reset numbers while
+						-- x1 held the defaults.
+						if x5.refresh_advanced then
+							pcall(x5.refresh_advanced)
+						end
+						pcall(populate_keybinds, ksearch.Text)
 						if x5.up then
 							x5.up()
 						end
@@ -1463,7 +1543,11 @@ return function(context)
 			end)
 
 			for _, mn in ipairs(modes) do
-				if filter ~= "" and not mn:lower():find(filter:lower()) then
+				-- Plain search, like populate_keybinds:756. Without the flag the typed
+				-- text is a Lua pattern, so a single "(" throws "unfinished capture"
+				-- out of the Text callback -- after dlst:ClearAllChildren() has already
+				-- run, so the list stays empty and every further keystroke re-errors.
+				if filter ~= "" and not mn:lower():find(filter:lower(), 1, true) then
 					continue
 				end
 
@@ -1539,6 +1623,9 @@ return function(context)
 		end)
 
 		x6.populate_modes = populate_modes
+		x6.mode_filter = function()
+			return msb and msb.Text or ""
+		end
 		populate_modes("")
 
 		-- System calls this after every shape switch, including one driven by a

@@ -196,19 +196,46 @@ Enum = setmetatable({}, {
 -- Defaults come from config.lua rather than being restated here. A hand-copied
 -- fixture silently goes stale the moment a default changes, which is exactly how
 -- an earlier run of this file "failed" on a shape that was correct.
+-- shapes/ first, then shapes-onreview/. Three shapes moved to the review folder and
+-- this asserted straight onto the old path, so both harnesses crashed on load --
+-- shapes_smoke before it reached any of its geometry checks at all.
+local function load_shape(name)
+	local f = io.open("shapes/" .. name .. ".lua")
+	local from = "shapes/"
+	if not f then
+		f = io.open("shapes-onreview/" .. name .. ".lua")
+		from = "shapes-onreview/"
+	end
+	assert(f, "cannot find " .. name .. ".lua in shapes/ or shapes-onreview/")
+	local src = f:read("a"); f:close()
+	return assert(load(src, from .. name))()
+end
 local function shape_cfg(name)
 	local cfg = assert(loadfile("config.lua"))().x2[name]
-	assert(cfg, "no x2 block for " .. name)
+	-- The shapes in shapes-onreview/ deliberately have no config block yet, so seed
+	-- from the module's own Controls the way main.lua's local-shape loader does.
+	-- Asserting here crashed the whole suite the moment a shape moved to review.
+	if not cfg then
+		local mod = load_shape(name)
+		cfg = {}
+		for _, ctl in ipairs(mod.Controls or {}) do
+			if type(ctl) == "table" and ctl.Key then
+				local dv = ctl.Default
+				if dv == nil then
+					dv = ctl.Min or 0
+					if ctl.Div then dv = dv / ctl.Div end
+				end
+				cfg[ctl.Key] = dv
+			end
+		end
+		return cfg
+	end
 	local copy = {}
 	for k, v in pairs(cfg) do copy[k] = v end
 	return copy
 end
 
-local function load_shape(name)
-	local f = assert(io.open("shapes/" .. name .. ".lua"))
-	local src = f:read("a"); f:close()
-	return assert(load(src, name))()
-end
+
 
 local function mk_x6(n)
 	return { pre = {}, f = 0, n = n or 400 }
@@ -331,7 +358,10 @@ do
 			S.px(frame / 60, cfg, x6, x9, x1)
 			local _, tp = S.f2(part(Vector3.new(0, 0, 0)), st.caster + Vector3.new(0, 300, 0),
 				{ id = 1 }, frame / 60, cfg, x1, x6, x9)
-			if tp and not finite(tp) then ok = false end
+			-- A nil target counts as a failure. It used to be skipped, so this check
+			-- went green if f2 returned no target at all for all 108 frames -- a worse
+			-- outcome than a NaN, not a better one.
+			if tp == nil or not finite(tp) then ok = false end
 		end
 		check(ok, ("lobe mode %d survives a vertical span"):format(mode))
 	end
@@ -414,7 +444,7 @@ do
 	local st = x6.pre["Mech Suit"]
 	check(st and st.cloud, "cloud builds from character")
 	check(st.cloud.n > 100, ("cloud has %d points"):format(st.cloud and st.cloud.n or 0))
-	check(st.cloud.reach > 0, "cloud reach measured")
+	check((st.reach or 0) > 0, "reach measured from the live pose")
 
 	local seen = {}
 	for id = 1, 400 do
@@ -517,34 +547,62 @@ do
 	check((all_on - untargeted).Magnitude < 1,
 		"Target Everyone is ignored; the mech stays whole on the host")
 
-	-- Walking. The limbs must swing only while the body is actually moving.
+	-- Tracking. The mech mirrors the character's live pose, so moving a limb has to
+	-- move the mech -- and only the points that limb owns. This replaces a test that
+	-- asserted a synthetic sine-wave gait, which is precisely what stopped the suit
+	-- from following the character: the pose was snapshotted once and a canned walk
+	-- cycle was played over it, so a jump, a crouch, a tool pose or an emote did
+	-- nothing at all.
 	local x1w = { k10 = 20, k7 = 4 }
-	local function limb_spread(frame)
-		-- Feet are the lowest points; their fore-aft spread is the stride.
-		local lo, hi = math.huge, -math.huge
+	local function pose(frame)
 		x6.f = frame
 		S.px(frame / 60, cfg, x6, x9, x1w)
-		for id = 1, 400 do
+		local out = {}
+		for id = 1, 240 do
 			local _, tp = S.f2(part(Vector3.new(0, 0, 0)), cen, { id = id }, frame / 60, cfg, x1w, x6, x9)
-			if tp.Z < lo then lo = tp.Z end
-			if tp.Z > hi then hi = tp.Z end
+			out[id] = tp
 		end
-		return hi - lo
+		return out
+	end
+	local function moved_count(a, b)
+		local n = 0
+		for id = 1, 240 do
+			if a[id] and b[id] and (a[id] - b[id]).Magnitude > 0.01 then n = n + 1 end
+		end
+		return n
 	end
 
-	character.root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-	local still = limb_spread(64)
-	character.root.AssemblyLinearVelocity = Vector3.new(16, 0, 0)
-	-- Several cycles so the stride integrates away from zero crossing.
-	limb_spread(72); limb_spread(80)
-	local walking = limb_spread(88)
-	check(walking > still + 0.5, ("walking swings the limbs: %.2f vs %.2f standing"):format(walking, still))
+	local arm = character:FindFirstChild("Right Arm")
+	local arm_base = arm.CFrame
+	local before = pose(64)
+	-- Swing the arm out ninety degrees about the shoulder.
+	arm.CFrame = CFrame.new(arm_base.Position) * CFrame.fromAxisAngle(Vector3.new(0, 0, 1), math.pi / 2)
+	local after = pose(68)
+	local moved = moved_count(before, after)
+	check(moved > 0, ("moving a limb moves the mech: %d/240 points followed"):format(moved))
+	check(moved < 240, ("and only that limb: %d/240 held still"):format(240 - moved))
 
-	-- Falling is not walking: vertical speed alone must not drive the gait.
-	character.root.AssemblyLinearVelocity = Vector3.new(0, -60, 0)
-	x6.f = 96; S.px(96 / 60, cfg, x6, x9, x1w)
-	check(math.abs(st.pub_swing or 0) < 0.001, "falling does not trigger the walk cycle")
-	character.root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+	-- Motion Gain 0 pins the mech to the pose the cloud was built in.
+	arm.CFrame = arm_base
+	local rigid_cfg = {}
+	for k, v in pairs(cfg) do rigid_cfg[k] = v end
+	rigid_cfg.k18 = 0
+	local x6r = mk_x6()
+	local function rigid_pose(frame)
+		x6r.f = frame
+		S.px(frame / 60, rigid_cfg, x6r, x9, x1w)
+		local out = {}
+		for id = 1, 240 do
+			local _, tp = S.f2(part(Vector3.new(0, 0, 0)), cen, { id = id }, frame / 60, rigid_cfg, x1w, x6r, x9)
+			out[id] = tp
+		end
+		return out
+	end
+	local r0 = rigid_pose(64)
+	arm.CFrame = CFrame.new(arm_base.Position) * CFrame.fromAxisAngle(Vector3.new(0, 0, 1), math.pi / 2)
+	local r1 = rigid_pose(68)
+	check(moved_count(r0, r1) == 0, "Motion Gain 0 ignores the animation entirely")
+	arm.CFrame = arm_base
 
 	S.cleanup(x6, x1)
 	check(x6.pre["Mech Suit"] == nil, "cleanup drops state")
@@ -890,6 +948,10 @@ do
 	end
 	check(through, "a head cranes through the doorway")
 
+	-- Assert the loop below has something to do. With pK nil, 0 or 1 neither loop
+	-- executed, minsep stayed at its 999 sentinel and the separation check passed
+	-- without comparing a single pair.
+	check((st.pK or 0) >= 2, ("at least two heads published to compare: pK=%s"):format(tostring(st.pK)))
 	local minsep = 999
 	for i = 1, (st.pK or 0) do
 		for j = i + 1, (st.pK or 0) do

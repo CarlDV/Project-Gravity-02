@@ -248,9 +248,16 @@ end
 -- applied on creation and then only when the signature below moves. Writing
 -- Material/Transparency/Shape to every slab every frame would be a physics
 -- property write per slab per frame for a value that is almost always identical.
-local function style_slab(p, shape, mat, trans, grip, no_query)
+local function style_slab(p, shape, mat, trans, grip, no_query, colour)
 	if p.Shape ~= shape then
 		p.Shape = shape
+	end
+	-- Colour belongs in the restyle, not only at creation. It used to be set once in
+	-- new_slab and left out of the signature below, so changing Center Color re-tinted
+	-- the core immediately while every pad and rail kept the old colour until the rig
+	-- happened to be rebuilt by a shape switch, a disable or a stop.
+	if colour and p.Color ~= colour then
+		p.Color = colour
 	end
 	if p.Material ~= mat then
 		p.Material = mat
@@ -374,15 +381,23 @@ function M.px(t, c, x6, x9, x1)
 	local frozen = c.k55 == true
 
 	local anchor, vel
-	if c.k22 ~= false and hrp then
+	local following = c.k22 ~= false
+	if following and hrp then
 		anchor = hrp.Position
 		vel = hrp.AssemblyLinearVelocity
-	elseif x6.b then
+	elseif not following and x6.b then
 		-- Follow Player off: sit under the core instead, so the platform lands
 		-- under whoever is being targeted.
 		anchor = x6.b.Position
 		vel = ZERO
 	end
+	-- Deliberately not falling through to the core when Follow Player is ON and the
+	-- character is mid-respawn. x6.b is always non-nil here (f3 returns early when it
+	-- is not, and f3_body reads x6.b.Position before calling px), so the old
+	-- `elseif x6.b` always succeeded: anchor was never nil, the mid-respawn branch
+	-- below was unreachable, and the user's Follow Player setting silently inverted
+	-- to core-tracking for the whole RespawnTime -- teleporting a solid slab across
+	-- the map and back.
 	vel = vel or ZERO
 
 	local pos = st.pos
@@ -399,6 +414,19 @@ function M.px(t, c, x6, x9, x1)
 			local p = pads[i]
 			if p and p.Parent and p.CanCollide then
 				p.CanCollide = false
+			end
+		end
+		-- Rails go through new_slab too, so they are created CanCollide = true and
+		-- were never turned off by either this path or Catch Mode. Leaving them solid
+		-- fences you inside a ring with no floor, which is the opposite of what
+		-- de-colliding the pad is for.
+		local rails = st.rails
+		if rails then
+			for i = 1, #rails do
+				local r = rails[i]
+				if r and r.Parent and r.CanCollide then
+					r.CanCollide = false
+				end
 			end
 		end
 		return
@@ -494,7 +522,13 @@ function M.px(t, c, x6, x9, x1)
 
 	if c.k57 == true and not parked then
 		if new_cycle then
-			local head = (c.k41 or 6) + HEAD_ROOM
+			-- Fixed clearance, not the Catch Mode band. This used to read c.k41
+			-- (Pad · Stand Band, max 40), so widening the standing band also drove the
+			-- ceiling probe out to 46 studs and pinned the surface that far below any
+			-- ceiling it found -- below the floor in any room shorter than that, from
+			-- a slider whose name says nothing about ceilings. HEAD_ROOM * 2 is the 12
+			-- the default band produced, so behaviour at defaults is unchanged.
+			local head = HEAD_ROOM * 2
 			local hit = workspace:Raycast(target, UP * head, probe_params(st, x6, char))
 			st.ceiling = hit and (hit.Position.Y - head) or nil
 		end
@@ -627,28 +661,33 @@ function M.px(t, c, x6, x9, x1)
 	local rig = pad_n > 0 and ensure_rig(st, x6) or st.rig
 	local pads = st.pads
 
-	if pad_n > 0 then
-		local solid = true
-		if c.k20 == true then
-			-- Catch Mode: out of the way while you are on the ground, solid the
-			-- moment you start falling. Standing on it counts as well, or
-			-- landing would zero your fall speed and immediately switch the
-			-- floor off again.
-			solid = vel.Y < -(c.k40 or 5)
-			if not solid and hrp then
-				local rel = hrp.Position - pos
-				local band = c.k41 or 6
-				-- Projected onto the surface's own axes rather than the world's.
-				-- The original compared against world X/Z, which silently stops
-				-- describing the footprint the moment Facing or Spin turns it.
-				local ru = rel:Dot(rig_right)
-				local rw = rel:Dot(rig_fwd)
-				if rel.Y > 0 and rel.Y < band and math.abs(ru) < half_x and math.abs(rw) < half_z then
-					solid = true
-				end
+	-- Hoisted out of the pad branch so the rails can honour it too. Rails are built
+	-- by new_slab, which creates every slab CanCollide = true, and nothing ever
+	-- turned them back off -- so with Catch Mode on and Rail Height above zero,
+	-- standing on real ground correctly de-collided the pad and left you fenced
+	-- inside a solid ring with no floor.
+	local solid = true
+	if pad_n > 0 and c.k20 == true then
+		-- Catch Mode: out of the way while you are on the ground, solid the
+		-- moment you start falling. Standing on it counts as well, or
+		-- landing would zero your fall speed and immediately switch the
+		-- floor off again.
+		solid = vel.Y < -(c.k40 or 5)
+		if not solid and hrp then
+			local rel = hrp.Position - pos
+			local band = c.k41 or 6
+			-- Projected onto the surface's own axes rather than the world's.
+			-- The original compared against world X/Z, which silently stops
+			-- describing the footprint the moment Facing or Spin turns it.
+			local ru = rel:Dot(rig_right)
+			local rw = rel:Dot(rig_fwd)
+			if rel.Y > 0 and rel.Y < band and math.abs(ru) < half_x and math.abs(rw) < half_z then
+				solid = true
 			end
 		end
+	end
 
+	if pad_n > 0 then
 		local shape_i = math.floor((c.k36 or 1) + 0.5)
 		local mat_i = math.floor((c.k37 or 1) + 0.5)
 		local pshape = PAD_SHAPES[shape_i] or PAD_SHAPES[1]
@@ -661,7 +700,8 @@ function M.px(t, c, x6, x9, x1)
 			thick = 0.05
 		end
 
-		local sig = shape_i .. "/" .. mat_i .. "/" .. ptrans .. "/" .. pgrip .. "/" .. tostring(no_query)
+		local pcol = x1.k3
+		local sig = shape_i .. "/" .. mat_i .. "/" .. ptrans .. "/" .. pgrip .. "/" .. tostring(no_query) .. "/" .. tostring(pcol)
 		local restyle = st.style ~= sig
 		st.style = sig
 
@@ -671,9 +711,9 @@ function M.px(t, c, x6, x9, x1)
 			if not pad or not pad.Parent then
 				pad = new_slab(rig, x1, i == 1 and RIG_NAME or (RIG_NAME .. "_L" .. i), i == 1)
 				pads[i] = pad
-				style_slab(pad, pshape, pmat, ptrans, pgrip, no_query)
+				style_slab(pad, pshape, pmat, ptrans, pgrip, no_query, pcol)
 			elseif restyle then
-				style_slab(pad, pshape, pmat, ptrans, pgrip, no_query)
+				style_slab(pad, pshape, pmat, ptrans, pgrip, no_query, pcol)
 			end
 
 			local li = i - 1
@@ -741,7 +781,8 @@ function M.px(t, c, x6, x9, x1)
 		local mat_i = math.floor((c.k37 or 1) + 0.5)
 		local rmat = PAD_MATERIALS[mat_i] or PAD_MATERIALS[1]
 		local no_query = c.k58 == true
-		local sig = mat_i .. "/" .. rail_trans .. "/" .. tostring(no_query)
+		local rcol = x1.k3
+		local sig = mat_i .. "/" .. rail_trans .. "/" .. tostring(no_query) .. "/" .. tostring(rcol)
 		local restyle = st.rail_style ~= sig
 		st.rail_style = sig
 
@@ -756,9 +797,9 @@ function M.px(t, c, x6, x9, x1)
 			if not rail or not rail.Parent then
 				rail = new_slab(rig, x1, RIG_NAME .. "_R" .. j, false)
 				rails[j] = rail
-				style_slab(rail, Enum.PartType.Block, rmat, rail_trans, 0, no_query)
+				style_slab(rail, Enum.PartType.Block, rmat, rail_trans, 0, no_query, rcol)
 			elseif restyle then
-				style_slab(rail, Enum.PartType.Block, rmat, rail_trans, 0, no_query)
+				style_slab(rail, Enum.PartType.Block, rmat, rail_trans, 0, no_query, rcol)
 			end
 
 			local nxt = rim_point(j, rail_n, square, pos, rig_right, rig_fwd, half_x, half_z)
@@ -775,6 +816,11 @@ function M.px(t, c, x6, x9, x1)
 			-- Sits on the layer-0 surface, spanning this segment of the rim.
 			local mid = (prev + nxt) * 0.5 + live_up * (rail_h * 0.5)
 			rail.CFrame = CFrame.lookAt(mid, mid + span / len, live_up)
+			-- Follows the pad. Without this the ring stayed solid whatever Catch Mode
+			-- decided, which turns "pad out of the way on the ground" into a cage.
+			if rail.CanCollide ~= solid then
+				rail.CanCollide = solid
+			end
 			prev = nxt
 		end
 	elseif #rails > 0 then
@@ -936,7 +982,7 @@ M.Controls = {
 		Key = "k28",
 		Default = 0,
 		Div = 100,
-		Desc = "Opens the middle out into a donut. Ignored by the grid layouts.",
+		Desc = "Opens the middle out into a donut. Ignored by the grid, ring and cross layouts.",
 	},
 	{ Type = "Slider", Name = "Surface · Layers", Min = 1, Max = 12, Key = "k16", Default = 1, IntOnly = true },
 	{ Type = "Slider", Name = "Surface · Layer Gap", Min = 0, Max = 200, Key = "k29", Default = 1.2, Div = 10 },

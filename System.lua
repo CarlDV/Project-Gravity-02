@@ -157,6 +157,12 @@ return function(context)
 		end
 	end
 
+	-- Forward-declared: f3_body's drop branch restores a part whose Parent went away,
+	-- and the definition lives further down next to x4.f2. Without this the name
+	-- resolved to a nil global inside f3_body and the pcall around it swallowed the
+	-- failure, so the restore silently did nothing.
+	local f2_restore
+
 	-- The hot loop lives in its own function so the per-frame pcall does not have
 	-- to allocate a fresh closure sixty times a second.
 	local function f3_body(real_dt)
@@ -187,6 +193,11 @@ return function(context)
 					d.hit_wall = nil
 					d.hover_anchor = nil
 					d.cursed_hover_mode = nil
+					-- room_slot is the field ROOM Ope Ope no Mi actually parks; the two
+					-- names below are left over from an earlier version of that shape and
+					-- are written by nothing, so the list was clearing the dead names and
+					-- missing the live one.
+					d.room_slot = nil
 					d.room_target = nil
 					d.room_orbit_phase = nil
 					d.pika_direction = nil
@@ -414,6 +425,20 @@ return function(context)
 
 				if not d or not p.Parent then
 					if d then
+						-- d holds the only copy of this part's original CanCollide,
+						-- Anchored and CustomPhysicalProperties. Dropping it without
+						-- restoring is unrecoverable: plenty of games pool parts by
+						-- setting Parent = nil and putting them back later, and the
+						-- DescendantAdded hook then re-queues the part, at which point
+						-- x4.f1 re-snapshots the *forced* values -- CanCollide false and
+						-- LIGHT_PHYSICS -- as if they were the originals. That part can
+						-- never be restored again by any release path, including
+						-- teardown. Deliberately not guarded on p.Parent -- this branch
+						-- fires *because* Parent is nil, and an unparented part still
+						-- accepts property writes, which is the whole point. The pcall
+						-- covers the other case, where the part was fully destroyed and
+						-- there is nothing left to write to.
+						pcall(f2_restore, p, d, false)
 						if d.at and d.at.Parent then d.at:Destroy() end
 						if d.lv and d.lv.Parent then d.lv:Destroy() end
 						if d.av and d.av.Parent then d.av:Destroy() end
@@ -764,7 +789,7 @@ return function(context)
 
 	-- Hoisted out of x4.f2 so releasing a few thousand parts does not allocate a
 	-- few thousand closures on the way out.
-	local function f2_restore(p, d, drop_release)
+	function f2_restore(p, d, drop_release)
 		if d then
 			p.CanCollide = d.original_can_collide
 			p.Anchored = d.original_anchored
@@ -858,9 +883,16 @@ return function(context)
 				local now = time()
 				if now - last_upd > 0.5 then
 					last_upd = now
-					for _, p in ipairs(v2:GetPlayers()) do
-						if p ~= v8 then
-							pcall(suppress_player, p)
+					-- Only while the engine is actually running. This writes to *other*
+					-- players, and x4.f5 does not drain x6.c (it cannot -- the hotkey
+					-- listeners live there too, so draining it would make the script
+					-- unrestartable), so without this gate "Stop" left every other
+					-- player pinned at SimulationRadius 0 for the rest of the session.
+					if x6.o then
+						for _, p in ipairs(v2:GetPlayers()) do
+							if p ~= v8 then
+								pcall(suppress_player, p)
+							end
 						end
 					end
 					pcall(wake_self)
@@ -868,6 +900,33 @@ return function(context)
 					pcall(raise_max_radius)
 					pcall(raise_sim_radius)
 					pcall(focus_replication)
+				end
+			end)
+		)
+		-- Targets hold live Player objects and nothing ever pruned them. A player who
+		-- leaves stays in the list: the HUD keeps reading DisplayName off a destroyed
+		-- instance and reports ACTIVE forever, and f3_body tracks Targets[1] -- whose
+		-- root is now nil -- so it returns before the AnchorSelf and mouse-drag
+		-- fallbacks and the core parks with no explanation. Worse on rejoin, since
+		-- Roblox issues a *new* Player object: table.find misses, the row draws
+		-- unselected, and clicking it appends alongside the phantom, so the panel
+		-- reads "Multi-Target (2)" for one person.
+		table.insert(
+			x6.c,
+			v2.PlayerRemoving:Connect(function(pl)
+				local tg = x1.Targets
+				if type(tg) ~= "table" then
+					return
+				end
+				local idx = table.find(tg, pl)
+				while idx do
+					table.remove(tg, idx)
+					idx = table.find(tg, pl)
+				end
+				x1.TgtActive = #tg > 0
+				local ui = context.x5
+				if ui and ui.up then
+					pcall(ui.up)
 				end
 			end)
 		)
@@ -891,7 +950,7 @@ return function(context)
 		table.insert(
 			x6.c,
 			v3.Stepped:Connect(function()
-				if not x1.AntiFling or x1.PreserveCollisions then
+				if not x6.o or not x1.AntiFling or x1.PreserveCollisions then
 					return
 				end
 				-- 20 Hz is plenty. The server is what re-enables collisions, and it
@@ -991,7 +1050,14 @@ return function(context)
 		)
 		x6.o = true
 		x7.n("Sys", "Started", 3)
-		x5.st()
+		-- Refresh the panel if it is open; do not resurrect it if the user closed it.
+		-- x5.st() rebuilds from scratch whenever x5.g is nil, and the panel's X button
+		-- nils it (UI.lua sg.Destroying) -- so pressing Recenter after closing the
+		-- panel used to rebuild the whole thing, and every rebuild strands another
+		-- five service-level connections in x6.c that only full teardown clears.
+		if x5.g then
+			x5.st()
+		end
 		table.insert(
 			x6.run_connections,
 			v3.Heartbeat:Connect(function(real_dt)
@@ -1055,6 +1121,19 @@ return function(context)
 			d.sys_last_t = nil
 			d.parked = nil
 			d.integral = Vector3.zero
+			-- The cached terms above are Lua-side; these are the live properties the
+			-- engine is still holding. f3 returns early while disabled, so nothing
+			-- overwrites them, and MaxForce goes back to x1.k4 (math.huge) here --
+			-- before the sweep next reaches this part, which is only once every
+			-- x1.k7 frames. Left armed, the part is driven at its pre-disable
+			-- velocity at infinite force for those frames: exactly the fling the
+			-- comment above is about.
+			if d.lv then
+				d.lv.VectorVelocity = ZERO_VECTOR
+			end
+			if d.av then
+				d.av.AngularVelocity = ZERO_VECTOR
+			end
 		end
 	end
 
@@ -1110,7 +1189,32 @@ return function(context)
 		table.clear(x6.run_connections or {})
 		table.clear(x6.claim_queue)
 		x6.o = false
-		x5.st()
+		-- Target markers are BillboardGuis parented onto other players' heads, and the
+		-- only code that removed one lived inside f3_body's once-a-second block --
+		-- which stops running the moment the engine stops. So stopping, pausing or
+		-- disabling left the red marker floating over whoever was targeted.
+		for _, pl in ipairs(v2:GetPlayers()) do
+			local ch = pl.Character
+			local head = ch and ch:FindFirstChild("Head")
+			local marker = head and head:FindFirstChild("GravityTargetMarker")
+			if marker then
+				pcall(function()
+					marker:Destroy()
+				end)
+			end
+		end
+		-- Sculptor selections are per-run: the SelectionBoxes are parented to world
+		-- parts, so leaving them adorned after "Stop" leaves cyan boxes in the map.
+		if x6.sculptor_clear then
+			pcall(x6.sculptor_clear)
+		end
+		if x6.sculptor_selected then
+			table.clear(x6.sculptor_selected)
+		end
+		-- Same as f4: refresh an open panel, never rebuild a closed one.
+		if x5.g then
+			x5.st()
+		end
 		x7.n("Sys", "Stopped", 2)
 	end
 
@@ -1187,6 +1291,17 @@ return function(context)
 			-- hotkey silently did nothing whenever the panel was closed
 			x4.apply_disabled(not x1.Disabled)
 			x7.n("Sys", "Script " .. (x1.Disabled and "Disabled" or "Enabled"), 2)
+			-- Repaint, or the panel's "Disable Gravity" toggle keeps the state it was
+			-- built with: UI_elements M.t holds its value in a private local and
+			-- nothing refreshes it, so after a hotkey press the toggle read the
+			-- opposite of the truth and the next click on it was a no-op that only
+			-- changed its own colour. Deliberately here and not inside
+			-- apply_disabled -- the panel toggle calls that itself, and rebuilding the
+			-- panel from inside a toggle's own handler would destroy it mid-callback.
+			local ui = context.x5
+			if ui and ui.up then
+				pcall(ui.up)
+			end
 		end,
 	}
 
@@ -1315,7 +1430,13 @@ return function(context)
 		local shapes = kb.Shapes
 		if type(shapes) == "table" then
 			for shape_name, bound in pairs(shapes) do
-				if ("shape:" .. shape_name) ~= exclude_id and bound == key_name then
+				-- Only shapes that are actually installed, matching rebind_all. A
+				-- saved binding can name a shape that has since been folded away
+				-- (main.lua:322 names Deflect), and x1.Keybinds is restored wholesale,
+				-- so reporting the phantom as a conflict made its key impossible to
+				-- reassign -- rebind_all refuses to bind it, and the Keybinds window
+				-- lists rows from pairs(x2), so the row is not there to clear either.
+				if x2[shape_name] and ("shape:" .. shape_name) ~= exclude_id and bound == key_name then
 					return shape_name
 				end
 			end

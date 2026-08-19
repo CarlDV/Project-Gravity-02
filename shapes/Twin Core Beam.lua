@@ -16,8 +16,16 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			last_frame = -1
 		}
 		x6.pre["Twin Core Beam"] = state
-		
-		uis.InputBegan:Connect(function(inp, gpe)
+
+		-- Parked so cleanup can drop them. x6.pre survives a shape switch -- only
+		-- M.cleanup runs (System.lua:152) -- so without this the two listeners stay
+		-- connected for the session and keep writing into this state table from
+		-- input made while a completely different shape is active. On touch that
+		-- meant every tap anywhere flipped tap_locked. They also survived
+		-- re-execution, since main.lua's teardown asks each shape's cleanup.
+		state.conns = {}
+
+		state.conns[#state.conns + 1] = uis.InputBegan:Connect(function(inp, gpe)
 			if gpe then return end
 			if inp.UserInputType == Enum.UserInputType.MouseButton1 then
 				state.holding = true
@@ -30,7 +38,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			end
 		end)
 
-		uis.InputEnded:Connect(function(inp)
+		state.conns[#state.conns + 1] = uis.InputEnded:Connect(function(inp)
 			if inp.UserInputType == Enum.UserInputType.MouseButton1 then
 				state.holding = false
 			elseif inp.UserInputType == Enum.UserInputType.Touch and not state.touch_mode then
@@ -135,6 +143,21 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	end
 
 	return (target_pos - p.Position) * (x1.k10 * x9.c1), target_pos
+end
+
+function M.cleanup(x6, x1)
+	if not x6.pre then
+		return
+	end
+	local state = x6.pre["Twin Core Beam"]
+	if state and state.conns then
+		for _, conn in ipairs(state.conns) do
+			pcall(function()
+				conn:Disconnect()
+			end)
+		end
+	end
+	x6.pre["Twin Core Beam"] = nil
 end
 
 M.Controls = {

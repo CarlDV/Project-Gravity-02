@@ -155,7 +155,7 @@ local function lt_advance(st, a, t, x6, x1, k, drag, gravity, seg)
 	end
 
 	-- Step count derived from stiffness, not from a fixed rate: see SAFE_DT above.
-	local steps = math.floor(dt * 240 + 0.5)
+	local steps = math.ceil(dt * math.sqrt(k) / SAFE_DT)
 	if steps < 1 then
 		steps = 1
 	elseif steps > SUB_MAX then
@@ -164,6 +164,10 @@ local function lt_advance(st, a, t, x6, x1, k, drag, gravity, seg)
 	local h = dt / steps
 	-- If the cap bit, the honest move is to advance less time rather than take
 	-- oversized steps, which is the thing that made it explode.
+	local hmax = SAFE_DT / math.sqrt(k)
+	if h > hmax then
+		h = hmax
+	end
 
 	for _ = 1, steps do
 		lt_step(st, a, k, drag, gravity, seg, h)
