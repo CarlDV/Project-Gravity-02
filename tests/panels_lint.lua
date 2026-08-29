@@ -130,5 +130,74 @@ for _, tree in ipairs({
 		path .. ": picking a mode with nothing selected says what it did")
 end
 
+-- The rest of the tree's consistency, same principle: a convention that most call
+-- sites follow and a few do not is invisible from inside any one of them.
+for _, tree in ipairs({
+	{ path = "UI.lua", keybound_tutorial = true },
+	{ path = "mobilever/UI.lua", keybound_tutorial = false },
+}) do
+	local path = tree.path
+	local src = slurp(path)
+
+	-- Round buttons. Minimize, close, Discord, help and every side panel's close were
+	-- hand-built circles with no glyph, no hover and no press -- the only clickable
+	-- things in either tree that gave no feedback at all, and minimize and close were
+	-- told apart by colour alone.
+	check(src:find("local function circle_btn%(") ~= nil, path .. ": round buttons have one owner")
+	check(src:find("local function brighten%(") ~= nil,
+		path .. ": and one way of deriving their hover tint")
+	local circles = 0
+	for _ in src:gmatch("circle_btn%(") do circles = circles + 1 end
+	check(circles >= 5, ("%s: every round button goes through it (%d found, 1 decl + 4+ uses)")
+		:format(path, circles))
+	check(src:find("local function side_close%(header, cb%)\n%s*local b = circle_btn%(") ~= nil,
+		path .. ": the side-panel close is one of them")
+
+	-- Row hover. There were three behaviours: none on the mode-selector and Part
+	-- Control rows, a direct BackgroundColor3 write on the target list, and none on
+	-- either dropdown.
+	check(src:find("local function row_hover%(") ~= nil, path .. ": row hover has one owner")
+	check(src:find("row_hover%(%s*db,") ~= nil, path .. ": the shape dropdown hovers")
+	check(src:find("row_hover%(%s*tdb,") ~= nil, path .. ": the target dropdown hovers")
+	check(src:find("row_hover%(%s*f,") ~= nil, path .. ": the mode-selector rows hover")
+	check(src:find("row_hover%(%s*row,") ~= nil, path .. ": the Part Control shape rows hover")
+	check(src:find("row_hover%(%s*reset_btn,") ~= nil, path .. ": and Reset All Settings goes through it too")
+	local t_enter = src:match("ib%.MouseEnter:Connect%(function%(%)(.-)end%)")
+	local t_leave = src:match("ib%.MouseLeave:Connect%(function%(%)(.-)end%)")
+	check(t_enter ~= nil and t_leave ~= nil, path .. ": the target row's hover handlers are findable")
+	check(t_enter == nil or t_enter:find("v6:Create") ~= nil,
+		path .. ": the target list tweens its hover in rather than setting it outright")
+	check(t_leave == nil or t_leave:find("v6:Create") ~= nil,
+		path .. ": and tweens it back out the same way")
+
+	-- The Advanced panel was the one panel in either tree without section headers, and
+	-- it is the longest.
+	for _, section in ipairs({ "Tracking", "Physics", "Interface", "Claiming", "Performance", "Core Marker" }) do
+		check(src:find('eh%(ac, "' .. section .. '"%)') ~= nil,
+			("%s: Advanced groups under a %s header"):format(path, section))
+	end
+
+	-- x1.FPSCap is saved and applied by main.lua at launch, and only the mobile panel
+	-- ever wrote it -- so on desktop the value in the settings file was unreachable.
+	check(src:find("x1%.FPSCap%s*=%s*v") ~= nil, path .. ": the FPS cap has a control")
+	check(src:find("FPS Cap %(0=Unc%)\", 0, 240") ~= nil,
+		path .. ": and the same 0..240 range in both trees, since both write the same key")
+
+	-- The claimed-part count is the one number that answers "is it working".
+	check(src:find("PARTS: %%d") ~= nil, path .. ": the HUD carries the part count")
+
+	-- The tutorial predated both tools.
+	check(src:find("Part Control:") ~= nil, path .. ": the tutorial covers Part Control")
+	check(src:find("Sculptor:") ~= nil, path .. ": and the Sculptor")
+	if tree.keybound_tutorial then
+		-- Desktop only: every key is rebindable there, and this text named E/Q/P/L
+		-- regardless, so it was wrong for anyone who had opened the Keybinds window.
+		check(src:find("local function key_label%(") ~= nil,
+			path .. ": the tutorial reads the live keybinds")
+		check(src:find("'E'") == nil and src:find("'Q'") == nil,
+			path .. ": and no longer hardcodes a key name")
+	end
+end
+
 print(("\n%d checks, %d failures"):format(checks, fails))
 os.exit(fails == 0 and 0 or 1)

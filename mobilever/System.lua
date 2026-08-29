@@ -11,6 +11,21 @@ return function(context)
 	local ANTI_SLEEP = Vector3.new(0, 0.01, 0)
 	local ZERO_VECTOR = Vector3.zero
 	local LIGHT_PHYSICS = PhysicalProperties.new(0.001, 0, 0, 0, 0)
+	-- How hard Part Control's pin and manual modes hold their target, as a rate: the
+	-- offset is solved over roughly a twelfth of a second. See the per-part dispatch in
+	-- f3_body for why this is not x1.k10.
+	local PC_GRIP = 12
+
+	-- Releasing a part has to take its Part Control selection with it. The
+	-- SelectionBox is parented to the part and x6.pc_selected is weak-keyed, so a part
+	-- released while selected kept an orange box for as long as it lived and went on
+	-- being counted by the panel with nothing behind it. Both release paths -- x4.f2
+	-- and the sweep's own dead-part branch -- come through here.
+	local function drop_pc_selection(p)
+		if x6.pc_selected and x6.pc_selected[p] and x6.pc_deselect then
+			pcall(x6.pc_deselect, p)
+		end
+	end
 
 	function x7.n(t, x, d)
 		-- prefer the in-panel toast so notifications match the rest of the UI;
@@ -62,11 +77,17 @@ return function(context)
 	-- the two FindFirstChildOfClass calls: a player character is by far the most
 	-- common reason a part is excluded, so the common case now costs one Lua table
 	-- read instead of an IsA plus up to two engine-side child searches per level.
-	local char_set, char_set_t = {}, 0
+	local char_set, char_set_t, char_set_f = {}, 0, -1
 	local function characters()
 		local now = time()
-		if now - char_set_t > 1 then
+		-- Max Fidelity gives this stride up with the rest of them -- but per *frame*,
+		-- not per call. x7.e runs this once per candidate part and the claim budget lets
+		-- a few thousand through in a frame, so a per-call rebuild would be thousands of
+		-- GetPlayers() walks a frame: slower, not more accurate. The 1 Hz floor stays as
+		-- the `or` clause, because x6.f does not advance while the loop is paused.
+		if (x1.MaxFidelity and x6.f ~= char_set_f) or now - char_set_t > 1 then
 			char_set_t = now
+			char_set_f = x6.f
 			table.clear(char_set)
 			for _, pl in ipairs(v2:GetPlayers()) do
 				local ch = pl.Character
@@ -228,11 +249,12 @@ return function(context)
 			if x1.k6 == "Light Light no Mi" then
 				et = 1
 			end
-			-- Max Fidelity is Force Smooth plus "never skip a part": same dt/et/alpha
-			-- collapse, and always_process on top. Folding it into force_smooth here
-			-- is what makes it a genuine superset -- written as its own separate
-			-- condition it collapsed the timestep but left do_damping on, so the
-			-- stronger-sounding toggle was not actually the stronger one.
+			-- Max Fidelity is Force Smooth plus "never skip a part, never work from a
+			-- cached answer": the same dt/et/alpha collapse, always_process on top, and
+			-- every stride and budget below widened to match. Folding it into
+			-- force_smooth here is what makes it a genuine superset -- written as its
+			-- own separate condition it collapsed the timestep but left do_damping on,
+			-- so the stronger-sounding toggle was not actually the stronger one.
 			local max_fid = x1.MaxFidelity and true or false
 			local force_smooth = x1["Force Smooth (Lags)"] or max_fid
 			if force_smooth then
@@ -241,7 +263,11 @@ return function(context)
 			end
 			local i = 0
 			local update_bucket = x6.f % et
-			if ft > x6.pi_timer then
+			-- The target list and the billboard markers are rebuilt at 1 Hz; the
+			-- per-frame tracking below reads target_positions, so the stride only delays
+			-- *membership* -- a player who has just become a valid target waits up to a
+			-- second to be picked up. Max Fidelity does not wait.
+			if max_fid or ft > x6.pi_timer then
 				x6.pi_timer = ft + 1
 				local pi = x6.pi_targets
 				table.clear(pi)
@@ -403,7 +429,9 @@ return function(context)
 				end
 			end
 			
-			if x6.f % 60 == 0 or x6.water_level == nil then
+			-- 1 Hz, because a WaterLevel part almost never moves -- but "almost never"
+			-- is the kind of assumption Max Fidelity exists to drop.
+			if max_fid or x6.f % 60 == 0 or x6.water_level == nil then
 				local water_part = v4:FindFirstChild("WaterLevel")
 				if water_part and water_part:IsA("BasePart") then
 					x6.water_level = water_part.Position.Y + (water_part.Size.Y / 2) + 5
@@ -448,7 +476,12 @@ return function(context)
 			-- pairs a second at 5000 parts. Widening it with the same part-count
 			-- stride the sweep already uses cuts that ~4x, capped at 0.6s so an
 			-- ownership change is still picked up quickly.
-			local no3_interval = 0.15 * (dt > 4 and 4 or dt)
+			--
+			-- 0 under Max Fidelity: a cached value is a stale answer, and this one
+			-- decides whether the part is driven at all, so a part whose ownership has
+			-- just come to us sat skipped for up to 0.15s. That is the longest-lived
+			-- stale read in the loop.
+			local no3_interval = max_fid and 0 or (0.15 * (dt > 4 and 4 or dt))
 
 			for k = #arr, 1, -1 do
 				local p = arr[k]
@@ -474,6 +507,7 @@ return function(context)
 						if d.lv and d.lv.Parent then d.lv:Destroy() end
 						if d.av and d.av.Parent then d.av:Destroy() end
 						data[p] = nil
+						drop_pc_selection(p)
 					end
 					local last = #arr
 					if k ~= last then
@@ -529,9 +563,25 @@ return function(context)
 					local pc = d.pc_mode
 					if pc == "pin" or pc == "manual" then
 						local tgt = d.pc_target or p_pos
-						local gain = (d.pc_phys and d.pc_phys.k10) or x1.k10
 						pure_target_pos = tgt
-						target_pos_delta = (tgt - p_pos) * (gain * x9.c1)
+						-- Pin and manual are a placement, not an attraction: the part is
+						-- meant to go where it was put and stay there. Driven at the global
+						-- k10 pull -- 20 * c1, so 3 studs/s per stud of error -- a pin took
+						-- about a second to settle and visibly trailed the finger through a
+						-- drag, which is most of why this tool felt vague. PC_GRIP solves the
+						-- offset over roughly a twelfth of a second instead. An explicit
+						-- per-part Pull Strength still wins, because that slider exists to
+						-- say otherwise.
+						local gain = (d.pc_phys and d.pc_phys.k10) and (d.pc_phys.k10 * x9.c1) or PC_GRIP
+						-- A velocity actuator told to cover more than the remaining distance
+						-- in one step overshoots and comes back, which is oscillation rather
+						-- than a hold. real_dt, not the fixed step, so the cap is right at 30
+						-- fps and at 240.
+						local max_gain = 1 / (real_dt > 1 / 240 and real_dt or 1 / 240)
+						if gain > max_gain then
+							gain = max_gain
+						end
+						target_pos_delta = (tgt - p_pos) * gain
 					elseif pc == "shape" and d.pc_mod and d.pc_mod.f2 then
 						target_pos_delta, pure_target_pos =
 							d.pc_mod.f2(p, active_c, d, ft, d.pc_cfg or cur_shape_cfg, x1, x6, x9)
@@ -686,8 +736,12 @@ return function(context)
 			-- assemblies from sleeping, and at 0.01 studs/s nothing drifts
 			-- visibly between nudges. f3_body does not run while paused, so this
 			-- needs its own counter rather than x6.f.
+			--
+			-- Max Fidelity nudges every frame. "Enough to keep an assembly awake" is a
+			-- judgement about the engine's sleep heuristic, and this is the switch for
+			-- people who would rather not rely on one.
 			x6.pause_tick = (x6.pause_tick or 0) + 1
-			if x6.pause_tick % 3 ~= 0 then
+			if not x1.MaxFidelity and x6.pause_tick % 3 ~= 0 then
 				return
 			end
 			-- walking the dense array beats iterating the weak part table
@@ -716,11 +770,19 @@ return function(context)
 		if n == 0 then
 			return
 		end
+		-- The budget is the claim throttle, and a throttle is the trade Max Fidelity
+		-- refuses: it spends a smooth start to have every part in hand sooner. The
+		-- three ceilings stay finite so a queue of a hundred thousand descendants
+		-- still cannot hang the frame outright.
+		local max_fid = x1.MaxFidelity and true or false
+		local cap_processed = max_fid and 4000 or 100
+		local cap_claimed = max_fid and 400 or 8
+		local cap_seconds = max_fid and 0.008 or 0.001
 		local start = os.clock()
 		local processed = 0
 		local claimed = 0
 		while n > 0 do
-			if processed >= 100 or claimed >= 8 or os.clock() - start > 0.001 then
+			if processed >= cap_processed or claimed >= cap_claimed or os.clock() - start > cap_seconds then
 				break
 			end
 			local instance = queue[n]
@@ -876,6 +938,7 @@ return function(context)
 				d.av:Destroy()
 			end
 			x6.a[p] = nil
+			drop_pc_selection(p)
 		end
 		local idx = active_index
 		if not idx or x6.active_array[idx] ~= p then
@@ -1017,8 +1080,10 @@ return function(context)
 				-- 20 Hz is plenty. The server is what re-enables collisions, and it
 				-- does not do it every frame, so sweeping every frame was paying
 				-- roughly twenty thousand property reads a second for nothing.
+				-- Max Fidelity does sweep every frame: "the server does not do it
+				-- every frame" is an assumption about somebody else's code.
 				af_tick = af_tick + 1
-				if af_tick % 3 ~= 0 then
+				if not x1.MaxFidelity and af_tick % 3 ~= 0 then
 					return
 				end
 				for _, p in ipairs(v2:GetPlayers()) do

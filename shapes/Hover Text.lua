@@ -148,7 +148,10 @@ local function get_slab(x6, x1, c, t)
 		local n = x6.n or 0
 		et = n > 5000 and 10 or (n > 2500 and 6 or (n > 1000 and 3 or 1))
 	end
-	if x1["Force Smooth (Lags)"] then
+	-- Max Fidelity is a superset of Force Smooth (System.lua folds them into one
+	-- `force_smooth` local); pinning on the narrower flag alone left this shape
+	-- stepping while the loop around it ran every part every frame.
+	if x1["Force Smooth (Lags)"] or x1.MaxFidelity then
 		et = 1
 	end
 	if et < 1 then

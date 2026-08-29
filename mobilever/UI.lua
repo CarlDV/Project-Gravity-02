@@ -333,13 +333,63 @@ return function(context)
 		-- Every window in this tree closes with the same 14x14 red circle. Part
 		-- Control used to be the one exception: a grey text "x", 30x30, sized for the
 		-- desktop tree.
-		local function side_close(header, cb)
-			local b = Instance.new("TextButton", header)
-			b.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-			b.Position = UDim2.new(1, -22, 0.5, -7)
-			b.Size = UDim2.new(0, 14, 0, 14)
-			b.Text = ""
+		-- Tinting towards white rather than carrying a second colour literal per button,
+		-- so a palette change cannot leave a hover state behind. Written out rather than
+		-- using Color3:Lerp because this also has to run under the test harness's
+		-- Color3 stub, which has the components but not the methods.
+		local function brighten(c, amt)
+			return Color3.new(c.R + (1 - c.R) * amt, c.G + (1 - c.G) * amt, c.B + (1 - c.B) * amt)
+		end
+
+		-- Every round button in the tree: the two in Main's header, the tutorial close and
+		-- the close on each side panel. They were bare coloured circles with no glyph, no
+		-- feedback and -- at 14 px on a touch screen -- nothing to tell minimize and close
+		-- apart but colour.
+		local function circle_btn(parent, base, glyph, text_size, size)
+			local b = Instance.new("TextButton", parent)
+			b.BackgroundColor3 = base
+			size = size or 14
+			b.Size = UDim2.new(0, size, 0, size)
+			b.AutoButtonColor = false
+			b.Text = glyph or ""
+			b.TextColor3 = Color3.fromRGB(255, 255, 255)
+			b.Font = Enum.Font.GothamBold
+			b.TextSize = text_size or 10
 			Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
+			local hot = brighten(base, 0.28)
+			b.MouseEnter:Connect(function()
+				v6:Create(b, A.HOVER, { BackgroundColor3 = hot }):Play()
+			end)
+			b.MouseLeave:Connect(function()
+				v6:Create(b, A.HOVER, { BackgroundColor3 = base }):Play()
+			end)
+			UI_elements.press(b, 0.88)
+			return b
+		end
+
+		-- One press behaviour for every list row and dropdown. There were three: the mode
+		-- selector's rows and Part Control's shape rows had none at all, the target list
+		-- set BackgroundColor3 directly instead of tweening it on the shared curve, and
+		-- the dropdown buttons had neither. idle is passed in rather than read back off
+		-- the object because a selected row carries its own tint and must keep it.
+		local function row_hover(obj, idle, hot, stroke, stroke_idle, stroke_hot)
+			obj.MouseEnter:Connect(function()
+				v6:Create(obj, A.HOVER, { BackgroundColor3 = hot }):Play()
+				if stroke and stroke_hot then
+					v6:Create(stroke, A.HOVER, { Color = stroke_hot }):Play()
+				end
+			end)
+			obj.MouseLeave:Connect(function()
+				v6:Create(obj, A.HOVER, { BackgroundColor3 = idle }):Play()
+				if stroke and stroke_idle then
+					v6:Create(stroke, A.HOVER, { Color = stroke_idle }):Play()
+				end
+			end)
+		end
+
+		local function side_close(header, cb)
+			local b = circle_btn(header, Color3.fromRGB(200, 60, 60), "×", 10)
+			b.Position = UDim2.new(1, -22, 0.5, -7)
 			b.MouseButton1Click:Connect(cb)
 			return b
 		end
@@ -433,7 +483,7 @@ return function(context)
 		hud_l.TextSize = 9
 		hud_l.TextColor3 = Color3.fromRGB(255, 255, 255)
 
-		local hud_target, hud_state
+		local hud_target, hud_state, hud_parts
 		local HUD_ACTIVE = Color3.fromRGB(80, 255, 150)
 		local HUD_PAUSED = Color3.fromRGB(255, 180, 80)
 		local HUD_DISABLED = Color3.fromRGB(255, 80, 80)
@@ -460,9 +510,14 @@ return function(context)
 					tgt = "Self"
 				end
 				local state = x1.Disabled and "DISABLED" or (x1.Paused and "PAUSED" or "ACTIVE")
-				if tgt ~= hud_target or state ~= hud_state then
-					hud_target, hud_state = tgt, state
-					hud_l.Text = string.format("TARGET: %s  |  STATUS: %s", tgt:upper(), state)
+				-- The claimed-part count, which is the one number that answers "is it
+				-- working" and the only one the HUD did not carry. Folded into the same
+				-- change detect as the other two, so this is still at most one property
+				-- write per change rather than one per frame.
+				local parts = x6.n or 0
+				if tgt ~= hud_target or state ~= hud_state or parts ~= hud_parts then
+					hud_target, hud_state, hud_parts = tgt, state, parts
+					hud_l.Text = string.format("TARGET: %s  |  PARTS: %d  |  STATUS: %s", tgt:upper(), parts, state)
 					hud_l.TextColor3 = x1.Disabled and HUD_DISABLED or (x1.Paused and HUD_PAUSED or HUD_ACTIVE)
 				end
 			end)
@@ -580,6 +635,10 @@ return function(context)
 		ap.PaddingLeft = UDim.new(0, 15)
 		ap.PaddingRight = UDim.new(0, 15)
 
+		-- Grouped, in the order the controls were already in -- nothing moves. Fifteen
+		-- controls in one flat list was the only panel in the tree without headers, and
+		-- it is the longest one, on the smallest screen.
+		eh(ac, "Tracking")
 		et(ac, "Predictive Tracking", x1.PredictiveTracking ~= false, function(v)
 			x1.PredictiveTracking = v
 			save_settings()
@@ -588,6 +647,7 @@ return function(context)
 			x1.PredictionFactor = v
 			save_settings()
 		end, false, "How far ahead the script predicts the target's movement.")
+		eh(ac, "Physics")
 		es(ac, "Damping", 0, 5, x1.Damping, function(v)
 			x1.Damping = v
 			save_settings()
@@ -609,6 +669,7 @@ return function(context)
 			save_settings()
 		end, false, "Multiplies vertical pull to fight Roblox's gravity. Use 1.0 for normal.")
 
+		eh(ac, "Interface")
 		es(ac, "UI Scale", 0.5, 2.0, x1.UIScale or 1.0, function(v)
 			x1.UIScale = v
 			-- Every registered window, not just Main and Advanced: the shape
@@ -618,24 +679,29 @@ return function(context)
 			save_settings()
 		end, false, "Scales the entire interface. 1.0 is default.")
 
+		eh(ac, "Claiming")
 		et(ac, "Aggressive Claiming", x1.AggressiveClaim, function(v)
 			x1.AggressiveClaim = v
 			save_settings()
 		end, "WARNING: Spams CFrames into your character to forcefully steal Network Ownership from other scripts.")
-		
+
 		et(ac, "Void Protection", x1.VoidProtection, function(v)
 			x1.VoidProtection = v
 			save_settings()
 		end, "Automatically ignores targets that fall into the void to prevent your parts from being destroyed.")
 
+		eh(ac, "Performance")
 		if setfpscap then
-			es(ac, "FPS Cap (0=Unc)", 0, 144, x1.FPSCap or 60, function(v)
+			-- 240, matching the desktop tree's slider. The two panels write the same
+			-- x1.FPSCap into the same settings file, and a 144 ceiling here silently
+			-- clamped a value set on desktop the first time this panel was opened.
+			es(ac, "FPS Cap (0=Unc)", 0, 240, x1.FPSCap or 60, function(v)
 				x1.FPSCap = v
 				setfpscap(v)
 				save_settings()
 			end, true, "Caps your max FPS. 0 means uncapped.")
 		end
-		
+
 		et(ac, "Disable Shadows", x1.Perf_DisableShadows, function(v)
 			x1.Perf_DisableShadows = v
 			ApplyPerfShadows(v)
@@ -679,6 +745,7 @@ return function(context)
 		local function ch(x)
 			return math.floor(x * 255 + 0.5)
 		end
+		eh(ac, "Core Marker")
 		es(ac, "Center Color R", 0, 255, ch(x1.k3.R), function(v)
 			x1.k3 = Color3.fromRGB(v, ch(x1.k3.G), ch(x1.k3.B))
 			update_color()
@@ -778,6 +845,20 @@ return function(context)
 		count_lbl.TextSize = 9
 		count_lbl.TextXAlignment = 0
 
+		-- "Overridden: 7" does not say what those seven are doing, and the three modes
+		-- behave nothing like each other. Hidden when there are none, so the panel does
+		-- not carry a row of zeroes for the common case -- which matters more here,
+		-- where the whole body is 250px tall.
+		local mode_lbl = Instance.new("TextLabel", pcc)
+		mode_lbl.BackgroundTransparency = 1
+		mode_lbl.Size = UDim2.new(1, 0, 0, 12)
+		mode_lbl.Text = ""
+		mode_lbl.TextColor3 = Color3.fromRGB(150, 150, 160)
+		mode_lbl.Font = Enum.Font.GothamMedium
+		mode_lbl.TextSize = 8
+		mode_lbl.TextXAlignment = 0
+		mode_lbl.Visible = false
+
 		local hint_lbl = Instance.new("TextLabel", pcc)
 		hint_lbl.BackgroundTransparency = 1
 		hint_lbl.Size = UDim2.new(1, 0, 0, 0)
@@ -811,21 +892,34 @@ return function(context)
 		-- Two hints, because the first thing the panel has to answer is whether it is
 		-- waiting on a selection. With nothing selected every action below is a no-op,
 		-- and the panel used to give no sign of that at all.
-		local HINT_EMPTY = "Nothing selected. Tap a held part to select it. "
-			.. "Turn on Multi-Select to add or remove."
-		local HINT_SELECTED = "Pick a mode below to apply it. Drag a selected part to move it."
+		local HINT_EMPTY = "Nothing selected. Tap a held part to select it -- selecting on its "
+			.. "own changes nothing. Turn on Multi-Select to add or remove."
+		local HINT_SELECTED = "Pick a mode below to apply it, or drag a selected part to place it. "
+			.. "The box colour is the mode: orange none, red pin, blue manual, violet shape."
 
 		local function refresh_counts()
 			local sel = pc_selection()
-			local held = 0
+			local held, pins, manuals, shapes = 0, 0, 0, 0
 			if x6.a then
 				for _, d in pairs(x6.a) do
-					if d.pc_mode then
+					local m = d.pc_mode
+					if m then
 						held = held + 1
+						if m == "pin" then
+							pins = pins + 1
+						elseif m == "manual" then
+							manuals = manuals + 1
+						elseif m == "shape" then
+							shapes = shapes + 1
+						end
 					end
 				end
 			end
 			count_lbl.Text = ("Selected: %d  ·  Overridden: %d"):format(sel, held)
+			mode_lbl.Visible = held > 0
+			if held > 0 then
+				mode_lbl.Text = ("Pin %d  ·  Manual %d  ·  Shape %d"):format(pins, manuals, shapes)
+			end
 			hint_lbl.Text = (sel > 0) and HINT_SELECTED or HINT_EMPTY
 		end
 
@@ -843,6 +937,39 @@ return function(context)
 			if x6.pc_release_all then
 				local n = x6.pc_release_all()
 				pc_notify("Part Control", ("Released %d part%s"):format(n, n == 1 and "" or "s"))
+			end
+		end)
+
+		-- This tree has no box-select at all, so these are the only bulk selection there
+		-- is. Select Overridden is also the only way back to a part that was assigned
+		-- and then deselected, short of releasing the lot.
+		eb(pcc, "Select All Held", function()
+			if x6.pc_select_all then
+				local n, capped = x6.pc_select_all()
+				pc_notify(
+					"Part Control",
+					("Selected %d part%s%s"):format(n, n == 1 and "" or "s", capped and " (capped)" or "")
+				)
+			end
+		end)
+
+		eb(pcc, "Select Overridden", function()
+			if x6.pc_select_overridden then
+				local n, capped = x6.pc_select_overridden()
+				if n == 0 then
+					pc_notify("Part Control", "Nothing is overridden.", 2)
+				else
+					pc_notify(
+						"Part Control",
+						("Selected %d overridden part%s%s"):format(n, n == 1 and "" or "s", capped and " (capped)" or "")
+					)
+				end
+			end
+		end)
+
+		eb(pcc, "Invert Selection", function()
+			if x6.pc_invert then
+				x6.pc_invert()
 			end
 		end)
 
@@ -1058,10 +1185,17 @@ return function(context)
 				end
 				local row = Instance.new("Frame", pcslist)
 				row.Size = UDim2.new(1, -8, 0, 24)
-				row.BackgroundColor3 = (sn == x1.PartCtlShape) and Color3.fromRGB(40, 40, 180)
-					or Color3.fromRGB(25, 25, 30)
+				local row_on = sn == x1.PartCtlShape
+				row.BackgroundColor3 = row_on and Color3.fromRGB(40, 40, 180) or Color3.fromRGB(25, 25, 30)
 				row.BorderSizePixel = 0
 				Instance.new("UICorner", row).CornerRadius = UDim.new(0, 4)
+				-- idle passed in rather than read back, so the selected row keeps its tint
+				-- when the pointer leaves.
+				row_hover(
+					row,
+					row.BackgroundColor3,
+					row_on and Color3.fromRGB(55, 55, 200) or Color3.fromRGB(35, 35, 40)
+				)
 
 				local pick = Instance.new("TextButton", row)
 				pick.Position = UDim2.new(0, 6, 0, 0)
@@ -1138,28 +1272,45 @@ return function(context)
 		local phys_body, refresh_phys_head = collapsible("Physics Override", false, function()
 			local t = pc_phys_table()
 			-- The head has to distinguish "all four inherit" from "something is
-			-- overridden here", which is the only reason to open the section.
-			if t.k10 or t.Damping or t.k8 or t.MaxSpeed then
-				return "custom"
+			-- overridden here", which is the only reason to open the section -- and
+			-- naming the fields saves opening it to find out which.
+			local names = {}
+			if t.k10 then names[#names + 1] = "pull" end
+			if t.Damping then names[#names + 1] = "damp" end
+			if t.k8 then names[#names + 1] = "smooth" end
+			if t.MaxSpeed then names[#names + 1] = "speed" end
+			if #names == 0 then
+				return "inherit"
 			end
-			return "inherit"
+			return table.concat(names, ", ")
 		end)
+
+		-- Committing a slider applies it to whatever is selected, rather than storing a
+		-- number that does nothing until a button is tapped -- which is what made these
+		-- four look broken. The button stays, because it is how the same values reach a
+		-- selection made afterwards.
+		local function apply_phys_live()
+			refresh_phys_head()
+			if x6.pc_set_phys and pc_selection() > 0 then
+				x6.pc_set_phys(pc_phys_table())
+			end
+		end
 
 		es(phys_body, "Pull Strength", -1, 200, tonumber(x1.PartCtlPull) or -1, function(v)
 			x1.PartCtlPull = v
-			refresh_phys_head()
+			apply_phys_live()
 		end, false, INHERIT_HINT)
 		es(phys_body, "Damping", -1, 5, tonumber(x1.PartCtlDamping) or -1, function(v)
 			x1.PartCtlDamping = v
-			refresh_phys_head()
+			apply_phys_live()
 		end, false, INHERIT_HINT)
 		es(phys_body, "Smoothing", -1, 1, tonumber(x1.PartCtlSmoothing) or -1, function(v)
 			x1.PartCtlSmoothing = v
-			refresh_phys_head()
+			apply_phys_live()
 		end, false, INHERIT_HINT)
 		es(phys_body, "Max Speed", -1, 2000, tonumber(x1.PartCtlMaxSpeed) or -1, function(v)
 			x1.PartCtlMaxSpeed = v
-			refresh_phys_head()
+			apply_phys_live()
 		end, false, INHERIT_HINT)
 
 		eb(phys_body, "Apply Physics To Selection", function()
@@ -1184,11 +1335,24 @@ return function(context)
 
 		et(pcc, "Rideable", x1.PartCtlRide == true, function(v)
 			x1.PartCtlRide = v
-			if x6.pc_assign and x1.PartCtlMode and x1.PartCtlMode ~= "normal" then
-				x6.pc_assign(x1.PartCtlMode, { shape = x1.PartCtlShape, ride = v })
+			-- pc_set_ride, not pc_assign. Riding is a property of the part, and routing
+			-- it through the mode meant this did nothing at all while the mode was
+			-- "normal" and re-assigned the mode -- shape module refcount and all -- on
+			-- the other three.
+			if x6.pc_set_ride then
+				x6.pc_set_ride(v)
 			end
 			save_settings()
 		end, "Makes selected parts solid and standable.")
+
+		et(pcc, "Surface Snap", x1.PartCtlSurfaceSnap ~= false, function(v)
+			x1.PartCtlSurfaceSnap = v
+			save_settings()
+		end, "Drops a dragged part onto whatever you point at. Off slides it along a fixed distance from the camera, which is what a drag used to do.")
+
+		es(pcc, "Grid Snap", 0, 16, tonumber(x1.PartCtlGridSnap) or 0, function(v)
+			x1.PartCtlGridSnap = v
+		end, false, "Rounds a drag onto a stud grid. 0 is off.")
 
 		et(pcc, "Multi-Select Mode", x1.PartCtlMultiSelect == true, function(v)
 			x1.PartCtlMultiSelect = v
@@ -1277,6 +1441,18 @@ return function(context)
 		Instance.new("UICorner", db).CornerRadius = UDim.new(0, 6)
 		local dst = Instance.new("UIStroke", db)
 		dst.Color = Color3.fromRGB(40, 40, 45)
+
+		-- The two dropdown buttons were the only large controls in the tree with no
+		-- feedback at all, which read as them not being buttons.
+		row_hover(
+			db,
+			Color3.fromRGB(25, 25, 30),
+			Color3.fromRGB(35, 35, 40),
+			dst,
+			Color3.fromRGB(40, 40, 45),
+			Color3.fromRGB(70, 70, 78)
+		)
+		UI_elements.press(db, 0.99)
 
 		local arr = Instance.new("TextLabel", db)
 		arr.BackgroundTransparency = 1
@@ -1380,10 +1556,10 @@ return function(context)
 					x1["Force Smooth (Lags)"] = v
 					save_settings()
 				end, "Updates every part every frame at full smoothing, and drops damping.")
-				et(gsc, "Max Fidelity (No Skipping)", x1.MaxFidelity, function(v)
+				et(gsc, "Max Fidelity (Every Frame)", x1.MaxFidelity, function(v)
 					x1.MaxFidelity = v
 					save_settings()
-				end, "Force Smooth, and never skips or culls a part by distance. Heaviest option.")
+				end, "Force Smooth, plus no part skipping, no distance culling, no cached ownership and no strided shape layout. The heaviest option there is.")
 				et(gsc, "Realistic Liftoff", x1["Realistic Liftoff"], function(v)
 					x1["Realistic Liftoff"] = v
 					save_settings()
@@ -1496,6 +1672,16 @@ return function(context)
 			local dst2 = Instance.new("UIStroke", tdb)
 			dst2.Color = Color3.fromRGB(40, 40, 45)
 
+			row_hover(
+				tdb,
+				Color3.fromRGB(25, 25, 30),
+				Color3.fromRGB(35, 35, 40),
+				dst2,
+				Color3.fromRGB(40, 40, 45),
+				Color3.fromRGB(70, 70, 78)
+			)
+			UI_elements.press(tdb, 0.99)
+
 			if x1.Targets and #x1.Targets > 0 then
 				local ctb = Instance.new("TextButton", tdb)
 				ctb.BackgroundTransparency = 1
@@ -1578,26 +1764,27 @@ return function(context)
 			end
 
 			local reset_btn = Instance.new("TextButton", sc)
-		reset_btn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
-		reset_btn.Size = UDim2.new(1, 0, 0, 24)
-		reset_btn.Text = "⚠ RESET ALL SETTINGS"
-		reset_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-		reset_btn.Font = Enum.Font.GothamBold
-		reset_btn.TextSize = 9
-		reset_btn.AutoButtonColor = false
-		Instance.new("UICorner", reset_btn).CornerRadius = UDim.new(0, 6)
-		local reset_stroke = Instance.new("UIStroke", reset_btn)
-		reset_stroke.Color = Color3.fromRGB(255, 80, 80)
-		reset_stroke.Thickness = 1
+			reset_btn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+			reset_btn.Size = UDim2.new(1, 0, 0, 24)
+			reset_btn.Text = "⚠ RESET ALL SETTINGS"
+			reset_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+			reset_btn.Font = Enum.Font.GothamBold
+			reset_btn.TextSize = 9
+			reset_btn.AutoButtonColor = false
+			Instance.new("UICorner", reset_btn).CornerRadius = UDim.new(0, 6)
+			local reset_stroke = Instance.new("UIStroke", reset_btn)
+			reset_stroke.Color = Color3.fromRGB(255, 80, 80)
+			reset_stroke.Thickness = 1
 
-		reset_btn.MouseEnter:Connect(function()
-			v6:Create(reset_btn, A.HOVER, { BackgroundColor3 = Color3.fromRGB(220, 50, 50) }):Play()
-			v6:Create(reset_stroke, A.HOVER, { Color = Color3.fromRGB(255, 120, 120) }):Play()
-		end)
-		reset_btn.MouseLeave:Connect(function()
-			v6:Create(reset_btn, A.HOVER, { BackgroundColor3 = Color3.fromRGB(180, 40, 40) }):Play()
-			v6:Create(reset_stroke, A.HOVER, { Color = Color3.fromRGB(255, 80, 80) }):Play()
-		end)
+			row_hover(
+				reset_btn,
+				Color3.fromRGB(180, 40, 40),
+				Color3.fromRGB(220, 50, 50),
+				reset_stroke,
+				Color3.fromRGB(255, 80, 80),
+				Color3.fromRGB(255, 120, 120)
+			)
+			UI_elements.press(reset_btn)
 
 			reset_btn.MouseButton1Click:Connect(function()
 				if x6.reset_confirm then
@@ -1813,9 +2000,17 @@ return function(context)
 
 				local f = Instance.new("Frame", dlst)
 				f.Size = UDim2.new(1, -16, 0, 24)
-				f.BackgroundColor3 = mn == x1.k6 and Color3.fromRGB(40, 40, 180) or Color3.fromRGB(25, 25, 30)
+				local row_on = mn == x1.k6
+				f.BackgroundColor3 = row_on and Color3.fromRGB(40, 40, 180) or Color3.fromRGB(25, 25, 30)
 				f.ZIndex = 12
 				Instance.new("UICorner", f).CornerRadius = UDim.new(0, 4)
+				-- idle passed in rather than read back, so the selected row keeps its tint
+				-- when the pointer leaves.
+				row_hover(
+					f,
+					f.BackgroundColor3,
+					row_on and Color3.fromRGB(55, 55, 200) or Color3.fromRGB(35, 35, 40)
+				)
 
 				local ib = Instance.new("TextButton", f)
 				ib.Size = UDim2.new(1, -40, 1, 0)
@@ -2004,7 +2199,10 @@ return function(context)
 				uname.ZIndex = 12
 
 				ib.MouseEnter:Connect(function()
-					ib.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+					-- Tweened on the shared curve, like every other row. This one set the
+					-- colour outright, which read snappier than the rest of the tree in a
+					-- way nobody chose.
+					v6:Create(ib, A.HOVER, { BackgroundColor3 = Color3.fromRGB(35, 35, 40) }):Play()
 					-- See the desktop copy: cleared first so a fast move between rows
 					-- cannot orphan the previous highlight, and parented to the row so
 					-- the list teardown takes it along. f1() Destroy()s this list on
@@ -2020,7 +2218,7 @@ return function(context)
 					end
 				end)
 				ib.MouseLeave:Connect(function()
-					ib.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+					v6:Create(ib, A.HOVER, { BackgroundColor3 = Color3.fromRGB(25, 25, 30) }):Play()
 					clear_highlight()
 				end)
 
@@ -2051,22 +2249,11 @@ return function(context)
 		-- hit-testable, and stacked on top of minb. See set_header_extras below.
 		local collapsed = false
 
-		local minb = Instance.new("TextButton", h)
-		minb.BackgroundColor3 = Color3.fromRGB(60, 200, 100)
+		local minb = circle_btn(h, Color3.fromRGB(60, 200, 100), "–", 11)
 		minb.Position = UDim2.new(1, -44, 0.5, -7)
-		minb.Size = UDim2.new(0, 14, 0, 14)
-		minb.Text = ""
-		Instance.new("UICorner", minb).CornerRadius = UDim.new(1, 0)
 
-		local tutb = Instance.new("TextButton", h)
-		tutb.BackgroundColor3 = Color3.fromRGB(50, 150, 200)
+		local tutb = circle_btn(h, Color3.fromRGB(50, 150, 200), "?", 10)
 		tutb.Position = UDim2.new(1, -66, 0.5, -7)
-		tutb.Size = UDim2.new(0, 14, 0, 14)
-		tutb.Text = "?"
-		tutb.TextColor3 = Color3.fromRGB(255, 255, 255)
-		tutb.Font = Enum.Font.GothamBold
-		tutb.TextSize = 10
-		Instance.new("UICorner", tutb).CornerRadius = UDim.new(1, 0)
 
 		local tut_container = Instance.new("CanvasGroup", sg)
 		tut_container.Name = "Tutorial"
@@ -2097,12 +2284,8 @@ return function(context)
 		tut_title.TextSize = 10
 		tut_title.TextXAlignment = 0
 
-		local tut_close = Instance.new("TextButton", tut_header)
-		tut_close.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+		local tut_close = circle_btn(tut_header, Color3.fromRGB(200, 60, 60), "×", 10)
 		tut_close.Position = UDim2.new(1, -22, 0.5, -7)
-		tut_close.Size = UDim2.new(0, 14, 0, 14)
-		tut_close.Text = ""
-		Instance.new("UICorner", tut_close).CornerRadius = UDim.new(1, 0)
 		tut_close.MouseButton1Click:Connect(function()
 			toggle_window(tut_container, false)
 		end)
@@ -2111,7 +2294,18 @@ return function(context)
 		tut_text.BackgroundTransparency = 1
 		tut_text.Position = UDim2.new(0, 15, 0, 35)
 		tut_text.Size = UDim2.new(1, -30, 1, -45)
-		tut_text.Text = "• Core Controls: Tap 'PLC' to reposition the gravitational center. Tap 'CLN' to wipe active parts.\n\n• Targeting: Use 'Select Target' to focus gravity onto a specific player.\n\n• Elevation: Use 'UP' and 'DWN' buttons to manually adjust the vertical height of the formation.\n\n• System: Tap 'PAU' to instantly pause physics. Tap 'DIS' to disable the system.\n\n• Modes: Select modes to seamlessly morph between geometry.\n\n• Config: Scroll down the main menu to tune the shape config. Open 'Advanced Settings' for global physics."
+		-- The two tools were missing outright, and they are the two things nobody works
+		-- out from the dock alone.
+		tut_text.Text = table.concat({
+			"• Core: tap 'PLC' to reposition the gravitational center, 'CLN' to wipe active parts.",
+			"• Targeting: use 'Select Target' to focus gravity onto a specific player.",
+			"• Elevation: 'UP' and 'DWN' adjust the vertical height of the formation.",
+			"• System: 'PAU' pauses physics, 'DIS' disables it without giving up the parts.",
+			"• Modes: select a mode to morph between geometry. Scroll the main menu for that shape's own config.",
+			"• Part Control: tap a held part to select it (selecting alone changes nothing), drag it to place it, then pick Pin, Manual or Assign Shape. The box colour is the mode.",
+			"• Sculptor: pick it as the mode to arrange parts by hand.",
+			"• Advanced Settings holds the global physics limits, the FPS cap and the performance switches.",
+		}, "\n\n")
 		tut_text.TextColor3 = Color3.fromRGB(200, 200, 205)
 		tut_text.Font = Enum.Font.GothamMedium
 		tut_text.TextSize = 9
@@ -2124,12 +2318,8 @@ return function(context)
 			toggle_window(tut_container, not tut_container.Visible)
 		end)
 
-		local closeb = Instance.new("TextButton", h)
-		closeb.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+		local closeb = circle_btn(h, Color3.fromRGB(200, 60, 60), "×", 10)
 		closeb.Position = UDim2.new(1, -22, 0.5, -7)
-		closeb.Size = UDim2.new(0, 14, 0, 14)
-		closeb.Text = ""
-		Instance.new("UICorner", closeb).CornerRadius = UDim.new(1, 0)
 
 		-- Minimize runs in two stages: the body rolls up into the header, then
 		-- the header folds left into a round pill holding just this button.
@@ -2313,6 +2503,9 @@ return function(context)
 			if anim_busy then return end
 			anim_busy = true
 			im = not im
+			-- The glyph follows the state, so the pill says "expand" rather than
+			-- repeating "collapse" at something already collapsed.
+			minb.Text = im and "+" or "–"
 			-- Set before any tween starts: the extras overlap minb for the whole
 			-- fold, and this is what makes their handlers ignore the tap.
 			collapsed = im

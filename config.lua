@@ -63,6 +63,15 @@ return {
 		PartCtlDamping = -1,
 		PartCtlSmoothing = -1,
 		PartCtlMaxSpeed = -1,
+		-- A drag used to be able to move a part only along a sphere at the distance
+		-- latched when the press began, so there was no way to push it away or pull it
+		-- closer. With this on the drag ray is cast at everything that is not held and
+		-- the selection lands on the surface, which puts depth back under the pointer.
+		-- Off restores the old fixed-distance projection exactly.
+		PartCtlSurfaceSnap = true,
+		-- Studs. 0 is off. Rounds a drag target onto a grid, which is the difference
+		-- between placing parts and nudging them for a minute.
+		PartCtlGridSnap = 0,
 		Perf_DisableShadows = false,
 		Perf_DisablePostFX = false,
 		Perf_PotatoMaterials = false,
@@ -131,9 +140,19 @@ return {
 			k11 = 200, k12 = 18, k13 = 14, k14 = 12, k15 = 3,
 			k16 = 0.3, k17 = 0.4, k18 = 2, k19 = true, k20 = false, k21 = false,
 		},
+		-- k21 is Shell Fill as a percentage (100 = a solid ball) and k22 is Surface
+		-- Jitter in studs, 0 for an exact sphere. Deliberately *new* keys rather than
+		-- the k16/k17 that used to be Arc Count and Arc Jaggedness: load_settings
+		-- restores any saved value whose type matches, so reusing them would have handed
+		-- an existing user's Arc Count of 8 to Shell Fill and left them with a thin,
+		-- rough shell -- exactly the form this shape was changed to stop being. k16 and
+		-- k17 are gone, so a saved value for them is dropped on load. k20 was a Neon
+		-- Glow toggle that repainted every part's Material and Color with nothing to
+		-- restore them from -- x4.f1 never snapshots either -- so it is gone rather than
+		-- defaulted off.
 		["Raigo"] = {
 			k11 = 8, k12 = 250, k13 = 80, k14 = 0.7, k15 = 12,
-			k16 = 8, k17 = 12, k18 = true, k19 = true, k20 = true,
+			k18 = true, k19 = true, k21 = 100, k22 = 0,
 		},
 		["Quantum Core"] = { k11 = 100, k12 = 30, k13 = 40, k14 = 50, k15 = 0, k16 = 0, k17 = 0, k23 = false },
 		["Galactic Web"] = { k11 = 400, k12 = 10, k13 = 5, k14 = 0, k15 = 0, k16 = 0, k17 = 0, k23 = false, k24 = 200 },

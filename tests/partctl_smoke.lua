@@ -222,8 +222,11 @@ do
 		return d
 	end
 
+	-- "normal" maps to manual, not pin. Selecting a part no longer touches its record
+	-- at all, so reaching pc_latch_drag means the user physically moved the part --
+	-- and "manual" is the mode whose name says that, and the one the panel reports.
 	local d = dragged("normal", "Black Hole")
-	check(d.pc_mode == "pin", ("normal latches to pin, not %s"):format(tostring(d.pc_mode)))
+	check(d.pc_mode == "manual", ("normal latches to manual, not %s"):format(tostring(d.pc_mode)))
 
 	d = dragged("pin", "Black Hole")
 	check(d.pc_mode == "pin", "pin latches to pin")
@@ -235,9 +238,32 @@ do
 	check(d.pc_mode == "shape", "shape mode latches to shape")
 	check(d.pc_mod ~= nil, "and always with a resolved module behind it")
 
-	-- An unresolvable shape must not leave the part mid-drag with no owner.
+	-- An unresolvable shape must not leave the part mid-drag with no owner. It holds
+	-- where it was dropped instead.
 	d = dragged("shape", "Missing")
-	check(d.pc_mode == "pin", ("an unresolvable shape falls back to pin, not %s"):format(tostring(d.pc_mode)))
+	check(d.pc_mode == "manual", ("an unresolvable shape falls back to a hold, not %s"):format(tostring(d.pc_mode)))
+
+	-- A part dragged out of shape mode has to give the module back. pc_latch_drag does
+	-- not go through pc_assign for pin/manual -- pc_assign's pin branch re-reads
+	-- part.Position, and a dragged part trails the cursor by a frame -- so the unref is
+	-- its own responsibility. Without it the refcount never reached zero and the
+	-- module's cleanup never ran.
+	do
+		local p, dd = claimed()
+		x6.a[p] = dd
+		table.clear(x6.pc_selected)
+		x6.pc_selected[p] = true
+		x6.pc_assign("shape", { shape = "Black Hole" })
+		local mod = dd.pc_mod
+		check(mod ~= nil and x6.pc_mods[mod] == 1, "the module is held by the one part")
+		dd.pc_mode = "manual"
+		dd.pc_target = Vector3.new(4, 5, 6)
+		ctx.x1.PartCtlMode = "pin"
+		x6.pc_latch_drag()
+		check(dd.pc_mode == "pin", "the drop latches to the panel's mode")
+		check(dd.pc_mod == nil, "and drops the module reference")
+		check(x6.pc_mods[mod] == nil, "so the registry entry goes with it")
+	end
 
 	-- pc_assign is the same entry point the panel uses, and it used to store any
 	-- string it was handed.
@@ -249,6 +275,172 @@ do
 	check(d2.pc_mode == nil, '"normal" is a release, not a storable mode')
 	x6.pc_assign("nonsense")
 	check(d2.pc_mode == nil, "an unknown mode is a release too")
+end
+
+print("partctl · re-assigning the same shape does not leak the refcount")
+do
+	local x6 = mk_x6()
+	local ctx = mk_ctx(x6)
+	local cleanups = 0
+	local shared = { name = "Shared", f2 = function() end, cleanup = function() cleanups = cleanups + 1 end }
+	ctx.get_shape = function() return shared end
+	builder(ctx, { e = function() return false end })()
+
+	local p1, d1 = claimed()
+	x6.a[p1] = d1
+	x6.pc_selected[p1] = true
+
+	-- pc_assign's unref guard deliberately skips a re-assignment of the same module,
+	-- and the increment used to run anyway. So pressing Assign Shape twice -- or
+	-- toggling Rideable, which re-assigned -- pushed the count above the real number
+	-- of parts for good, and mod.cleanup only fires when it reaches zero. Platform's
+	-- anchored pad and Raigo's input connections never came back.
+	x6.pc_assign("shape", { shape = "Shared" })
+	check(x6.pc_mods[shared] == 1, ("one part, one reference (%s)"):format(tostring(x6.pc_mods[shared])))
+	x6.pc_assign("shape", { shape = "Shared" })
+	x6.pc_assign("shape", { shape = "Shared" })
+	check(x6.pc_mods[shared] == 1,
+		("three assignments of the same shape still count one (%s)"):format(tostring(x6.pc_mods[shared])))
+
+	x6.pc_release(p1)
+	check(cleanups == 1, ("so a single release runs cleanup (%d)"):format(cleanups))
+	check(x6.pc_mods[shared] == nil, "and empties the registry")
+end
+
+print("partctl · ride is independent of the mode")
+do
+	local x6 = mk_x6()
+	local ctx = mk_ctx(x6)
+	builder(ctx, { e = function() return false end })()
+
+	local p1, d1 = claimed()
+	x6.a[p1] = d1
+	p1.CanCollide = false
+	x6.pc_selected[p1] = true
+
+	check(type(x6.pc_set_ride) == "function", "pc_set_ride is published")
+	-- The panel's toggle used to call pc_assign with x1.PartCtlMode, so on "normal" it
+	-- did nothing at all -- and on the other three it re-assigned the mode as a side
+	-- effect, which is how the refcount above got bumped every time somebody flipped
+	-- it. Riding is a property of the part.
+	check(x6.pc_set_ride(true) == 1, "pc_set_ride reports the count it touched")
+	check(d1.pc_ride == true, "the flag is recorded with no mode set")
+	check(d1.pc_mode == nil, "and the mode is left alone")
+	check(p1.CanCollide == true, "a rideable part is collidable")
+
+	check(x6.pc_set_ride(false) == 1, "and it can be taken off again")
+	check(d1.pc_ride == false, "the flag is cleared")
+	check(p1.CanCollide == false, "the part goes back to pass-through")
+end
+
+print("partctl · the selection prunes released parts")
+do
+	local x6 = mk_x6()
+	local ctx = mk_ctx(x6)
+	builder(ctx, { e = function() return false end })()
+
+	local p1, d1 = claimed()
+	local p2, d2 = claimed()
+	x6.a[p1], x6.a[p2] = d1, d2
+	x6.pc_select(p1, false)
+	x6.pc_select(p2, true)
+	check(x6.pc_count() == 2, "both are selected")
+	check(next(x6.pc_highlights) ~= nil, "and adorned")
+
+	-- What x4.f2 does when a part is released. The SelectionBox is parented to the
+	-- part and pc_selected is weak-keyed, so without a prune the box survived for as
+	-- long as the part did and the panel went on counting it.
+	x6.a[p1] = nil
+	check(x6.pc_count() == 1, "pc_count drops the released part")
+	check(x6.pc_selected[p1] == nil, "and takes it out of the selection")
+	check(x6.pc_highlights[p1] == nil, "and removes its highlight")
+	check(x6.pc_highlights[p2] ~= nil, "the other part is untouched")
+end
+
+print("partctl · bulk selection helpers")
+do
+	local x6 = mk_x6()
+	local ctx = mk_ctx(x6)
+	builder(ctx, { e = function() return false end })()
+
+	local parts = {}
+	for i = 1, 5 do
+		local p, d = claimed()
+		x6.a[p] = d
+		x6.active_array[i] = p
+		parts[i] = { p = p, d = d }
+	end
+
+	check(type(x6.pc_select_all) == "function", "pc_select_all is published")
+	check(type(x6.pc_select_overridden) == "function", "pc_select_overridden is published")
+	check(type(x6.pc_invert) == "function", "pc_invert is published")
+
+	check(x6.pc_select_all() == 5, "Select All Held takes every claimed part")
+	check(x6.pc_count() == 5, "and the count agrees")
+
+	-- Invert on a full selection is a clear.
+	check(x6.pc_invert() == 0, "inverting a full selection adds nothing")
+	check(x6.pc_count() == 0, "and leaves it empty")
+	check(x6.pc_invert() == 5, "inverting an empty selection takes everything")
+
+	-- Deselecting is not releasing, so an override can outlive its selection. This is
+	-- how you find those again without releasing everything.
+	x6.pc_clear()
+	x6.pc_selected[parts[2].p] = true
+	x6.pc_selected[parts[4].p] = true
+	x6.pc_assign("pin")
+	x6.pc_clear()
+	check(x6.pc_count() == 0, "the selection is clear but the overrides are not")
+	check(x6.pc_select_overridden() == 2, "Select Overridden finds exactly the two")
+	check(x6.pc_selected[parts[2].p] == true and x6.pc_selected[parts[4].p] == true, "and the right two")
+	check(x6.pc_selected[parts[1].p] == nil, "and nothing else")
+end
+
+print("partctl · the selection is capped")
+do
+	local x6 = mk_x6()
+	local ctx = mk_ctx(x6)
+	builder(ctx, { e = function() return false end })()
+
+	-- Every selected part carries a SelectionBox, so a bulk select over a large claim
+	-- would build one adornment per part in a single frame. 600 claimed against a 512
+	-- ceiling.
+	for i = 1, 600 do
+		local p, d = claimed()
+		x6.a[p] = d
+		x6.active_array[i] = p
+	end
+
+	local n, capped = x6.pc_select_all()
+	check(capped == true, "Select All Held reports that it stopped early")
+	check(n == 512, ("and stops at the ceiling (%d)"):format(n))
+	check(x6.pc_count() == 512, "so the selection is exactly the ceiling")
+
+	-- And it does not creep past it on a second pass.
+	local n2 = x6.pc_select_all()
+	check(n2 == 0, ("a second pass adds nothing (%d)"):format(n2))
+	check(x6.pc_count() == 512, "the selection is still at the ceiling")
+end
+
+print("partctl · highlights are coloured by mode")
+do
+	local x6 = mk_x6()
+	local ctx = mk_ctx(x6)
+	builder(ctx, { e = function() return false end })()
+
+	local p1, d1 = claimed()
+	x6.a[p1] = d1
+	x6.pc_select(p1, false)
+	local plain = x6.pc_highlights[p1].Color3
+	check(plain ~= nil, "a selected part is adorned")
+
+	x6.pc_assign("pin")
+	local pinned = x6.pc_highlights[p1].Color3
+	check(pinned ~= plain, "pinning repaints the box")
+	x6.pc_assign("manual")
+	check(x6.pc_highlights[p1].Color3 ~= pinned, "manual is a different colour again")
+	x6.pc_release(p1)
+	check(x6.pc_highlights[p1].Color3 == plain, "releasing goes back to plain selection")
 end
 
 print("partctl · physics override")

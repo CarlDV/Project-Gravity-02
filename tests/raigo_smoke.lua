@@ -32,11 +32,15 @@ local function mk_ctx()
 			k13 = 80,
 			k14 = 0.7,
 			k15 = 12,
-			k16 = 8,
-			k17 = 12,
+			-- Shell Fill (100 = solid) and Surface Jitter (0 = exact sphere). These are
+			-- new keys, not the k16/k17 that used to be Arc Count and Arc Jaggedness:
+			-- load_settings restores any saved value of matching type, so reusing them
+			-- would have handed an existing user's 8 and 12 straight to the new controls.
+			-- k20 was a Neon Glow toggle and is gone with the code that repainted parts.
 			k18 = true,
 			k19 = true,
-			k20 = true,
+			k21 = 100,
+			k22 = 0,
 		},
 	}
 end
@@ -185,6 +189,129 @@ do
 	ctx.c.k19 = false
 	M.f2(p, cen, { id = 1 }, 0.1, ctx.c, ctx.x1, ctx.x6, ctx.x9)
 	check(st.click_enabled == false, "turning it off disarms the handler")
+end
+
+print("Raigo · the idle form is a solid ball")
+do
+	local ctx = mk_ctx()
+	local cen = Vector3.new(0, 50, 0)
+	local p = mk_part(cen)
+	local R = ctx.c.k11
+	ctx.x6.n = 400
+
+	M.f2(p, cen, { id = 1 }, 0, ctx.c, ctx.x1, ctx.x6, ctx.x9)
+	local st = ctx.x6.pre["Raigo"]
+	-- Settle the hover lerp so the orb centre is the head position, not somewhere
+	-- along the way to it.
+	for _ = 1, 80 do
+		M.f2(p, cen, { id = 1 }, 0, ctx.c, ctx.x1, ctx.x6, ctx.x9)
+	end
+	local centre = st.orb_pos
+
+	-- Radial structure. A solid ball has to put parts inside as well as on the
+	-- surface: the form this replaced placed 55 % of its parts on a single shell at
+	-- exactly R and ran the other 45 % out to 1.8 R on arcs and tendrils, so it
+	-- failed both halves of this -- nothing inside, and plenty outside.
+	local bands = {}
+	local outside, worst = 0, 0
+	local half, most = 0, 0
+	local N = 400
+	for id = 1, N do
+		local _, pos = M.f2(p, cen, { id = id }, 0, ctx.c, ctx.x1, ctx.x6, ctx.x9)
+		local r = (pos - centre).Magnitude
+		if r > worst then worst = r end
+		if r > R + 1e-6 then outside = outside + 1 end
+		if r <= R * 0.5 then half = half + 1 end
+		if r <= R * 0.8 then most = most + 1 end
+		local b = math.min(10, math.floor(r / R * 10) + 1)
+		bands[b] = (bands[b] or 0) + 1
+	end
+	check(outside == 0, ("no part sits outside the radius (%d of %d, worst %.3f vs %d)")
+		:format(outside, N, worst, R))
+	-- Volume-uniform is what "solid" means, and it has three signatures at this
+	-- sample size: an eighth of the parts inside half the radius, half of them
+	-- inside 0.8 R, and 1 - 0.9^3 = 27 % in the outermost tenth. A shell scores
+	-- 0/0/100; a radius drawn straight from u scores 50/80/10.
+	check(half / N > 0.06 and half / N < 0.20,
+		("an eighth of the parts sit inside half the radius (%.3f)"):format(half / N))
+	check(most / N > 0.40 and most / N < 0.62,
+		("half of them sit inside 0.8 R (%.3f)"):format(most / N))
+	local outer = (bands[10] or 0) / N
+	check(outer > 0.18 and outer < 0.38,
+		("the outer tenth of the radius holds about a quarter of the parts (%.3f)"):format(outer))
+	-- Bands 1 and 2 are deliberately not required: at 400 parts they expect 0.4 and
+	-- 2.8 respectively, so an empty innermost band is the distribution being right,
+	-- not wrong.
+	local empty = 0
+	for b = 3, 10 do
+		if (bands[b] or 0) == 0 then empty = empty + 1 end
+	end
+	check(empty == 0, ("every radial band from the third out is populated (%d of 8 empty)"):format(empty))
+end
+
+print("Raigo · Shell Fill and Surface Jitter")
+do
+	local ctx = mk_ctx()
+	local cen = Vector3.new(0, 50, 0)
+	local p = mk_part(cen)
+	local R = ctx.c.k11
+	ctx.x6.n = 200
+	ctx.c.k21 = 0
+
+	M.f2(p, cen, { id = 1 }, 0, ctx.c, ctx.x1, ctx.x6, ctx.x9)
+	local st = ctx.x6.pre["Raigo"]
+	for _ = 1, 80 do
+		M.f2(p, cen, { id = 1 }, 0, ctx.c, ctx.x1, ctx.x6, ctx.x9)
+	end
+	local centre = st.orb_pos
+
+	local worst = 0
+	for id = 1, 200 do
+		local _, pos = M.f2(p, cen, { id = id }, 0, ctx.c, ctx.x1, ctx.x6, ctx.x9)
+		local off = math.abs((pos - centre).Magnitude - R)
+		if off > worst then worst = off end
+	end
+	check(worst < 1e-6, ("Shell Fill 0 puts every part exactly on the surface (worst %.6f)"):format(worst))
+
+	-- Jitter is the only thing that may push a part off the shell, and it has to
+	-- do so by no more than its own amplitude on each axis.
+	ctx.c.k22 = 3
+	local moved, over = 0, 0
+	for id = 1, 200 do
+		local _, pos = M.f2(p, cen, { id = id }, 0, ctx.c, ctx.x1, ctx.x6, ctx.x9)
+		local off = math.abs((pos - centre).Magnitude - R)
+		if off > 1e-6 then moved = moved + 1 end
+		if off > 3 * math.sqrt(3) + 1e-6 then over = over + 1 end
+	end
+	check(moved > 150, ("jitter moves the parts off the shell (%d of 200)"):format(moved))
+	check(over == 0, ("and never by more than its amplitude (%d over)"):format(over))
+end
+
+print("Raigo · writes no appearance properties")
+do
+	-- The glow set p.Material and p.Color on every part it touched, and x4.f1
+	-- snapshots CanCollide, Anchored and CustomPhysicalProperties -- not Material,
+	-- not Color -- so there was nothing to restore from and every part Raigo had
+	-- ever held stayed neon for the session. A behavioural check cannot prove the
+	-- absence of a write on a path it did not take, so this reads the source.
+	local fh = assert(io.open("shapes/Raigo.lua"))
+	local src = fh:read("a")
+	fh:close()
+	check(src:find("p%.Material") == nil, "Raigo.lua never assigns p.Material")
+	check(src:find("p%.Color") == nil, "Raigo.lua never assigns p.Color")
+	check(src:find("Neon") == nil, "no Neon left anywhere in the file")
+	check(src:find("k20") == nil, "the Neon Glow control is gone with it")
+
+	-- And the live path leaves a part it has driven exactly as it found it.
+	local ctx = mk_ctx()
+	local cen = Vector3.new(0, 50, 0)
+	local p = mk_part(cen)
+	local mat, col = p.Material, p.Color
+	for id = 1, 20 do
+		M.f2(p, cen, { id = id }, 0, ctx.c, ctx.x1, ctx.x6, ctx.x9)
+	end
+	check(p.Material == mat, "a driven part keeps its Material")
+	check(p.Color == col, "a driven part keeps its Color")
 end
 
 print("Raigo · cleanup")

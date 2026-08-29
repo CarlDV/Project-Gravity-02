@@ -130,11 +130,12 @@ return function(context, x7)
 							table.clear(x6.sculptor_selected)
 						end
 						x6.sculptor_box_start = v1:GetMouseLocation()
-						-- .Parent as well as nil: the Frame lives inside the panel's ScreenGui, so
-		-- closing the panel destroys it while x6.sculptor_box stays non-nil. The guard
-		-- then never rebuilt and every marquee wrote to a destroyed Frame -- selection
-		-- worked, nothing was drawn, for the rest of the session.
-		if x6.sg and (not x6.sculptor_box or not x6.sculptor_box.Parent) then
+						-- .Parent as well as nil: the Frame lives inside the panel's
+						-- ScreenGui, so closing the panel destroys it while
+						-- x6.sculptor_box stays non-nil. The guard then never rebuilt and
+						-- every marquee wrote to a destroyed Frame -- selection worked,
+						-- nothing was drawn, for the rest of the session.
+						if x6.sg and (not x6.sculptor_box or not x6.sculptor_box.Parent) then
 							x6.sculptor_box = Instance.new("Frame", x6.sg)
 							x6.sculptor_box.BackgroundColor3 = Color3.fromRGB(0, 255, 200)
 							x6.sculptor_box.BackgroundTransparency = 0.7

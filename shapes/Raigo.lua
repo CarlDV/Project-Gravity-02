@@ -1,6 +1,10 @@
 local M = {}
 
 local PHI = 0.6180339887498949
+-- A second irrational, for the radius. Reusing PHI would tie a part's radius to
+-- the golden angle sphere_pt already derives its azimuth from, and the ball would
+-- come out as a spiral sheet rather than filled.
+local PSI = 0.7548776662466927
 local TAU = 6.283185307179586
 local HM = 16777216
 
@@ -10,21 +14,38 @@ local function prng(s, n, ch)
 	return v / HM
 end
 
-local function orth_basis(dir)
-	local u = Vector3.new(-dir.Z, 0, dir.X)
-	if u.Magnitude < 1e-4 then
-		u = Vector3.new(1, 0, 0)
-	else
-		u = u.Unit
-	end
-	return u, dir:Cross(u).Unit
-end
-
 local function sphere_pt(idx, total)
-	local y = 1 - (idx / math.max(1, total)) * 2
+	total = math.max(1, total)
+	-- Wrapped. d.id comes from x6.part_id_counter, which only ever goes up, so it
+	-- outruns x6.n the moment anything is released and re-claimed. Unwrapped, y
+	-- fell below -1, rad went to zero through the max(), and every part past the
+	-- live count piled onto the south pole.
+	idx = idx % total
+	local y = 1 - (idx / total) * 2
 	local rad = math.sqrt(math.max(0, 1 - y * y))
 	local theta = TAU * PHI * idx
 	return Vector3.new(math.cos(theta) * rad, y, math.sin(theta) * rad)
+end
+
+-- A deterministic point in a *solid* ball of the given radius. Direction comes
+-- from the Fibonacci lattice above, so consecutive ids stay spread apart; the
+-- radius is R * cbrt(u), which is the mapping that fills a volume evenly. R * u
+-- would put two thirds of the parts in the outer third of the sphere, and using
+-- R flat -- which is what this shape used to do for the 55 % of parts it placed
+-- on a "sphere" at all -- puts every one of them on one shell.
+--
+-- fill is how deep the ball goes: 1 is solid, 0 collapses onto the surface, and
+-- anything between is a shell of that thickness.
+local function ball_pt(idx, total, radius, fill, u)
+	local inner = 1 - fill
+	return sphere_pt(idx, total) * (radius * (inner + fill * (u ^ (1 / 3))))
+end
+
+-- Rotation about Y, applied to an offset rather than to a position. A solid ball
+-- has the same silhouette however it is turned, but the parts in it do not --
+-- each one runs a circle, which is where the motion comes from.
+local function spin_y(v, c, s)
+	return Vector3.new(v.X * c - v.Z * s, v.Y, v.X * s + v.Z * c)
 end
 
 local function get_cursor_world_hit(cam, uis, dist)
@@ -65,14 +86,22 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local r_blast = math.clamp(c.k13 or 80, 15, 400)
 	local dur_blast = math.clamp(c.k14 or 0.7, 0.15, 3.0)
 	local h_hover = math.clamp(c.k15 or 12, 3, 50)
-	local num_arcs = math.clamp(math.floor(c.k16 or 8), 2, 24)
+	-- Shell Fill: how much of the radius the parts are allowed to occupy. 100 is a
+	-- solid ball, 0 a hollow surface. Stored 0..100 so the panel can show a
+	-- percentage; clamped here because a config file is not bound by the slider.
+	--
+	-- k21/k22 rather than the k16/k17 these replace: load_settings restores any saved
+	-- value whose type matches, so reusing the old Arc Count and Arc Jaggedness keys
+	-- would have handed an existing user's 8 and 12 to Shell Fill and Surface Jitter
+	-- and left them with a thin, rough shell -- exactly the form this shape was
+	-- changed to stop being.
+	local fill = math.clamp((c.k21 or 100) / 100, 0, 1)
 	-- Clamped like every other control here, and to its own slider's bounds. A
-	-- negative jaggedness mirrors the noise rather than removing it, and a config
+	-- negative jitter mirrors the noise rather than removing it, and a config
 	-- file is not bound by the panel's Min/Max.
-	local amp_arc = math.clamp(c.k17 or 12, 0, 50)
+	local jitter = math.clamp(c.k22 or 0, 0, 50)
 	local auto_ret = c.k18 ~= false
 	local click_act = c.k19 ~= false
-	local neon_on = c.k20 ~= false
 
 	local st = x6.pre and x6.pre["Raigo"]
 	if not st then
@@ -202,68 +231,37 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local orb_center = st.orb_pos
 
 	local final_pos = nil
+	-- One distribution for both phases: a solid ball. The blast is the same ball
+	-- with an expanding radius. The three-way split that used to be here -- 55 % on
+	-- a single shell, 30 % on lat/long "arcs", 15 % on tendrils running out to
+	-- 1.8 R, each jittered by an amplitude one and a half times the radius -- is
+	-- what made the idle form read as a hollow wisp with spikes instead of a ball.
+	local u = (id * PSI) % 1
 
 	if st.phase == "EXPLODE" then
 		local exp_ease = 1 - (1 - blast_prog) * (1 - blast_prog)
 		local cur_rad = r_orb + (r_blast - r_orb) * exp_ease
-		local frac = (id * PHI) % 1
-
-		if frac < 0.45 then
-			local s_pt = sphere_pt(id, math.max(1, math.floor(total_pts * 0.45)))
-			local jx = (2 * prng(seed, id, 1) - 1) * (amp_arc * (1 - blast_prog))
-			local jy = (2 * prng(seed, id, 2) - 1) * (amp_arc * (1 - blast_prog))
-			local jz = (2 * prng(seed, id, 3) - 1) * (amp_arc * (1 - blast_prog))
-			final_pos = blast_ctr + s_pt * cur_rad + Vector3.new(jx, jy, jz)
-		elseif frac < 0.85 then
-			local arc_idx = math.floor((frac - 0.45) / 0.40 * num_arcs)
-			local s_dir = sphere_pt(arc_idx * 3 + 1, num_arcs * 3)
-			local seg_prog = ((id * 7) % 17) / 16
-			local seg_len = cur_rad * 1.25 * seg_prog
-			local u, v = orth_basis(s_dir)
-			local w = math.sin(math.pi * seg_prog)
-			local arc_j1 = (2 * prng(seed, id, 4) - 1) * (amp_arc * 1.5 * w)
-			local arc_j2 = (2 * prng(seed, id, 5) - 1) * (amp_arc * 1.5 * w)
-			final_pos = blast_ctr + s_dir * seg_len + u * arc_j1 + v * arc_j2
-		else
-			local spark_dir = sphere_pt(id * 11, total_pts)
-			local spark_dist = cur_rad * (0.8 + 0.4 * prng(seed, id, 6))
-			final_pos = blast_ctr + spark_dir * spark_dist
+		final_pos = blast_ctr + ball_pt(id, total_pts, cur_rad, fill, u)
+		-- Jitter fades as the shockwave opens, so the blast starts ragged and
+		-- settles into a sphere rather than staying noisy at full radius.
+		local amp = jitter * (1 - blast_prog)
+		if amp > 0 then
+			final_pos = final_pos
+				+ Vector3.new(
+					(2 * prng(seed, id, 1) - 1) * amp,
+					(2 * prng(seed, id, 2) - 1) * amp,
+					(2 * prng(seed, id, 3) - 1) * amp
+				)
 		end
 	else
-		local frac = (id * PHI) % 1
-		if frac < 0.55 then
-			local s_pt = sphere_pt(id, math.max(1, math.floor(total_pts * 0.55)))
-			local c_rot = math.cos(rot)
-			local s_rot = math.sin(rot)
-			local rx = s_pt.X * c_rot - s_pt.Z * s_rot
-			local rz = s_pt.X * s_rot + s_pt.Z * c_rot
-			local r_pt = Vector3.new(rx, s_pt.Y, rz)
-			local jx = (2 * prng(seed, id, 7) - 1) * (amp_arc * 0.25)
-			local jy = (2 * prng(seed, id, 8) - 1) * (amp_arc * 0.25)
-			local jz = (2 * prng(seed, id, 9) - 1) * (amp_arc * 0.25)
-			final_pos = orb_center + r_pt * r_orb + Vector3.new(jx, jy, jz)
-		elseif frac < 0.85 then
-			local a_idx = math.floor((frac - 0.55) / 0.30 * num_arcs)
-			local theta_base = (a_idx / num_arcs) * TAU + rot * 1.5
-			local seg_p = ((id * 5) % 19) / 18
-			local phi_ang = (seg_p - 0.5) * math.pi * 0.85
-			local r_scale = r_orb * (1 + 0.25 * math.sin(seg_p * math.pi))
-			local ax = math.cos(theta_base) * math.cos(phi_ang) * r_scale
-			local ay = math.sin(phi_ang) * r_scale
-			local az = math.sin(theta_base) * math.cos(phi_ang) * r_scale
-			local w = math.sin(seg_p * math.pi)
-			local j1 = (2 * prng(seed, id, 10) - 1) * (amp_arc * 0.5 * w)
-			local j2 = (2 * prng(seed, id, 11) - 1) * (amp_arc * 0.5 * w)
-			final_pos = orb_center + Vector3.new(ax + j1, ay + j2, az + j1)
-		else
-			local tend_idx = math.floor((frac - 0.85) / 0.15 * num_arcs)
-			local t_dir = sphere_pt(tend_idx * 7 + 3, num_arcs * 7)
-			local t_prog = ((id * 3) % 13) / 12
-			local t_len = r_orb * (1 + 0.8 * t_prog)
-			local u, v = orth_basis(t_dir)
-			local tj1 = (2 * prng(seed, id, 12) - 1) * (amp_arc * 0.4 * t_prog)
-			local tj2 = (2 * prng(seed, id, 13) - 1) * (amp_arc * 0.4 * t_prog)
-			final_pos = orb_center + t_dir * t_len + u * tj1 + v * tj2
+		final_pos = orb_center + spin_y(ball_pt(id, total_pts, r_orb, fill, u), math.cos(rot), math.sin(rot))
+		if jitter > 0 then
+			final_pos = final_pos
+				+ Vector3.new(
+					(2 * prng(seed, id, 4) - 1) * jitter,
+					(2 * prng(seed, id, 5) - 1) * jitter,
+					(2 * prng(seed, id, 6) - 1) * jitter
+				)
 		end
 
 		if st.phase == "LAUNCH" then
@@ -271,22 +269,13 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			-- Vector3.zero.Unit is NaN in Roblox, and a NaN offset propagates into
 			-- p.Position through the constraint, so the part is gone for good.
 			local travel = (st.dest_pos or st.orb_pos) - st.start_pos
-			if travel.Magnitude > 1e-3 and frac > 0.65 then
-				local vel_dir = travel.Unit
+			if travel.Magnitude > 1e-3 then
 				local trail_len = math.clamp(v_flight * 0.08, 5, 40)
-				local trail_drag = (id % 5) / 4 * trail_len
-				final_pos = final_pos - vel_dir * trail_drag
+				-- Weighted by the part's own radius fraction, so the ball draws out
+				-- into a teardrop behind the direction of travel instead of every
+				-- part smearing by the same amount.
+				final_pos = final_pos - travel.Unit * (u * trail_len)
 			end
-		end
-	end
-
-	if neon_on then
-		local col = x1.k3 or Color3.fromRGB(0, 255, 255)
-		if p.Material ~= Enum.Material.Neon then
-			p.Material = Enum.Material.Neon
-		end
-		if p.Color ~= col then
-			p.Color = col
 		end
 	end
 
@@ -321,11 +310,27 @@ M.Controls = {
 	{ Type = "Slider", Name = "Blast Radius", Min = 15, Max = 400, Key = "k13", Default = 80 },
 	{ Type = "Slider", Name = "Blast Duration", Min = 2, Max = 30, Key = "k14", Default = 7, Div = 10 },
 	{ Type = "Slider", Name = "Hover Height", Min = 3, Max = 50, Key = "k15", Default = 12 },
-	{ Type = "Slider", Name = "Arc Count", Min = 2, Max = 24, Key = "k16", Default = 8, IntOnly = true },
-	{ Type = "Slider", Name = "Arc Jaggedness", Min = 0, Max = 50, Key = "k17", Default = 12 },
+	{
+		Type = "Slider",
+		Name = "Shell Fill",
+		Min = 0,
+		Max = 100,
+		Key = "k21",
+		Default = 100,
+		IntOnly = true,
+		Desc = "100 is a solid ball. 0 puts every part on the surface.",
+	},
+	{
+		Type = "Slider",
+		Name = "Surface Jitter",
+		Min = 0,
+		Max = 50,
+		Key = "k22",
+		Default = 0,
+		Desc = "Roughens the ball. 0 is an exact sphere.",
+	},
 	{ Type = "Toggle", Name = "Auto Recall", Key = "k18", Default = true },
 	{ Type = "Toggle", Name = "Click To Fire", Key = "k19", Default = true },
-	{ Type = "Toggle", Name = "Neon Glow", Key = "k20", Default = true },
 }
 
 return M
