@@ -45,6 +45,24 @@ return {
 		-- so it was permanently false and a touch user could never deselect a part or
 		-- add to a selection.
 		SculptorMultiSelect = false,
+		PartCtlMultiSelect = false,
+		-- Part Control listens on left click, and unlike the Sculptor it is not a
+		-- shape, so it has no `x1.k6 == "Sculptor"` to gate itself on. Unarmed it
+		-- would hijack every click on a held part and draw a selection rectangle
+		-- over every core drag. Armed while the panel is open, or permanently by
+		-- this toggle for people who want the panel out of the way.
+		PartCtlEnabled = false,
+		PartCtlMode = "pin",
+		PartCtlShape = "Black Hole",
+		PartCtlRide = false,
+		-- nil means "inherit the global setting", which is what the System loop's
+		-- `d.pc_phys and ...` guards test for. Stored as -1 rather than nil because
+		-- the settings file round-trip drops nils, and the panel needs to be able to
+		-- show "inherit" as a distinct state from a real value.
+		PartCtlPull = -1,
+		PartCtlDamping = -1,
+		PartCtlSmoothing = -1,
+		PartCtlMaxSpeed = -1,
 		Perf_DisableShadows = false,
 		Perf_DisablePostFX = false,
 		Perf_PotatoMaterials = false,
@@ -52,6 +70,12 @@ return {
 		SlingshotManual = false,
 		AggressiveClaim = false,
 		["Force Smooth (Lags)"] = false,
+		-- Force Smooth plus always_process: no update bucketing, no radius cull.
+		-- A superset, so it implies Force Smooth rather than sitting beside it.
+		MaxFidelity = false,
+		-- Off by default: the core marker staying visible while paused is the
+		-- behaviour people are used to, and some of them park it deliberately.
+		HideCoreOnPause = false,
 		["Realistic Liftoff"] = false,
 		Paused = false,
 		Damping = 0.5,
@@ -103,12 +127,20 @@ return {
 		["Cursed Technique Red"] = { k12 = 100 },
 		["ROOM Ope Ope no Mi"] = { k11 = 150, k12 = 2, k13 = 1.5, k14 = 20, k18 = true },
 		["Light Light no Mi"] = { k11 = 150, k12 = 400, k13 = 3, k14 = 2, k18 = true },
+		["Goro Goro no Mi"] = {
+			k11 = 200, k12 = 18, k13 = 14, k14 = 12, k15 = 3,
+			k16 = 0.3, k17 = 0.4, k18 = 2, k19 = true, k20 = false, k21 = false,
+		},
+		["Raigo"] = {
+			k11 = 8, k12 = 250, k13 = 80, k14 = 0.7, k15 = 12,
+			k16 = 8, k17 = 12, k18 = true, k19 = true, k20 = true,
+		},
 		["Quantum Core"] = { k11 = 100, k12 = 30, k13 = 40, k14 = 50, k15 = 0, k16 = 0, k17 = 0, k23 = false },
 		["Galactic Web"] = { k11 = 400, k12 = 10, k13 = 5, k14 = 0, k15 = 0, k16 = 0, k17 = 0, k23 = false, k24 = 200 },
 		-- k14/k15/k16 carry Div = 10, so the value here is what the shape reads and
 		-- the panel shows it ten times larger. Written pre-multiplied these were
 		-- ten times too big: 3 displayed as 30 against a 1..20 slider, so the first
-		-- time the panel opened UI.lua:1223-1225 clamped it and wrote back 2.
+		-- time the panel opened UI.lua:1287-1289 clamped it and wrote back 2.
 		["Quantum Entanglement"] = { k11 = 50, k12 = 100, k13 = 200, k14 = 0.3, k15 = 0.2, k16 = 0.5 },
 		["Meteor Shower"] = { k11 = 500, k12 = 300, k13 = 150, k15 = 0, k16 = 0, k17 = 0, k23 = false },
 		["World Serpent"] = { k11 = 400, k12 = 100, k13 = 20, k14 = 20, k15 = 0, k16 = 0, k17 = 0, k23 = false },
@@ -162,7 +194,7 @@ return {
 			k16 = 2, k17 = 8, k18 = 10, k19 = 3,
 		},
 		-- Lag Tree pair. k14 and k16 on Meteor Hammer carry Div = 10, so the
-		-- stored 0.8 and 1.2 show as 8 and 12 on the panel (UI.lua:1223-1225).
+		-- stored 0.8 and 1.2 show as 8 and 12 on the panel (UI.lua:1287-1289).
 		["Meteor Hammer"] = {
 			k11 = 90, k13 = 60, k14 = 0.8, k15 = 60, k16 = 1.2,
 			k17 = 16, k18 = 4, k19 = 55,

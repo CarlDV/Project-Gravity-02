@@ -938,7 +938,7 @@ function M.cleanup(x6, x1)
 end
 
 -- Desc is carried for the shapes that render it and as source documentation;
--- UI.lua only forwards it for TextBox controls, so names have to stand alone.
+-- UI.lua forwards it for Slider, Toggle and TextBox controls alike.
 -- Note also that UI.lua widens any slider whose name contains "speed" by 300
 -- unless ExactMax is set -- every speed control below sets it.
 M.Controls = {

@@ -196,6 +196,18 @@ return function(context)
 		local PILL_SIZE = 44
 		local CONTENT_GAP = 10
 
+		-- Advanced, Keybinds and Part Control are the same kind of window and all
+		-- open in the same slot beside Main, so they share one geometry rather than
+		-- each carrying its own literals. That drift is what left Part Control at
+		-- 300x470 with a 50px header next to Keybinds' 300x440 with a 44px one, and
+		-- what made three panels stack on the same coordinates.
+		local SIDE_W = 300
+		local SIDE_H = 440
+		local SIDE_HEADER_H = 44
+		local SIDE_X = 360
+		-- Bottom margin under a side panel's content frame, matching CONTENT_GAP.
+		local SIDE_GAP = 10
+
 		-- Roblox honours one UIScale per GuiObject, so the open/close pop and the
 		-- user's UI Scale setting have to share it. Every scalable window is
 		-- registered here and its scale is always (pop factor * app scale):
@@ -288,6 +300,52 @@ return function(context)
 				end)
 				tw:Play()
 			end
+		end
+
+		-- The side panels all open in the same slot beside Main, so opening one has
+		-- to close the others: stacked they are unreadable, and the one underneath
+		-- still takes clicks wherever the top one does not cover it. Part Control
+		-- carries an on_close because closing it also has to disarm the click
+		-- handlers -- otherwise every click keeps hijacking held parts with the
+		-- panel out of sight.
+		local side_panels = {}
+		local function register_side_panel(win, on_close)
+			side_panels[win] = on_close or true
+		end
+
+		local function close_side_panel(win)
+			local on_close = side_panels[win]
+			toggle_window(win, false)
+			if type(on_close) == "function" then
+				pcall(on_close)
+			end
+		end
+
+		local function open_side_panel(win, state)
+			if state then
+				for other in pairs(side_panels) do
+					if other ~= win and other.Visible then
+						close_side_panel(other)
+					end
+				end
+				toggle_window(win, true)
+			else
+				close_side_panel(win)
+			end
+		end
+
+		-- Every window in this tree closes with the same 20x20 red circle. Part
+		-- Control used to be the one exception -- a grey text "x", 30x30, at its own
+		-- offset -- and Advanced had no close button at all.
+		local function side_close(header, cb)
+			local b = Instance.new("TextButton", header)
+			b.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+			b.Position = UDim2.new(1, -30, 0.5, -10)
+			b.Size = UDim2.new(0, 20, 0, 20)
+			b.Text = ""
+			Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
+			b.MouseButton1Click:Connect(cb)
+			return b
 		end
 
 		-- Dragging, done by hand rather than with the legacy Draggable property.
@@ -479,8 +537,8 @@ return function(context)
 		local am = Instance.new("CanvasGroup", sg)
 		am.Name = "Advanced"
 		am.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
-		am.Position = UDim2.new(0, 360, 0.5, -200)
-		am.Size = UDim2.new(0, 260, 0, 380)
+		am.Position = UDim2.new(0, SIDE_X, 0.5, -SIDE_H / 2)
+		am.Size = UDim2.new(0, SIDE_W, 0, SIDE_H)
 		am.Visible = false
 		am.GroupTransparency = 1
 		am.Active = true
@@ -492,10 +550,11 @@ return function(context)
 		-- Starts hidden, so it starts at the closed pop factor and toggle_window
 		-- tweens it up to the app scale rather than to a hardcoded 1.
 		register_window(am, 0.8)
+		register_side_panel(am)
 
 		local ah = Instance.new("Frame", am)
 		ah.BackgroundTransparency = 1
-		ah.Size = UDim2.new(1, 0, 0, 50)
+		ah.Size = UDim2.new(1, 0, 0, SIDE_HEADER_H)
 		make_draggable(am, ah)
 		local at = Instance.new("TextLabel", ah)
 		at.BackgroundTransparency = 1
@@ -507,10 +566,14 @@ return function(context)
 		at.TextSize = 14
 		at.TextXAlignment = 0
 
+		side_close(ah, function()
+			close_side_panel(am)
+		end)
+
 		local ac = Instance.new("ScrollingFrame", am)
 		ac.BackgroundTransparency = 1
-		ac.Position = UDim2.new(0, 0, 0, 50)
-		ac.Size = UDim2.new(1, 0, 1, -60)
+		ac.Position = UDim2.new(0, 0, 0, SIDE_HEADER_H)
+		ac.Size = UDim2.new(1, 0, 1, -(SIDE_HEADER_H + SIDE_GAP))
 		ac.ScrollBarThickness = 0
 		ac.AutomaticCanvasSize = Enum.AutomaticSize.Y
 		ac.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -650,8 +713,8 @@ return function(context)
 		local km = Instance.new("CanvasGroup", sg)
 		km.Name = "Keybinds"
 		km.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
-		km.Position = UDim2.new(0, 360, 0.5, -220)
-		km.Size = UDim2.new(0, 300, 0, 440)
+		km.Position = UDim2.new(0, SIDE_X, 0.5, -SIDE_H / 2)
+		km.Size = UDim2.new(0, SIDE_W, 0, SIDE_H)
 		km.Visible = false
 		km.GroupTransparency = 1
 		km.Active = true
@@ -660,10 +723,11 @@ return function(context)
 		kms.Color = Color3.fromRGB(40, 40, 45)
 		kms.Thickness = 1
 		register_window(km, 0.8)
+		register_side_panel(km)
 
 		local kh = Instance.new("Frame", km)
 		kh.BackgroundTransparency = 1
-		kh.Size = UDim2.new(1, 0, 0, 44)
+		kh.Size = UDim2.new(1, 0, 0, SIDE_HEADER_H)
 		make_draggable(km, kh)
 		local kt = Instance.new("TextLabel", kh)
 		kt.BackgroundTransparency = 1
@@ -675,19 +739,13 @@ return function(context)
 		kt.TextSize = 14
 		kt.TextXAlignment = 0
 
-		local kclose = Instance.new("TextButton", kh)
-		kclose.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
-		kclose.Position = UDim2.new(1, -30, 0.5, -10)
-		kclose.Size = UDim2.new(0, 20, 0, 20)
-		kclose.Text = ""
-		Instance.new("UICorner", kclose).CornerRadius = UDim.new(1, 0)
-		kclose.MouseButton1Click:Connect(function()
-			toggle_window(km, false)
+		side_close(kh, function()
+			close_side_panel(km)
 		end)
 
 		local ksearch = Instance.new("TextBox", km)
 		ksearch.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-		ksearch.Position = UDim2.new(0, 20, 0, 44)
+		ksearch.Position = UDim2.new(0, 20, 0, SIDE_HEADER_H)
 		ksearch.Size = UDim2.new(1, -40, 0, 30)
 		ksearch.PlaceholderText = "Search shapes..."
 		ksearch.PlaceholderColor3 = Color3.fromRGB(110, 110, 120)
@@ -700,8 +758,9 @@ return function(context)
 
 		local kc = Instance.new("ScrollingFrame", km)
 		kc.BackgroundTransparency = 1
-		kc.Position = UDim2.new(0, 0, 0, 82)
-		kc.Size = UDim2.new(1, 0, 1, -92)
+		-- The header, then the search row (30) and the gap under it (8).
+		kc.Position = UDim2.new(0, 0, 0, SIDE_HEADER_H + 38)
+		kc.Size = UDim2.new(1, 0, 1, -(SIDE_HEADER_H + 38 + SIDE_GAP))
 		kc.ScrollBarThickness = 0
 		kc.AutomaticCanvasSize = Enum.AutomaticSize.Y
 		kc.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -834,9 +893,561 @@ return function(context)
 			populate_keybinds(ksearch.Text)
 		end)
 
+		local pcm = Instance.new("CanvasGroup", sg)
+		pcm.Name = "PartControl"
+		pcm.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+		pcm.Position = UDim2.new(0, SIDE_X, 0.5, -SIDE_H / 2)
+		pcm.Size = UDim2.new(0, SIDE_W, 0, SIDE_H)
+		pcm.Visible = false
+		-- The panel is rebuilt closed, and pc_active lives on x6, which outlives a
+		-- UI teardown -- so a rebuild would otherwise come up armed with the panel
+		-- shut.
+		x6.pc_active = false
+		pcm.GroupTransparency = 1
+		pcm.Active = true
+		Instance.new("UICorner", pcm).CornerRadius = UDim.new(0, 10)
+		local pcms = Instance.new("UIStroke", pcm)
+		pcms.Color = Color3.fromRGB(40, 40, 45)
+		pcms.Thickness = 1
+		register_window(pcm, 0.8)
+		-- Registered with an on_close, so closing the panel through any route --
+		-- its own button, another side panel opening over it, or the whole panel
+		-- collapsing to the pill -- disarms the click handlers. Left set, every
+		-- click keeps hijacking held parts with no visible sign of why.
+		register_side_panel(pcm, function()
+			x6.pc_active = false
+		end)
+
+		local pch = Instance.new("Frame", pcm)
+		pch.BackgroundTransparency = 1
+		pch.Size = UDim2.new(1, 0, 0, SIDE_HEADER_H)
+		make_draggable(pcm, pch)
+		local pct = Instance.new("TextLabel", pch)
+		pct.BackgroundTransparency = 1
+		pct.Position = UDim2.new(0, 20, 0, 0)
+		pct.Size = UDim2.new(0.6, 0, 1, 0)
+		pct.Text = "PART CONTROL"
+		pct.TextColor3 = Color3.fromRGB(255, 255, 255)
+		pct.Font = Enum.Font.GothamBold
+		pct.TextSize = 14
+		pct.TextXAlignment = 0
+
+		side_close(pch, function()
+			close_side_panel(pcm)
+		end)
+
+		local pcc = Instance.new("ScrollingFrame", pcm)
+		pcc.BackgroundTransparency = 1
+		pcc.Position = UDim2.new(0, 0, 0, SIDE_HEADER_H)
+		pcc.Size = UDim2.new(1, 0, 1, -(SIDE_HEADER_H + SIDE_GAP))
+		pcc.ScrollBarThickness = 0
+		pcc.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		pcc.CanvasSize = UDim2.new(0, 0, 0, 0)
+
+		-- Built once and refreshed in place. This panel used to ClearAllChildren on
+		-- every refresh, which had two consequences: the selection count could only
+		-- ever be right at the instant the window was opened, and any refresh that
+		-- landed while the user was mid-interaction destroyed the control under
+		-- their cursor. The one genuinely rebuilt piece is the shape list, and its
+		-- search box lives outside it for exactly that reason -- the same split
+		-- populate_keybinds uses.
+		local pcl = Instance.new("UIListLayout", pcc)
+		pcl.Padding = UDim.new(0, 10)
+		pcl.HorizontalAlignment = Enum.HorizontalAlignment.Center
+		local pcp = Instance.new("UIPadding", pcc)
+		pcp.PaddingLeft = UDim.new(0, 20)
+		pcp.PaddingRight = UDim.new(0, 20)
+		-- Main and Keybinds both pad the bottom; without it the last toggle sits
+		-- flush against the panel edge.
+		pcp.PaddingBottom = UDim.new(0, 20)
+
+		local count_lbl = Instance.new("TextLabel", pcc)
+		count_lbl.BackgroundTransparency = 1
+		count_lbl.Size = UDim2.new(1, 0, 0, 20)
+		count_lbl.Text = "Selected: 0  ·  Overridden: 0"
+		count_lbl.TextColor3 = Color3.fromRGB(255, 170, 0)
+		count_lbl.Font = Enum.Font.GothamBold
+		count_lbl.TextSize = 12
+		count_lbl.TextXAlignment = 0
+
+		local hint_lbl = Instance.new("TextLabel", pcc)
+		hint_lbl.BackgroundTransparency = 1
+		hint_lbl.Size = UDim2.new(1, 0, 0, 0)
+		hint_lbl.AutomaticSize = Enum.AutomaticSize.Y
+		-- Filled by refresh_counts, which owns both wordings; see HINT_EMPTY below.
+		hint_lbl.Text = ""
+		hint_lbl.TextColor3 = Color3.fromRGB(120, 120, 130)
+		hint_lbl.Font = Enum.Font.Gotham
+		hint_lbl.TextSize = 10
+		hint_lbl.TextWrapped = true
+		hint_lbl.TextXAlignment = 0
+
+		local MODE_LABELS = {
+			normal = "Normal (No Override)",
+			pin = "Pin (Hold Position)",
+			manual = "Manual Target",
+			shape = "Assign Shape",
+		}
+		local mode_paint = {}
+
+		local function refresh_modes()
+			for _, paint in pairs(mode_paint) do
+				paint()
+			end
+		end
+
+		local function pc_selection()
+			return (x6.pc_count and x6.pc_count()) or 0
+		end
+
+		-- Two hints, because the first thing the panel has to answer is whether it
+		-- is waiting on a selection. With nothing selected every action below is a
+		-- no-op, and the panel used to give no sign of that at all.
+		local HINT_EMPTY = "Nothing selected. Click a held part to select it. "
+			.. "Shift-click to add or remove; drag on empty space to box-select."
+		local HINT_SELECTED = "Pick a mode below to apply it. Drag a selected part to move it, "
+			.. "or shift-click to add or remove."
+
+		local function refresh_counts()
+			local sel = pc_selection()
+			local held = 0
+			if x6.a then
+				for _, d in pairs(x6.a) do
+					if d.pc_mode then
+						held = held + 1
+					end
+				end
+			end
+			count_lbl.Text = ("Selected: %d  ·  Overridden: %d"):format(sel, held)
+			hint_lbl.Text = (sel > 0) and HINT_SELECTED or HINT_EMPTY
+		end
+
+		-- context.x8 rather than a captured local: System publishes notify onto the
+		-- context after UI is built, so a local grabbed here would be nil forever.
+		local function pc_notify(title, msg, secs)
+			local x8 = context.x8
+			if x8 and x8.notify then
+				x8.notify(title, msg, secs or 2)
+			end
+		end
+
+		eb(pcc, "Clear Selection", function()
+			if x6.pc_clear then
+				x6.pc_clear()
+			end
+		end)
+
+		-- Deselecting deliberately leaves the overrides in place, so there has to be
+		-- a way to take them off again once the parts are no longer selected. Before
+		-- this, Clear Selection dropped the whole registry and the parts it had been
+		-- driving were stranded with no route back.
+		eb(pcc, "Release All Overrides", function()
+			if x6.pc_release_all then
+				local n = x6.pc_release_all()
+				pc_notify("Part Control", ("Released %d part%s"):format(n, n == 1 and "" or "s"))
+			end
+		end)
+
+		eh(pcc, "Mode")
+
+		local function set_mode(id)
+			x1.PartCtlMode = id
+			local sel = pc_selection()
+			if x6.pc_assign then
+				if id == "normal" then
+					x6.pc_assign(nil)
+				elseif id == "shape" then
+					local n = x6.pc_assign("shape", { shape = x1.PartCtlShape or "Black Hole", ride = x1.PartCtlRide })
+					if n == 0 and sel > 0 then
+						pc_notify("Part Control", tostring(x1.PartCtlShape) .. " cannot drive parts.", 3)
+					end
+				else
+					x6.pc_assign(id, { ride = x1.PartCtlRide })
+				end
+			end
+			-- The mode is also the default the next selection and every drag latch
+			-- picks up, so choosing one with nothing selected is not a mistake -- but
+			-- it looks like one unless it says so.
+			if sel == 0 then
+				pc_notify("Part Control", MODE_LABELS[id] .. " will apply to the next selection.", 2)
+			end
+			refresh_modes()
+			save_settings()
+		end
+
+		-- A radio group painted the way the mode selector paints its rows, rather
+		-- than by prefixing the label with a bullet: eb tweens both
+		-- BackgroundColor3 and TextColor3 on hover, so an eb button cannot hold a
+		-- selected tint -- the cursor crossing the row wipes it. Hand-built rows own
+		-- their own hover, so the selection survives it.
+		local function mode_row(id)
+			local b = Instance.new("TextButton", pcc)
+			b.Size = UDim2.new(1, 0, 0, 34)
+			b.AutoButtonColor = false
+			b.BorderSizePixel = 0
+			b.Text = "  " .. MODE_LABELS[id]
+			b.Font = Enum.Font.GothamMedium
+			b.TextSize = 13
+			b.TextXAlignment = Enum.TextXAlignment.Left
+			b.TextTruncate = Enum.TextTruncate.AtEnd
+			Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+			local str = Instance.new("UIStroke", b)
+			str.Thickness = 1
+
+			local hovering = false
+			local function paint(instant)
+				local on = x1.PartCtlMode == id
+				local bg = (on and Color3.fromRGB(40, 40, 180))
+					or (hovering and Color3.fromRGB(40, 40, 45))
+					or Color3.fromRGB(30, 30, 35)
+				local fg = (on or hovering) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(220, 220, 220)
+				local edge = (on and Color3.fromRGB(70, 70, 200))
+					or (hovering and Color3.fromRGB(70, 70, 78))
+					or Color3.fromRGB(50, 50, 55)
+				if instant then
+					b.BackgroundColor3, b.TextColor3, str.Color = bg, fg, edge
+					return
+				end
+				v6:Create(b, A.TINT, { BackgroundColor3 = bg, TextColor3 = fg }):Play()
+				v6:Create(str, A.TINT, { Color = edge }):Play()
+			end
+
+			b.MouseEnter:Connect(function()
+				hovering = true
+				paint()
+			end)
+			b.MouseLeave:Connect(function()
+				hovering = false
+				paint()
+			end)
+			b.MouseButton1Click:Connect(function()
+				set_mode(id)
+			end)
+			UI_elements.press(b)
+			paint(true)
+			mode_paint[id] = paint
+		end
+
+		for _, id in ipairs({ "normal", "pin", "manual", "shape" }) do
+			mode_row(id)
+		end
+		refresh_modes()
+
+		-- A section that folds. Expanded, the shape picker and the four physics
+		-- sliders push Options a screen and a half down a 440px panel, and reaching
+		-- them means scrolling past a nested scroller -- which on touch fights the
+		-- panel's own scroll. The head carries the section's current value, so the
+		-- state is still readable while it is shut.
+		--
+		-- Folding is Visible on the body, not a size tween: UIListLayout skips
+		-- invisible children, so the rows below close the gap on their own and
+		-- AutomaticCanvasSize re-measures the canvas with them.
+		local function collapsible(title, open, value_fn)
+			local head = Instance.new("TextButton", pcc)
+			head.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+			head.Size = UDim2.new(1, 0, 0, 34)
+			head.AutoButtonColor = false
+			head.BorderSizePixel = 0
+			head.Text = ""
+			Instance.new("UICorner", head).CornerRadius = UDim.new(0, 6)
+			local hstr = Instance.new("UIStroke", head)
+			hstr.Color = Color3.fromRGB(40, 40, 45)
+			hstr.Thickness = 1
+
+			local hl = Instance.new("TextLabel", head)
+			hl.BackgroundTransparency = 1
+			hl.Position = UDim2.new(0, 12, 0, 0)
+			hl.Size = UDim2.new(0.5, 0, 1, 0)
+			hl.Text = title:upper()
+			hl.TextColor3 = Color3.fromRGB(200, 200, 210)
+			hl.Font = Enum.Font.GothamBold
+			hl.TextSize = 11
+			hl.TextXAlignment = Enum.TextXAlignment.Left
+
+			local vl = Instance.new("TextLabel", head)
+			vl.BackgroundTransparency = 1
+			vl.Position = UDim2.new(0.5, 0, 0, 0)
+			vl.Size = UDim2.new(0.5, -30, 1, 0)
+			vl.Text = ""
+			vl.TextColor3 = Color3.fromRGB(0, 255, 200)
+			vl.Font = Enum.Font.GothamMedium
+			vl.TextSize = 11
+			vl.TextXAlignment = Enum.TextXAlignment.Right
+			vl.TextTruncate = Enum.TextTruncate.AtEnd
+
+			local arrow = Instance.new("TextLabel", head)
+			arrow.BackgroundTransparency = 1
+			arrow.Position = UDim2.new(1, -26, 0, 0)
+			arrow.Size = UDim2.new(0, 20, 1, 0)
+			arrow.Text = open and "▲" or "▼"
+			arrow.TextColor3 = Color3.fromRGB(150, 150, 160)
+			arrow.Font = Enum.Font.GothamBold
+			arrow.TextSize = 10
+
+			local body = Instance.new("Frame", pcc)
+			body.BackgroundTransparency = 1
+			body.Size = UDim2.new(1, 0, 0, 0)
+			body.AutomaticSize = Enum.AutomaticSize.Y
+			body.Visible = open and true or false
+			local bl = Instance.new("UIListLayout", body)
+			bl.Padding = UDim.new(0, 8)
+			bl.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+			head.MouseButton1Click:Connect(function()
+				body.Visible = not body.Visible
+				arrow.Text = body.Visible and "▲" or "▼"
+			end)
+			head.MouseEnter:Connect(function()
+				v6:Create(head, A.HOVER, { BackgroundColor3 = Color3.fromRGB(35, 35, 40) }):Play()
+			end)
+			head.MouseLeave:Connect(function()
+				v6:Create(head, A.HOVER, { BackgroundColor3 = Color3.fromRGB(25, 25, 30) }):Play()
+			end)
+			UI_elements.press(head, 0.98)
+
+			local function refresh_head()
+				if value_fn then
+					vl.Text = tostring(value_fn() or "")
+				end
+			end
+			refresh_head()
+			return body, refresh_head
+		end
+
+		local shape_body, refresh_shape_head = collapsible("Target Shape", false, function()
+			return x1.PartCtlShape or "Black Hole"
+		end)
+
+		-- Outside the list it filters, so a keystroke cannot destroy the box being
+		-- typed into. The picker was a single button that cycled one shape per click
+		-- through every entry in x2 -- fifty-odd presses to reach the end of the
+		-- alphabet. Styled like every other search box in the tree (ksearch, msb,
+		-- the target list's): 20/20/25, 30 tall, Gotham 12.
+		local pcsearch = Instance.new("TextBox", shape_body)
+		pcsearch.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+		pcsearch.Size = UDim2.new(1, 0, 0, 30)
+		pcsearch.Text = ""
+		pcsearch.PlaceholderText = "Search shapes..."
+		pcsearch.PlaceholderColor3 = Color3.fromRGB(110, 110, 120)
+		pcsearch.TextColor3 = Color3.fromRGB(255, 255, 255)
+		pcsearch.Font = Enum.Font.Gotham
+		pcsearch.TextSize = 12
+		pcsearch.ClearTextOnFocus = false
+		Instance.new("UICorner", pcsearch).CornerRadius = UDim.new(0, 6)
+
+		local pcslist = Instance.new("ScrollingFrame", shape_body)
+		pcslist.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+		pcslist.BorderSizePixel = 0
+		pcslist.Size = UDim2.new(1, 0, 0, 160)
+		-- 0 like every other scroller in the tree; this list was the only one
+		-- showing a bar.
+		pcslist.ScrollBarThickness = 0
+		pcslist.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		pcslist.CanvasSize = UDim2.new(0, 0, 0, 0)
+		Instance.new("UICorner", pcslist).CornerRadius = UDim.new(0, 6)
+
+		-- The same widget as the mode selector's rows, down to the favourites star
+		-- and the favourites-first ordering, so a shape sits in the same place in
+		-- both lists. Only the row height differs -- 34 rather than 40, matching the
+		-- button rhythm of the panel this one is inset into.
+		local function populate_pc_shapes(filter)
+			pcslist:ClearAllChildren()
+			local sl = Instance.new("UIListLayout", pcslist)
+			sl.Padding = UDim.new(0, 5)
+			sl.HorizontalAlignment = Enum.HorizontalAlignment.Center
+			local names = {}
+			for sn, _ in pairs(x2) do
+				-- Sculptor is a tool, not a driver; pc_assign refuses it outright.
+				if sn ~= "Sculptor" then
+					table.insert(names, sn)
+				end
+			end
+			table.sort(names, function(a, b)
+				local fa, fb = favorites[a] and 1 or 0, favorites[b] and 1 or 0
+				if fa ~= fb then
+					return fa > fb
+				end
+				return a < b
+			end)
+			filter = filter or ""
+			for _, sn in ipairs(names) do
+				-- Plain find, same as populate_modes: without the flag a typed "(" is
+				-- an unfinished Lua capture and throws out of the Text callback after
+				-- the list has already been cleared.
+				if filter ~= "" and not sn:lower():find(filter:lower(), 1, true) then
+					continue
+				end
+				local row = Instance.new("Frame", pcslist)
+				row.Size = UDim2.new(1, -8, 0, 34)
+				row.BackgroundColor3 = (sn == x1.PartCtlShape) and Color3.fromRGB(40, 40, 180)
+					or Color3.fromRGB(25, 25, 30)
+				row.BorderSizePixel = 0
+				Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
+
+				local pick = Instance.new("TextButton", row)
+				pick.Position = UDim2.new(0, 8, 0, 0)
+				pick.Size = UDim2.new(1, -40, 1, 0)
+				pick.BackgroundTransparency = 1
+				pick.Text = sn
+				pick.TextColor3 = Color3.fromRGB(255, 255, 255)
+				pick.Font = Enum.Font.GothamBold
+				pick.TextSize = 12
+				pick.TextXAlignment = Enum.TextXAlignment.Left
+				pick.TextTruncate = Enum.TextTruncate.AtEnd
+
+				local star = Instance.new("TextButton", row)
+				star.Position = UDim2.new(1, -35, 0, 0)
+				star.Size = UDim2.new(0, 35, 1, 0)
+				star.BackgroundTransparency = 1
+				star.Text = favorites[sn] and "★" or "☆"
+				star.TextColor3 = favorites[sn] and Color3.fromRGB(255, 200, 50) or Color3.fromRGB(80, 80, 85)
+				star.Font = Enum.Font.GothamBold
+				star.TextSize = 14
+				star.MouseButton1Click:Connect(function()
+					favorites[sn] = not favorites[sn]
+					save_favs()
+					populate_pc_shapes(pcsearch.Text)
+				end)
+
+				pick.MouseButton1Click:Connect(function()
+					x1.PartCtlShape = sn
+					refresh_shape_head()
+					-- Only re-assigns when shape mode is already the live mode, so
+					-- browsing the list does not silently retarget the selection.
+					if x1.PartCtlMode == "shape" and x6.pc_assign then
+						local n = x6.pc_assign("shape", { shape = sn, ride = x1.PartCtlRide })
+						if n == 0 and pc_selection() > 0 then
+							pc_notify("Part Control", sn .. " cannot drive parts.", 3)
+						end
+					end
+					save_settings()
+					populate_pc_shapes(pcsearch.Text)
+				end)
+			end
+		end
+		populate_pc_shapes("")
+		pcsearch:GetPropertyChangedSignal("Text"):Connect(function()
+			populate_pc_shapes(pcsearch.Text)
+		end)
+
+		-- The per-part physics fields the System loop already reads (pc_phys.k10,
+		-- .Damping, .k8, .MaxSpeed) had no way of being set from anywhere: the
+		-- plumbing was there and nothing ever filled it in. Negative means inherit
+		-- the global value, which is what the loop's `d.pc_phys and ...` guards
+		-- express as nil -- stored as a number because the settings file round-trip
+		-- drops nils and the slider needs a position to sit at.
+		local INHERIT_HINT = "Below zero inherits the global setting."
+
+		local function pc_phys_table()
+			local function pick(v)
+				v = tonumber(v)
+				-- Any negative reads as inherit, not just exactly -1: the slider snaps
+				-- in tenths, so -0.9 is reachable on the two float ranges.
+				if not v or v ~= v or v < 0 then
+					return nil
+				end
+				return v
+			end
+			return {
+				k10 = pick(x1.PartCtlPull),
+				Damping = pick(x1.PartCtlDamping),
+				k8 = pick(x1.PartCtlSmoothing),
+				MaxSpeed = pick(x1.PartCtlMaxSpeed),
+			}
+		end
+
+		local phys_body, refresh_phys_head = collapsible("Physics Override", false, function()
+			local t = pc_phys_table()
+			-- The head has to distinguish "all four inherit" from "something is
+			-- overridden here", which is the only reason to open the section.
+			if t.k10 or t.Damping or t.k8 or t.MaxSpeed then
+				return "custom"
+			end
+			return "inherit"
+		end)
+
+		es(phys_body, "Pull Strength", -1, 200, tonumber(x1.PartCtlPull) or -1, function(v)
+			x1.PartCtlPull = v
+			refresh_phys_head()
+		end, false, INHERIT_HINT)
+		es(phys_body, "Damping", -1, 5, tonumber(x1.PartCtlDamping) or -1, function(v)
+			x1.PartCtlDamping = v
+			refresh_phys_head()
+		end, false, INHERIT_HINT)
+		es(phys_body, "Smoothing", -1, 1, tonumber(x1.PartCtlSmoothing) or -1, function(v)
+			x1.PartCtlSmoothing = v
+			refresh_phys_head()
+		end, false, INHERIT_HINT)
+		es(phys_body, "Max Speed", -1, 2000, tonumber(x1.PartCtlMaxSpeed) or -1, function(v)
+			x1.PartCtlMaxSpeed = v
+			refresh_phys_head()
+		end, false, INHERIT_HINT)
+
+		eb(phys_body, "Apply Physics To Selection", function()
+			if x6.pc_set_phys then
+				local n = x6.pc_set_phys(pc_phys_table())
+				if n == 0 then
+					pc_notify("Part Control", "Select a part first.", 2)
+				else
+					pc_notify("Part Control", ("Physics applied to %d part%s"):format(n, n == 1 and "" or "s"))
+				end
+			end
+			save_settings()
+		end)
+
+		eb(phys_body, "Clear Physics Override", function()
+			if x6.pc_set_phys then
+				x6.pc_set_phys(nil)
+			end
+		end)
+
+		eh(pcc, "Options")
+
+		et(pcc, "Rideable", x1.PartCtlRide == true, function(v)
+			x1.PartCtlRide = v
+			if x6.pc_assign and x1.PartCtlMode and x1.PartCtlMode ~= "normal" then
+				x6.pc_assign(x1.PartCtlMode, { shape = x1.PartCtlShape, ride = v })
+			end
+			save_settings()
+		end, "Makes selected parts solid and standable.")
+
+		et(pcc, "Multi-Select (Click)", x1.PartCtlMultiSelect == true, function(v)
+			x1.PartCtlMultiSelect = v
+			save_settings()
+		end, "Adds to the selection on every click, without holding Shift.")
+
+		et(pcc, "Stay Armed When Closed", x1.PartCtlEnabled == true, function(v)
+			x1.PartCtlEnabled = v
+			save_settings()
+		end, "Keeps click-to-select and drag working after this panel is closed.")
+
+		-- Unhooks itself once the panel is gone. The hook is held by x6, which
+		-- outlives a UI teardown, so a rebuilt panel would otherwise leave the old
+		-- closure pinning a destroyed CanvasGroup and every control under it.
+		local function refresh_partctl()
+			if not pcm.Parent then
+				if x6.pc_on_change == refresh_partctl then
+					x6.pc_on_change = nil
+				end
+				return
+			end
+			refresh_counts()
+			refresh_modes()
+			refresh_shape_head()
+			refresh_phys_head()
+		end
+		refresh_partctl()
+		x5.refresh_partctl = refresh_partctl
+		-- Published for System_partctl: selecting, assigning and releasing all run
+		-- from input handlers that know nothing about the panel, and this is what
+		-- makes the count and the active-mode marker live rather than a snapshot
+		-- taken when the window happened to open.
+		x6.pc_on_change = refresh_partctl
+
+
 		local kb_btn = eb(c, "Keybinds", function()
 			local opening = not km.Visible
-			toggle_window(km, opening)
+			open_side_panel(km, opening)
 			if opening then
 				populate_keybinds(ksearch.Text)
 			end
@@ -844,9 +1455,22 @@ return function(context)
 		kb_btn.Size = UDim2.new(1, 0, 0, 36)
 
 		local ab = eb(c, "Advanced Settings", function()
-			toggle_window(am, not am.Visible)
+			open_side_panel(am, not am.Visible)
 		end)
 		ab.Size = UDim2.new(1, 0, 0, 36)
+
+		local pcb = eb(c, "Part Control", function()
+			local opening = not pcm.Visible
+			open_side_panel(pcm, opening)
+			-- Arming follows the panel, the same way the Sculptor's handlers follow
+			-- x1.k6. PartCtlEnabled keeps them armed past a close. The close paths all
+			-- run through the on_close registered above; this is the open one.
+			x6.pc_active = opening
+			if opening and x5.refresh_partctl then
+				x5.refresh_partctl()
+			end
+		end)
+		pcb.Size = UDim2.new(1, 0, 0, 36)
 
 		local ai_btn = eb(c, "PROJECT GRAVITY AI", function()
 			if ai_chat_module and ai_chat_module.toggle then
@@ -971,11 +1595,25 @@ return function(context)
 				et(gsc, "Force Smooth (Lags)", x1["Force Smooth (Lags)"], function(v)
 					x1["Force Smooth (Lags)"] = v
 					save_settings()
-				end)
+				end, "Updates every part every frame at full smoothing, and drops damping.")
+				et(gsc, "Max Fidelity (No Skipping)", x1.MaxFidelity, function(v)
+					x1.MaxFidelity = v
+					save_settings()
+				end, "Force Smooth, and never skips or culls a part by distance. Heaviest option.")
 				et(gsc, "Realistic Liftoff", x1["Realistic Liftoff"], function(v)
 					x1["Realistic Liftoff"] = v
 					save_settings()
 				end)
+				et(gsc, "Hide Core While Paused", x1.HideCoreOnPause == true, function(v)
+					x1.HideCoreOnPause = v
+					-- Repaint immediately: the toggle is usually flipped while already
+					-- paused, and nothing else would touch the marker until the next
+					-- pause or disable.
+					if context.x4 and context.x4.refresh_core_visual then
+						context.x4.refresh_core_visual()
+					end
+					save_settings()
+				end, "Hides the core marker while paused. It stays draggable, like it does while disabled.")
 			end
 
 			x6.disable_btn = et(gsc, "Disable Gravity", x1.Disabled, function(v)
@@ -1833,8 +2471,14 @@ return function(context)
 			-- was minimized from anywhere but the very top.
 			saved_canvas = c.CanvasPosition
 			c.CanvasPosition = Vector2.new(0, 0)
-			if am.Visible then toggle_window(am, false) end
-			if km.Visible then toggle_window(km, false) end
+			-- Every side panel, through the registry: Part Control used to be missed
+			-- here, so minimising to the pill left it floating on screen with its
+			-- click handlers still armed and no panel to disarm them from.
+			for win in pairs(side_panels) do
+				if win.Visible then
+					close_side_panel(win)
+				end
+			end
 			if tut_container.Visible then toggle_window(tut_container, false) end
 			if x6.dlst_container and x6.dlst_container.Visible then
 				toggle_window(x6.dlst_container, false, true)

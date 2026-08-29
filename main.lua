@@ -204,7 +204,7 @@ if isfolder and makefolder and listfiles and readfile then
 										if default_val == nil then
 											-- Min is a *display* bound, so it needs the divide to
 											-- become a stored value. Default does not: it is already
-											-- in stored units, which is why UI.lua:1223 multiplies it
+											-- in stored units, which is why UI.lua:1287-1289 multiplies it
 											-- by Div to get the display value. Dividing both made the
 											-- two paths disagree by Div squared, so a local shape
 											-- with Div = 10 and Default = 1.2 was seeded 0.12,
@@ -526,6 +526,10 @@ local x6 = {
 	sculptor_box = nil,
 	sculptor_highlights = setmetatable({}, {__mode = "k"}),
 	sculptor_preset_ui = nil,
+	pc_selected = setmetatable({}, {__mode = "k"}),
+	pc_highlights = setmetatable({}, {__mode = "k"}),
+	pc_offsets = setmetatable({}, {__mode = "k"}),
+	pc_mods = {},
 	transition_time = 0,
 	transition_dur = 2,
 	f1_connections = {},
@@ -664,8 +668,34 @@ local function destroy()
 		end
 		table.clear(x6.sculptor_highlights)
 	end
+	-- Overrides first: pc_clear only drops the selection, so without this the
+	-- parts keep pc_mode/pc_mod pointing at a module that is about to be torn
+	-- down. Releasing walks x6.a, so it also catches parts that were assigned
+	-- and then deselected.
+	if x6.pc_release_all then
+		pcall(x6.pc_release_all)
+	end
+	if x6.pc_clear then
+		pcall(x6.pc_clear)
+	elseif x6.pc_highlights then
+		for _, hl in pairs(x6.pc_highlights) do
+			pcall(function() hl:Destroy() end)
+		end
+		table.clear(x6.pc_highlights)
+	end
 	if x6.sculptor_selected then
 		table.clear(x6.sculptor_selected)
+	end
+	if x6.pc_selected then
+		table.clear(x6.pc_selected)
+	end
+	if x6.pc_offsets then
+		table.clear(x6.pc_offsets)
+	end
+	x6.pc_active = false
+	if x6.pc_box then
+		pcall(function() x6.pc_box:Destroy() end)
+		x6.pc_box = nil
 	end
 	if x6.sculptor_box then
 		pcall(function() x6.sculptor_box:Destroy() end)

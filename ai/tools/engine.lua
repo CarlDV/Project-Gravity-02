@@ -35,8 +35,24 @@ return function(env)
 		{ arg = "void_protection", field = "VoidProtection", kind = "bool" },
 		{ arg = "anti_fling", field = "AntiFling", kind = "bool" },
 		{ arg = "force_smooth", field = "Force Smooth (Lags)", kind = "bool" },
+		{ arg = "max_fidelity", field = "MaxFidelity", kind = "bool" },
 		{ arg = "realistic_liftoff", field = "Realistic Liftoff", kind = "bool" },
-		{ arg = "paused", field = "Paused", kind = "bool" },
+		{ arg = "paused", field = "Paused", kind = "bool", apply = function(val)
+			-- Same reason as disabled: whether the core ball is visible depends on
+			-- Paused now, and only System knows how to repaint it.
+			x1.Paused = val
+			if context.x4 and context.x4.refresh_core_visual then
+				context.x4.refresh_core_visual()
+			end
+			return x1.Paused
+		end },
+		{ arg = "hide_core_on_pause", field = "HideCoreOnPause", kind = "bool", apply = function(val)
+			x1.HideCoreOnPause = val
+			if context.x4 and context.x4.refresh_core_visual then
+				context.x4.refresh_core_visual()
+			end
+			return x1.HideCoreOnPause
+		end },
 		{ arg = "force_launch", field = "IsLaunching", kind = "bool" }
 	}
 
@@ -56,8 +72,10 @@ return function(env)
 		void_protection = { type = "boolean", description = "Void protection" },
 		anti_fling = { type = "boolean", description = "Anti-fling mode" },
 		force_smooth = { type = "boolean", description = "Force smooth mode" },
+		max_fidelity = { type = "boolean", description = "Force smooth plus never skipping or culling a part" },
 		realistic_liftoff = { type = "boolean", description = "Realistic liftoff" },
 		paused = { type = "boolean", description = "Pause physics engine" },
+		hide_core_on_pause = { type = "boolean", description = "Hide the core marker while paused" },
 		force_launch = { type = "boolean", description = "Trigger force launch" }
 	}
 

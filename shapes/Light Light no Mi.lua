@@ -130,4 +130,13 @@ M.Controls = {
 	{ Type = "Toggle", Name = "Cut in Half", Key = "k18", Default = true }
 }
 
+-- Beam positions and histories live in x6.pre, which survives a shape switch;
+-- a stale meta resumes the beams from an old position and last_t.
+function M.cleanup(x6, x1)
+	if not x6.pre then
+		return
+	end
+	x6.pre["Light Light no Mi"] = nil
+end
+
 return M

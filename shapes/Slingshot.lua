@@ -9,7 +9,6 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			local speed = c.k13 or 100
 			if not d.v1 then
 				d.v1 = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5).Unit
-				d.v2 = math.random() * cycle
 				d.v2 = 0
 			end
 			local phase = (t + d.v2) % cycle

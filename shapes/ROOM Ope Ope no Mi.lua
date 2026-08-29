@@ -78,4 +78,13 @@ M.Controls = {
 	{ Type = "Toggle", Name = "Cut in Half", Key = "k18", Default = true }
 }
 
+-- next_swap lives in x6.pre and time() keeps advancing while another shape is
+-- selected, so a stale meta triggers an immediate swap burst on return.
+function M.cleanup(x6, x1)
+	if not x6.pre then
+		return
+	end
+	x6.pre["ROOM Ope Ope no Mi"] = nil
+end
+
 return M

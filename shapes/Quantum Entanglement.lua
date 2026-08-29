@@ -158,4 +158,14 @@ M.Controls = {
 	{ Type = "Slider", Name = "Drift Speed", Min = 1, Max = 50, Key = "k16", Default = 5, Div = 10 },
 }
 
+-- The pair table holds live state machines. Left in x6.pre it survives a shape
+-- switch, so returning mid-collapse re-measures immediately and next_measure
+-- fires a burst of collapses. Same convention as Celestial Ribbon:128.
+function M.cleanup(x6, x1)
+	if not x6.pre then
+		return
+	end
+	x6.pre["Quantum Entanglement"] = nil
+end
+
 return M
