@@ -171,8 +171,13 @@ for _, tree in ipairs({
 		path .. ": and tweens it back out the same way")
 
 	-- The Advanced panel was the one panel in either tree without section headers, and
-	-- it is the longest.
-	for _, section in ipairs({ "Tracking", "Physics", "Interface", "Claiming", "Performance", "Core Marker" }) do
+	-- it is the longest. Formation and Preview joined the list with the six formation
+	-- controls; tests/formation_lint.lua checks what is *inside* those two, this checks
+	-- that both trees group the panel the same way.
+	for _, section in ipairs({
+		"Tracking", "Physics", "Formation", "Preview", "Interface", "Claiming",
+		"Performance", "Core Marker",
+	}) do
 		check(src:find('eh%(ac, "' .. section .. '"%)') ~= nil,
 			("%s: Advanced groups under a %s header"):format(path, section))
 	end

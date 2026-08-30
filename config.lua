@@ -94,6 +94,35 @@ return {
 		VerticalStiffness = 1.0,
 		VoidProtection = true,
 		UIScale = 1.0,
+		-- Formation controls. Every one of these is inert at the value below, so the
+		-- loop takes exactly the path it took before they existed: TimeScale 1 is the
+		-- unscaled clock, BlendEnabled false never resolves a second field,
+		-- PreviewEnabled false builds no ghosts, SlotMode "Claim" writes no d.slot at
+		-- all (so shapes keep indexing by d.id exactly as they did), TargetParts 0 is
+		-- no ceiling, and every rule field at 0 or "" is a rule that is not applied.
+		--
+		-- The types are load-bearing, for the reason the note at the top of this table
+		-- gives: SlotMode, SurplusRule, BlendShape and RuleName must stay strings, the
+		-- three toggles must stay booleans, and TimeScale must stay a number written
+		-- with a decimal point -- load_settings compares typeof against the default,
+		-- so a key whose default is missing or the wrong type silently drops the saved
+		-- value and survives "Reset All Settings".
+		TimeScale = 1.0,
+		BlendEnabled = false,
+		BlendShape = "Black Hole",
+		BlendWeight = 0,
+		BlendStagger = 0,
+		PreviewEnabled = false,
+		PreviewCount = 40,
+		PreviewDeviation = false,
+		SlotMode = "Claim",
+		SlotSeed = 0,
+		TargetParts = 0,
+		SurplusRule = "Farthest",
+		RuleMinSize = 0,
+		RuleMaxSize = 0,
+		RuleClaimRadius = 0,
+		RuleName = "",
 		-- Key names, not KeyCodes: an EnumItem does not survive the JSON round
 		-- trip, and load_settings only restores a value whose type matches the
 		-- default. "" is a real value here and means deliberately unbound.

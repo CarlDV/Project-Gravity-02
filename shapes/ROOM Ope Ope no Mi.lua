@@ -19,7 +19,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	end
 
 	if not d.room_slot then
-		d.room_slot = d.id or 1
+		d.room_slot = d.slot or d.id or 1
 	end
 
 	if t >= meta.next_swap then

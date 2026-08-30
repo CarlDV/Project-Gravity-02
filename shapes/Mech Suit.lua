@@ -344,7 +344,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	r = r.Unit
 	f = u:Cross(r)
 
-	local id = d.id or 1
+	local id = d.slot or d.id or 1
 	local n = cloud.n
 	local i = (id * cloud.step) % n + 1
 

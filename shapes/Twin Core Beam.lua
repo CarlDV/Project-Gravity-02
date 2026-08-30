@@ -85,7 +85,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		return Vector3.zero, cen
 	end
 
-	local part_idx = d.id or 1
+	local part_idx = d.slot or d.id or 1
 	local is_right = (part_idx % 2 == 0)
 	local side_mult = is_right and 1 or -1
 	local group_idx = math.floor((part_idx - 1) / 2) + 1

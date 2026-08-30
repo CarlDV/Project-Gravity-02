@@ -497,7 +497,7 @@ return function(context)
 		hud_l.TextSize = 14
 		hud_l.TextColor3 = Color3.fromRGB(255, 255, 255)
 
-		local hud_target, hud_state, hud_parts
+		local hud_target, hud_state, hud_parts, hud_dev
 		local HUD_ACTIVE = Color3.fromRGB(80, 255, 150)
 		local HUD_PAUSED = Color3.fromRGB(255, 180, 80)
 		local HUD_DISABLED = Color3.fromRGB(255, 80, 80)
@@ -529,9 +529,22 @@ return function(context)
 				-- change detect as the other two, so this is still at most one property
 				-- write per change rather than one per frame.
 				local parts = x6.n or 0
-				if tgt ~= hud_target or state ~= hud_state or parts ~= hud_parts then
-					hud_target, hud_state, hud_parts = tgt, state, parts
-					hud_l.Text = string.format("TARGET: %s  |  PARTS: %d  |  STATUS: %s", tgt:upper(), parts, state)
+				-- Deviation, when the readout is on: how far the parts actually are from
+				-- the targets their shape gave them, mean then worst. Quantised to a tenth
+				-- of a stud and folded into the same change detect as the other three
+				-- fields, because the raw number never settles and this label is written at
+				-- most once per change rather than once per frame.
+				local dev = -1
+				if x1.PreviewDeviation and x6.dev_n and x6.dev_n > 0 then
+					dev = math.floor((x6.dev_mean or 0) * 10 + 0.5) / 10
+				end
+				if tgt ~= hud_target or state ~= hud_state or parts ~= hud_parts or dev ~= hud_dev then
+					hud_target, hud_state, hud_parts, hud_dev = tgt, state, parts, dev
+					local line = string.format("TARGET: %s  |  PARTS: %d  |  STATUS: %s", tgt:upper(), parts, state)
+					if dev >= 0 then
+						line = line .. string.format("  |  DEV: %.1f / %.1f", dev, x6.dev_max or 0)
+					end
+					hud_l.Text = line
 					hud_l.TextColor3 = x1.Disabled and HUD_DISABLED or (x1.Paused and HUD_PAUSED or HUD_ACTIVE)
 				end
 			end)
@@ -631,6 +644,99 @@ return function(context)
 		ac.ScrollBarThickness = 0
 		ac.AutomaticCanvasSize = Enum.AutomaticSize.Y
 		ac.CanvasSize = UDim2.new(0, 0, 0, 0)
+		-- Notifications from the Advanced panel go straight through System's x8 rather
+		-- than the local notify() further down this file: notify is declared *after*
+		-- populate_advanced, so a reference to it from in here resolves to a nil global
+		-- and the message goes nowhere.
+		local function adv_notify(title, text, dur)
+			local x8 = context.x8
+			if x8 and x8.notify then
+				x8.notify(title, text, dur or 3)
+			end
+		end
+
+		-- eb has no description row, and three of the controls below need one. Same
+		-- geometry as the description M.s and M.t draw for themselves.
+		local function sub_label(parent, text)
+			local d = Instance.new("TextLabel", parent)
+			d.BackgroundTransparency = 1
+			d.Size = UDim2.new(1, 0, 0, 0)
+			d.AutomaticSize = Enum.AutomaticSize.Y
+			d.Text = text
+			d.TextColor3 = Color3.fromRGB(120, 120, 130)
+			d.TextXAlignment = 0
+			d.TextYAlignment = 0
+			d.Font = Enum.Font.Gotham
+			d.TextSize = 10
+			d.TextWrapped = true
+			return d
+		end
+
+		-- An enum rendered as a button that cycles. config.lua records that shape enums
+		-- are integer sliders "(no Dropdown control exists)", which is tolerable for a
+		-- three-value shape knob and not for six named release rules: here the label
+		-- carries the current value and one click advances it, so there is no number for
+		-- the user to map onto a word and still no new element type.
+		local function cycle_btn(parent, label, values, get, set, desc)
+			local btn
+			local function label_now()
+				return label .. ": " .. tostring(get())
+			end
+			btn = eb(parent, label_now(), function()
+				local cur, idx = get(), 1
+				for i, v in ipairs(values) do
+					if v == cur then
+						idx = i
+						break
+					end
+				end
+				set(values[(idx % #values) + 1])
+				btn.Text = label_now()
+				save_settings()
+			end)
+			if desc then
+				sub_label(parent, desc)
+			end
+			return btn
+		end
+
+		-- Resolves what was typed into a registered shape name: exact first, then a
+		-- prefix, then a substring, over a sorted list so two shapes that both match
+		-- always resolve the same way. Returns nil when nothing matches, and the caller
+		-- puts the box back to what it was -- silently keeping an unknown name would
+		-- leave the blend permanently inert with no way to tell from the panel.
+		local function resolve_shape_name(typed)
+			typed = tostring(typed or ""):gsub("^%s*(.-)%s*$", "%1")
+			if typed == "" then
+				return nil
+			end
+			local names = {}
+			for mn in pairs(x2) do
+				names[#names + 1] = mn
+			end
+			table.sort(names)
+			local want = typed:lower()
+			for _, mn in ipairs(names) do
+				if mn:lower() == want then
+					return mn
+				end
+			end
+			for _, mn in ipairs(names) do
+				if mn:lower():sub(1, #want) == want then
+					return mn
+				end
+			end
+			for _, mn in ipairs(names) do
+				if mn:lower():find(want, 1, true) then
+					return mn
+				end
+			end
+			return nil
+		end
+
+		local SLOT_MODES = { "Claim", "Size Desc", "Size Asc", "Distance", "Shuffle" }
+		local SURPLUS_RULES = { "Farthest", "Nearest", "Newest", "Oldest", "Smallest", "Largest" }
+
 		-- Rebuildable, so a reset can repaint it. Every control in here caches its
 		-- value at build time -- UI_elements M.s keeps `current` as a private local --
 		-- and this block used to be built exactly once. After "Reset All Settings" the
@@ -688,6 +794,88 @@ return function(context)
 				save_settings()
 			end, false, "Multiplies vertical pull to fight Roblox's gravity. Use 1.0 for normal.")
 
+			eh(ac, "Formation")
+
+			es(ac, "Time Scale", -3, 3, x1.TimeScale or 1.0, function(v)
+				x1.TimeScale = v
+				save_settings()
+			end, false, "Speed of the shape's own motion. 1 is normal, 0 freezes the pattern where it is, below 0 runs it backwards.")
+
+			cycle_btn(ac, "Slot Order", SLOT_MODES, function()
+				return x1.SlotMode or "Claim"
+			end, function(v)
+				x1.SlotMode = v
+			end, "Which part goes where. Claim is the order they were grabbed in; the rest sort the formation so the biggest, nearest or a shuffled part lands in slot 1. Re-sorted when the population changes or you press Re-roll Layout, not continuously.")
+
+			eb(ac, "Re-roll Layout", function()
+				local x4 = context.x4
+				if not (x4 and x4.reroll_seeds) then
+					return
+				end
+				local n = x4.reroll_seeds()
+				save_settings()
+				adv_notify("Formation", n .. " parts re-seeded", 2)
+			end)
+			sub_label(ac, "Scatters the current shape again without dropping the parts, and re-orders Shuffle.")
+
+			et(ac, "Shape Blend", x1.BlendEnabled, function(v)
+				x1.BlendEnabled = v
+				save_settings()
+			end, "Runs a second shape alongside the selected one and mixes the two.")
+
+			local blend_box
+			blend_box = etb(ac, "Blend Shape", x1.BlendShape or "", function(v)
+				local resolved = resolve_shape_name(v)
+				if resolved then
+					x1.BlendShape = resolved
+					blend_box.Text = resolved
+					-- Lets the runtime try again: it stops re-fetching a module that failed
+					-- to download, and a name change is the deliberate retry.
+					x6.bl_failed = nil
+				else
+					-- Keeping an unknown name would leave the blend permanently inert with
+					-- nothing in the panel to say why.
+					adv_notify("Blend", "No shape matches \"" .. tostring(v) .. "\"", 3)
+					blend_box.Text = x1.BlendShape or ""
+				end
+				save_settings()
+			end, "The second shape. Type any part of its name.")
+
+			es(ac, "Blend Weight", 0, 100, x1.BlendWeight or 0, function(v)
+				x1.BlendWeight = v
+				save_settings()
+			end, true, "0 is all the selected shape, 100 is all the blend shape.")
+
+			es(ac, "Blend Stagger", 0, 100, x1.BlendStagger or 0, function(v)
+				x1.BlendStagger = v
+				save_settings()
+			end, true, "Spreads the mix across the formation so it converts part by part. Needs Slot Order set to something other than Claim.")
+
+			eh(ac, "Preview")
+
+			et(ac, "Formation Preview", x1.PreviewEnabled, function(v)
+				x1.PreviewEnabled = v
+				-- The loop clears the markers itself, but only while it is running: with
+				-- the script stopped or disabled nothing would ever come and collect them.
+				if not v then
+					local x4 = context.x4
+					if x4 and x4.preview_clear then
+						x4.preview_clear()
+					end
+				end
+				save_settings()
+			end, "Shows where the shape would put parts, using markers instead of parts. Works with nothing claimed.")
+
+			es(ac, "Ghost Count", 4, 200, x1.PreviewCount or 40, function(v)
+				x1.PreviewCount = v
+				save_settings()
+			end, true, "How many preview markers to draw.")
+
+			et(ac, "Deviation Readout", x1.PreviewDeviation, function(v)
+				x1.PreviewDeviation = v
+				save_settings()
+			end, "Adds the average and worst distance between a part and the target it was given to the status HUD.")
+
 			eh(ac, "Interface")
 
 			es(ac, "UI Scale", 0.5, 2.0, x1.UIScale or 1.0, function(v)
@@ -711,6 +899,81 @@ return function(context)
 				x1.VoidProtection = v
 				save_settings()
 			end, "Automatically ignores targets that fall into the void to prevent your parts from being destroyed.")
+
+			-- A rule change has to act on the formation in front of you, not only on the
+			-- next claim, or editing one looks like it did nothing at all.
+			local function rules_changed()
+				save_settings()
+				local x4 = context.x4
+				if x4 and x4.recheck_rules then
+					local n = x4.recheck_rules()
+					if n > 0 then
+						adv_notify("Claim Rules", n .. " parts released", 2)
+					end
+				end
+			end
+
+			es(ac, "Target Parts", 0, 5000, x1.TargetParts or 0, function(v)
+				x1.TargetParts = v
+				save_settings()
+			end, true, "Holds the formation at this many parts, releasing the surplus. 0 is no limit.")
+
+			cycle_btn(ac, "Surplus Rule", SURPLUS_RULES, function()
+				return x1.SurplusRule or "Farthest"
+			end, function(v)
+				x1.SurplusRule = v
+			end, "Which parts go when there are more than Target Parts. Parts held by Part Control are never released this way.")
+
+			es(ac, "Min Part Size", 0, 200, x1.RuleMinSize or 0, function(v)
+				x1.RuleMinSize = v
+				rules_changed()
+			end, false, "Ignores parts whose longest side is under this many studs. 0 is off.")
+
+			es(ac, "Max Part Size", 0, 500, x1.RuleMaxSize or 0, function(v)
+				x1.RuleMaxSize = v
+				rules_changed()
+			end, false, "Ignores parts whose longest side is over this many studs. 0 is off.")
+
+			es(ac, "Claim Radius", 0, 2000, x1.RuleClaimRadius or 0, function(v)
+				x1.RuleClaimRadius = v
+				save_settings()
+			end, false, "Only claims parts within this many studs of the core, measured when they are picked up. 0 is off.")
+
+			etb(ac, "Name Filter", x1.RuleName or "", function(v)
+				x1.RuleName = tostring(v or "")
+				rules_changed()
+			end, "Comma-separated. A plain word claims only parts whose name contains it; a word starting with - never claims a match. Empty is off.", 120)
+
+			-- x1.k5 has been the one extensible hook in the claim filter since the start
+			-- and has never had a way to reach it.
+			local function tags_text()
+				local t = x1.k5
+				if type(t) ~= "table" then
+					return ""
+				end
+				-- Filtered rather than handed straight to table.concat: k5 comes back from
+				-- the settings file as whatever was in it, and concat throws on a
+				-- non-string entry -- which would take the whole panel build down with it.
+				local out = {}
+				for _, tag in ipairs(t) do
+					if type(tag) == "string" then
+						out[#out + 1] = tag
+					end
+				end
+				return table.concat(out, ", ")
+			end
+
+			etb(ac, "Ignore Tags", tags_text(), function(v)
+				local list = {}
+				for entry in tostring(v or ""):gmatch("[^,]+") do
+					local tag = entry:gsub("^%s*(.-)%s*$", "%1")
+					if tag ~= "" then
+						list[#list + 1] = tag
+					end
+				end
+				x1.k5 = list
+				rules_changed()
+			end, "Never claims a part that has a child with one of these names, or whose parent does. Emptying this drops the two defaults; Reset All Settings puts them back.", 120)
 
 			eh(ac, "Performance")
 

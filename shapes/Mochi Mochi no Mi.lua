@@ -248,7 +248,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	end
 
 	local centre = st.pub[1]
-	local id = d.id or 1
+	local id = d.slot or d.id or 1
 	local w1 = (id * R3_A) % 1
 	local w2 = (id * R3_B) % 1
 	local w3 = (id * R3_C) % 1

@@ -242,7 +242,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	n1 = (n1.Magnitude > 0.001) and n1.Unit or WORLD_RIGHT
 	local n2 = tan:Cross(n1).Unit
 
-	local id = d.id or 1
+	local id = d.slot or d.id or 1
 	local w1 = (id * R2_A) % 1
 	local w2 = (id * R2_B) % 1
 	local pick = (id * PHI) % 1

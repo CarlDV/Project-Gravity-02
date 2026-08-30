@@ -164,7 +164,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	end
 
 	if not firing then
-		local id0 = d.id or 1
+		local id0 = d.slot or d.id or 1
 		-- Same clamp as thick below, since this reads the same control and the
 		-- idle cloud collapses to a point at 0 otherwise.
 		local rad = 6 + math.clamp(c.k18 or 2, 0, 20)
@@ -187,7 +187,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local bfrac = math.clamp(c.k17 or 0.4, 0.1, 1.0)
 	local thick = math.clamp(c.k18 or 2, 0, 20)
 
-	local id = d.id or 1
+	local id = d.slot or d.id or 1
 	local f1 = (id * PHI1) % 1
 	local f2 = (id * PHI2) % 1
 

@@ -675,6 +675,13 @@ local function destroy()
 	if x6.pc_release_all then
 		pcall(x6.pc_release_all)
 	end
+	-- The formation preview's ghost markers. They live in a Folder inside the core's
+	-- AS holder, which the sweep further down destroys anyway -- but that makes their
+	-- removal incidental to something else, and this path runs on re-execution, where
+	-- anything left behind is left behind permanently.
+	if x6.preview_clear then
+		pcall(x6.preview_clear)
+	end
 	if x6.pc_clear then
 		pcall(x6.pc_clear)
 	elseif x6.pc_highlights then

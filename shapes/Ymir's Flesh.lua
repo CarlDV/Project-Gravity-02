@@ -249,7 +249,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		return ANTI_SLEEP, nil
 	end
 
-	local id = d.id or 1
+	local id = d.slot or d.id or 1
 	local w1 = (id * R3_A) % 1
 	local w2 = (id * R3_B) % 1
 	local w3 = (id * R3_C) % 1

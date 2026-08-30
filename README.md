@@ -4,9 +4,13 @@ Project Gravity is a Roblox script that grabs unanchored parts and moves them ar
 
 ## Features
 - Grabs unanchored parts automatically
-- Has over 30 shapes (like Black Hole or Celestial Ribbon)
+- Has over 50 shapes (like Black Hole or Celestial Ribbon)
 - Works on both Desktop and Mobile
 - Let's you tweak speed, damping, and other physics live
+- Formation controls in the Advanced panel: slow down or reverse the shape's clock, mix two
+  shapes together, preview a formation with markers before grabbing anything, sort which part
+  gets which slot, cap how many parts are held, and filter what may be claimed by size, name,
+  tag or distance
 - Saves your settings automatically
 
 ## Usage

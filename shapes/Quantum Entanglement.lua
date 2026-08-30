@@ -91,8 +91,9 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local drift_speed = (c.k16 or 5) * x9.c2
 
 	-- Assign this part to a pair and a slot within that pair
-	local pair_idx = (d.id % pair_count) + 1
-	local slot = math.floor(d.id / pair_count) % 2 -- 0 or 1
+	local idx = d.slot or d.id or 0
+	local pair_idx = (idx % pair_count) + 1
+	local slot = math.floor(idx / pair_count) % 2 -- 0 or 1
 	local pair = st.pairs[pair_idx]
 
 	if pair.state == SUPERPOSITION then

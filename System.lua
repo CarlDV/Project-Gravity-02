@@ -68,6 +68,11 @@ return function(context)
 		RightUpperLeg = true,
 		RightLowerLeg = true,
 		RightFoot = true,
+		-- The preview's ghost markers. They are anchored, so x7.e already refuses
+		-- them -- but "anchored parts are never claimed" is a property of today's
+		-- filter rather than a law, and a preview that grabs itself would be a very
+		-- confusing bug to find.
+		GRV_GHOST = true,
 	}
 
 	-- Character models, rebuilt at most once a second. Membership is checked as a
@@ -97,6 +102,166 @@ return function(context)
 		return char_set
 	end
 
+	-- The part's largest axis, in studs. One owner, because three separate features
+	-- compare part sizes and they have to agree about what "size" means: the slot sort,
+	-- the claim rules and the surplus release rule. Largest axis rather than volume or
+	-- Magnitude because that is what a big part looks like -- a 200x1x1 slab reads as
+	-- big and its volume does not. 0 means the size could not be read, which every
+	-- caller treats as "unknown" rather than "small".
+	local function part_size(p)
+		local s = p.Size
+		if typeof(s) ~= "Vector3" then
+			return 0
+		end
+		local m = s.X
+		if s.Y > m then m = s.Y end
+		if s.Z > m then m = s.Z end
+		return m
+	end
+	x7.part_size = part_size
+
+	-- The clock the shapes see, which is deliberately not the clock the loop runs on.
+	-- Everything that measures wall time -- d.claim_t ageing, the no3_interval stride,
+	-- x6.pi_timer, x6.transition_time, d.sys_last_t -- keeps reading time(); only the
+	-- value handed to a shape is scaled. Mixing the two would mean a Time Scale of 0
+	-- froze the target-list rebuild and the shape-switch ease along with the formation.
+	--
+	-- Seeded from time() rather than 0 so the first frame does not hand every shape a
+	-- clock that jumped backwards by the whole session's uptime, which the universal
+	-- `local dt = t - (d.last_t or t)` idiom would read as one enormous negative step.
+	-- Clamped independently of the slider's range, because a hand-edited settings file
+	-- is the one path that can put anything at all in here.
+	local function advance_clock(real_dt)
+		local scale = x1.TimeScale
+		-- nil, a string from a mangled save, or NaN (which fails its own equality test)
+		if type(scale) ~= "number" or scale ~= scale then
+			scale = 1
+		elseif scale > 8 then
+			scale = 8
+		elseif scale < -8 then
+			scale = -8
+		end
+		local c = x6.shape_clock
+		if type(c) ~= "number" then
+			c = time()
+		end
+		c = c + (real_dt * scale)
+		x6.shape_clock = c
+		return c
+	end
+	x7.advance_clock = advance_clock
+
+	-- One part's blend weight. At stagger 0 every part carries the global weight. At
+	-- stagger 1 the weight is a front that crosses the formation as the global weight
+	-- goes 0 -> 1, so the parts convert progressively instead of all together -- which
+	-- needs the part's normalised position in the formation, and is therefore only a
+	-- sweep at all while slot ordering is on. Pure, so the test can check the corners.
+	local function blend_w(weight, stagger, frac)
+		local w = weight * (1 + stagger) - (stagger * frac)
+		if w < 0 then
+			return 0
+		elseif w > 1 then
+			return 1
+		end
+		return w
+	end
+	x7.blend_w = blend_w
+
+	-- Every per-part scratch field a shape may have seeded, in one place. Two callers
+	-- need the identical list -- f3_body when it notices x1.k6 moved, and
+	-- x4.reroll_seeds -- and the list had already drifted once before there was one
+	-- owner: the desktop tree cleared d.f/d.u/d.v/d.rot_axis/d.red_direction and the
+	-- mobile tree did not, so on mobile Spinning Cube's axes, Galactic Web's rotation
+	-- axis and Cursed Technique Red's direction survived a shape switch and the next
+	-- shape to reuse one of those names inherited it.
+	--
+	-- d.v10 joins the list for the same reason: two shapes read it and nothing was
+	-- clearing it. d.bd is the blend's side record, which is scratch for a whole second
+	-- shape and has to go with the rest of it.
+	local function reset_scratch(d)
+		d.v1, d.v2, d.v3, d.v4, d.v5 = nil, nil, nil, nil, nil
+		d.v6, d.v7, d.v8, d.v9, d.v10 = nil, nil, nil, nil, nil
+		d.nx, d.ny, d.nz = nil, nil, nil
+		d.phase, d.phase2, d.radial_phase = nil, nil, nil
+		d.last_t, d.sys_last_t, d.last_target_pos = nil, nil, nil
+		d.hit_wall, d.hover_anchor, d.cursed_hover_mode = nil, nil, nil
+		-- room_slot is the field ROOM Ope Ope no Mi actually parks; the two names after
+		-- it are left over from an earlier version of that shape and are written by
+		-- nothing, so the original list was clearing the dead names and missing the live
+		-- one.
+		d.room_slot, d.room_target, d.room_orbit_phase = nil, nil, nil
+		d.pika_direction, d.pika_redirect_at = nil, nil
+		d.light_direction, d.light_redirect_at = nil, nil
+		d.f, d.u, d.v = nil, nil, nil
+		d.rot_axis, d.red_direction = nil, nil
+		d.bd = nil
+		d.integral = Vector3.zero
+	end
+	x7.reset_scratch = reset_scratch
+
+	-- The claim rules, ordered so the cheapest rejection comes first. Each test is
+	-- skipped outright at its off value, so with the shipped defaults this costs four
+	-- table reads per candidate part on top of the structural filter in x7.e.
+	--
+	-- with_radius is passed true only from the claim path. The core moves, so a radius
+	-- that also evicted parts already held would release and re-claim them every time
+	-- the player walked: the radius decides what gets picked up, and x1.k1 still decides
+	-- what gets driven.
+	local function rule_reject(p, with_radius)
+		local min_sz = x1.RuleMinSize or 0
+		local max_sz = x1.RuleMaxSize or 0
+		if min_sz > 0 or max_sz > 0 then
+			local sz = part_size(p)
+			if sz > 0 then
+				if min_sz > 0 and sz < min_sz then
+					return true
+				end
+				if max_sz > 0 and sz > max_sz then
+					return true
+				end
+			end
+		end
+		local filter = x1.RuleName
+		if type(filter) == "string" and filter ~= "" then
+			local name = string.lower(p.Name)
+			local includes, matched = 0, false
+			for entry in string.gmatch(filter, "[^,]+") do
+				-- Trimmed, lowercased, and matched with a plain find rather than as a Lua
+				-- pattern: a user typing Part(1) should get a substring match, not a
+				-- malformed-pattern error thrown out of the claim filter.
+				local pat = string.lower((string.gsub(entry, "^%s*(.-)%s*$", "%1")))
+				if pat ~= "" then
+					if string.sub(pat, 1, 1) == "-" then
+						local ex = string.sub(pat, 2)
+						if ex ~= "" and string.find(name, ex, 1, true) then
+							return true
+						end
+					else
+						includes = includes + 1
+						if string.find(name, pat, 1, true) then
+							matched = true
+						end
+					end
+				end
+			end
+			-- An include list narrows; a list of nothing but exclusions does not.
+			if includes > 0 and not matched then
+				return true
+			end
+		end
+		if with_radius then
+			local r = x1.RuleClaimRadius or 0
+			if r > 0 and x6.b then
+				local off = p.Position - x6.b.Position
+				if off:Dot(off) > r * r then
+					return true
+				end
+			end
+		end
+		return false
+	end
+	x7.rule_reject = rule_reject
+
 	function x7.e(p)
 		if not p:IsA("BasePart") then
 			return true
@@ -105,6 +270,12 @@ return function(context)
 			return true
 		end
 		if EXCLUDED_NAMES[p.Name] then
+			return true
+		end
+		-- The user's own rules go here, ahead of the tag loop and the ancestor walk:
+		-- those are the expensive half of this filter (engine child searches, one to
+		-- three per level) and a part the rules already reject should not pay for them.
+		if rule_reject(p, true) then
 			return true
 		end
 		-- p.Parent used to be re-read from the engine once per tag in k5, and
@@ -200,54 +371,15 @@ return function(context)
 					pcall(x6.pc_release_all)
 				end
 				for _, d in pairs(x6.a) do
-					d.v1 = nil
-					d.v2 = nil
-					d.v3 = nil
-					d.v4 = nil
-					d.v5 = nil
-					d.v6 = nil
-					d.v7 = nil
-					d.v8 = nil
-					d.v9 = nil
-					d.nx = nil
-					d.ny = nil
-					d.nz = nil
-					d.phase = nil
-					d.phase2 = nil
-					d.radial_phase = nil
-					d.last_t = nil
-					d.sys_last_t = nil
-					d.last_target_pos = nil
-					d.hit_wall = nil
-					d.hover_anchor = nil
-					d.cursed_hover_mode = nil
-					-- room_slot is the field ROOM Ope Ope no Mi actually parks; the two
-					-- names below are left over from an earlier version of that shape and
-					-- are written by nothing, so the list was clearing the dead names and
-					-- missing the live one.
-					d.room_slot = nil
-					d.room_target = nil
-					d.room_orbit_phase = nil
-					d.pika_direction = nil
-					d.pika_redirect_at = nil
-					d.light_direction = nil
-					d.light_redirect_at = nil
-					-- Spinning Cube d.f/d.u/d.v, Galactic Web d.rot_axis and
-					-- Cursed Technique Red d.red_direction escaped the list: all
-					-- are seeded under an `if not d.X` guard, so a stale value
-					-- from the previous shape simply got re-used. Harmless while
-					-- each name belongs to one shape, but a future shape that
-					-- reuses the name inherits the old shape's axes.
-					d.f = nil
-					d.u = nil
-					d.v = nil
-					d.rot_axis = nil
-					d.red_direction = nil
-					d.integral = Vector3.zero
+					reset_scratch(d)
 				end
 			end
 			local dt = x6.n > 5000 and 10 or (x6.n > 2500 and 6 or (x6.n > 1000 and 3 or 1))
 			local et, ft = x1.k7 or dt, time()
+			-- Time Scale. Advanced once per frame here and handed to the shapes in place
+			-- of ft at the four shape-facing call sites below; ft itself stays wall time
+			-- for everything that measures a real interval. See advance_clock.
+			local sclock = advance_clock(real_dt)
 			if x1.k6 == "Light Light no Mi" then
 				et = 1
 			end
@@ -344,13 +476,13 @@ return function(context)
 			local cur_shape_mod = get_shape(shape_name)
 			local cur_shape_cfg = x1.S[shape_name] or {}
 			if cur_shape_mod and cur_shape_mod.px then
-				cur_shape_mod.px(ft, cur_shape_cfg, x6, x9, x1)
+				cur_shape_mod.px(sclock, cur_shape_cfg, x6, x9, x1)
 			end
 			local pc_mods = x6.pc_mods
 			if pc_mods then
 				for mod, _ in pairs(pc_mods) do
 					if mod.px then
-						pcall(mod.px, ft, mod.pc_cfg_ref or cur_shape_cfg, x6, x9, x1)
+						pcall(mod.px, sclock, mod.pc_cfg_ref or cur_shape_cfg, x6, x9, x1)
 					end
 				end
 			end
@@ -360,6 +492,64 @@ return function(context)
 				cur_shape_cfg = x1.S[shape_name] or {}
 			end
 			local cur_no_damp = no_damp[shape_name]
+
+			-- Shape Blend. B is resolved once per frame and only when it can actually
+			-- contribute: the toggle on, a weight above zero, a shape that is registered
+			-- and loads, and a different shape from A -- blending a shape with itself
+			-- costs two evaluations to produce the field it already had.
+			--
+			-- Published on x6 as well as held locally: the sweep reads the locals because
+			-- it reads them per part, and the preview reads x6 so a ghost cannot show a
+			-- different field from the one the parts are being driven to.
+			local blend_f2, blend_cfg, blend_base, blend_stag, blend_name = nil, nil, 0, 0, nil
+			-- Whether this frame has already made its one guarded call into the blend
+			-- shape; see the sweep for why that is once a frame and not once a part.
+			local blend_checked = false
+			if x1.BlendEnabled then
+				local bn = x1.BlendShape
+				if type(bn) == "string" and bn ~= "" and bn ~= shape_name and x2[bn] then
+					local bw = (x1.BlendWeight or 0) / 100
+					-- get_shape does not cache a failure, so a registered name whose module
+					-- cannot be fetched would re-attempt a synchronous HTTP request from
+					-- inside this frame, every frame, for as long as the blend is on.
+					-- Remembering the name that failed costs one string compare and turns a
+					-- permanent stall into a single warn. Cleared by the panel when the
+					-- blend shape is changed, so retrying is a deliberate act.
+					if bw > 0 and bn ~= x6.bl_failed then
+						local bmod = get_shape(bn)
+						if not (bmod and bmod.f2) then
+							x6.bl_failed = bn
+						end
+						if bmod and bmod.f2 then
+							blend_name, blend_f2 = bn, bmod.f2
+							blend_cfg = x1.S[bn] or {}
+							blend_base = bw > 1 and 1 or bw
+							blend_stag = math.clamp((x1.BlendStagger or 0) / 100, 0, 1)
+							if bmod.px then
+								-- Safe to run both pre-passes: x6.pre is namespaced by shape
+								-- name at every site that touches it (x6.pre["Platform"],
+								-- x6.pre["Celestial Ribbon_meta"]), so two shapes' pre-pass
+								-- state cannot collide. That one fact is what lets any pair
+								-- of shapes be blended without a compatibility list.
+								pcall(bmod.px, sclock, blend_cfg, x6, x9, x1)
+							end
+						end
+					end
+				end
+			end
+			x6.bl_f2, x6.bl_cfg, x6.bl_w, x6.bl_s = blend_f2, blend_cfg, blend_base, blend_stag
+			-- A blend shape that owns an instance has to be handed it back when the blend
+			-- moves off it, exactly as x6.last_shape does for the primary: without this,
+			-- blending with Platform leaves its anchored pad in the world with nothing
+			-- updating it. Never the shape that is now primary -- a blend that moved onto
+			-- the selected shape would otherwise tear down the live one's instance.
+			if x6.last_blend ~= blend_name then
+				local prev_blend = x6.last_blend
+				x6.last_blend = blend_name
+				if prev_blend and prev_blend ~= shape_name then
+					cleanup_shape(prev_blend)
+				end
+			end
 
 			local target_positions = x6.target_positions
 			if not target_positions then
@@ -391,6 +581,48 @@ return function(context)
 					end
 				end
 			end
+			-- Slot ordering and the part-count ceiling both walk the whole population, so
+			-- they run on a stride rather than per frame. During the opening claim sweep
+			-- the population changes thousands of times and a per-frame re-sort would have
+			-- parts trading places continuously. A mode, seed or ceiling change is applied
+			-- at once instead, since that is a deliberate action taken with the panel open
+			-- and looking at the result is the point.
+			--
+			-- The stride widens with the part-count ladder, the same way no3_interval does
+			-- and for the same reason: a quarter second is right at a few hundred parts and
+			-- the sort is O(n log n) with an engine property read per part, so at five
+			-- thousand it becomes a full second. Max Fidelity gives the stride up entirely,
+			-- with the rest of them.
+			--
+			-- Cap first, then the reindex, so the slots describe the population that is
+			-- actually left rather than one that includes parts about to be released.
+			local slot_mode_now = x1.SlotMode or "Claim"
+			local cap_now = x1.TargetParts or 0
+			if
+				x6.slot_mode_last ~= slot_mode_now
+				or x6.slot_seed_last ~= x1.SlotSeed
+				or x6.cap_last ~= cap_now
+			then
+				x6.slot_mode_last = slot_mode_now
+				x6.slot_seed_last = x1.SlotSeed
+				x6.cap_last = cap_now
+				x6.slot_dirty = true
+				x6.slot_t = nil
+			end
+			if x6.slot_dirty and (max_fid or ft - (x6.slot_t or -1) > 0.25 * (dt > 4 and 4 or dt)) then
+				x6.slot_t = ft
+				x6.slot_dirty = false
+				x4.enforce_part_cap()
+				x4.reindex_slots()
+			end
+
+			-- Deviation readout: how far the parts actually are from the targets they were
+			-- given, which is the only honest answer to "is this shape not working or is
+			-- the tracking not keeping up". Gated, because it is a Magnitude per part per
+			-- frame and it only means anything for shapes that hand back an exact target.
+			local dev_on = x1.PreviewDeviation and true or false
+			local dev_sum, dev_max, dev_n = 0, 0, 0
+
 			local k1 = x1.k1
 			local c7 = x9.c7
 			local k1_sq = k1 * k1
@@ -586,9 +818,82 @@ return function(context)
 						target_pos_delta = (tgt - p_pos) * gain
 					elseif pc == "shape" and d.pc_mod and d.pc_mod.f2 then
 						target_pos_delta, pure_target_pos =
-							d.pc_mod.f2(p, active_c, d, ft, d.pc_cfg or cur_shape_cfg, x1, x6, x9)
+							d.pc_mod.f2(p, active_c, d, sclock, d.pc_cfg or cur_shape_cfg, x1, x6, x9)
 					elseif shape_f2 then
-						target_pos_delta, pure_target_pos = shape_f2(p, active_c, d, ft, cur_shape_cfg, x1, x6, x9)
+						target_pos_delta, pure_target_pos = shape_f2(p, active_c, d, sclock, cur_shape_cfg, x1, x6, x9)
+						-- The blend, inline rather than through a shared helper: this is the
+						-- per-part path and the rest of this loop hoists everything it can
+						-- out of it, so the preview keeps its own copy of these fifteen
+						-- lines instead of both going through one call per part.
+						--
+						-- Not reachable for a part under Part Control: those come out of the
+						-- branches above. A part placed by hand is not part of the formation
+						-- being mixed.
+						if blend_f2 then
+							-- B runs against its own scratch record. d.v1..d.v10, d.phase,
+							-- d.last_t and the rest are seeded lazily under `if not d.X`
+							-- guards, so two shapes sharing one record do not blend -- they
+							-- each re-seed the other's cached axes, phases and timestamps
+							-- every frame, which is two shapes fighting rather than a mix.
+							-- Only the identity fields a shape may legitimately read are
+							-- carried across; the system-owned terms (d.vl, d.integral,
+							-- d.last_target_pos, d.sys_last_t) stay on d and are computed
+							-- from the blended result further down.
+							local bd = d.bd
+							if not bd then
+								bd = { id = d.id, integral = ZERO_VECTOR }
+								d.bd = bd
+							end
+							bd.slot, bd.slot_n, bd.claim_t = d.slot, d.slot_n, d.claim_t
+							local frac = 0
+							if d.slot and d.slot_n and d.slot_n > 1 then
+								frac = (d.slot - 1) / (d.slot_n - 1)
+							end
+							local bw = blend_w(blend_base, blend_stag, frac)
+							if bw > 0 then
+								local b_delta, b_pure
+								if blend_checked then
+									b_delta, b_pure = blend_f2(p, active_c, bd, sclock, blend_cfg, x1, x6, x9)
+								else
+									-- One guarded call per frame, then bare ones. A blend shape
+									-- that throws would otherwise take the whole sweep with it
+									-- through f3's pcall: the primary formation stops dead
+									-- because of a shape that is only a passenger, every frame,
+									-- silently. This costs one pcall a frame rather than one per
+									-- part, and turns that into the blend switching itself off
+									-- and saying so.
+									blend_checked = true
+									local blend_ok
+									blend_ok, b_delta, b_pure =
+										pcall(blend_f2, p, active_c, bd, sclock, blend_cfg, x1, x6, x9)
+									if not blend_ok then
+										x6.bl_failed = blend_name
+										x6.bl_f2 = nil
+										x7.n("Blend", tostring(blend_name) .. " errored -- blend off", 4)
+										blend_f2, b_delta, b_pure = nil, nil, nil
+									end
+								end
+								if b_delta and target_pos_delta then
+									target_pos_delta = target_pos_delta:Lerp(b_delta, bw)
+								elseif b_delta then
+									target_pos_delta = b_delta
+								end
+								-- Both or neither. Half a mixed position is a target neither
+								-- shape asked for, and the loop differentiates pure targets
+								-- into a velocity term -- so a fabricated one is not a
+								-- harmless approximation, it is injected speed.
+								if pure_target_pos and b_pure then
+									pure_target_pos = pure_target_pos:Lerp(b_pure, bw)
+								elseif bw >= 1 then
+									pure_target_pos = b_pure
+								else
+									pure_target_pos = nil
+								end
+								if bd.unclaim then
+									d.unclaim = true
+								end
+							end
+						end
 					end
 					
 					if d.unclaim then
@@ -621,6 +926,16 @@ return function(context)
 						end
 					end
 					
+					if dev_on and pure_target_pos then
+						local dev_off = p_pos - pure_target_pos
+						local dev = dev_off.Magnitude
+						dev_sum = dev_sum + dev
+						dev_n = dev_n + 1
+						if dev > dev_max then
+							dev_max = dev
+						end
+					end
+
 					if pure_target_pos then
 						if d.last_target_pos and d.sys_last_t then
 							local actual_dt = ft - d.sys_last_t
@@ -724,6 +1039,20 @@ return function(context)
 					end
 				end
 			end
+
+			if dev_on then
+				x6.dev_n = dev_n
+				x6.dev_mean = dev_n > 0 and (dev_sum / dev_n) or 0
+				x6.dev_max = dev_max
+			end
+
+			-- Last, and outside the sweep: the preview is the one part of this function
+			-- that has to run with nothing claimed at all, which is most of why it exists.
+			if x1.PreviewEnabled then
+				x4.preview_step(sclock, c, shape_f2, cur_shape_cfg, real_dt)
+			elseif x6.ghosts or x6.ghost_folder then
+				x4.preview_clear()
+			end
 	end
 
 	local function f3(real_dt)
@@ -783,6 +1112,12 @@ return function(context)
 		local start = os.clock()
 		local processed = 0
 		local claimed = 0
+		-- Target Part Count. The ceiling withholds the claim and nothing else: the queue
+		-- is a DFS stack of *instances*, not of parts, so bailing out of the walk would
+		-- abandon the traversal and quietly lose whole branches of the workspace for the
+		-- rest of the session -- including every part inside them if the ceiling is later
+		-- raised. Descendants keep being enumerated either way.
+		local cap = x1.TargetParts or 0
 		while n > 0 do
 			if processed >= cap_processed or claimed >= cap_claimed or os.clock() - start > cap_seconds then
 				break
@@ -796,7 +1131,7 @@ return function(context)
 					n = n + 1
 					queue[n] = child
 				end
-				if instance:IsA("BasePart") then
+				if instance:IsA("BasePart") and (cap <= 0 or x6.n < cap) then
 					if x4.f1(instance) then
 						claimed = claimed + 1
 					end
@@ -908,6 +1243,10 @@ return function(context)
 		}
 		table.insert(x6.active_array, p)
 		x6.n = x6.n + 1
+		-- The population changed, so the slot ordering and the part-count ceiling both
+		-- have work to do. Set here rather than computed in the loop because this is the
+		-- only place that knows it happened; f3_body then services it on a stride.
+		x6.slot_dirty = true
 		return true
 	end
 
@@ -957,6 +1296,7 @@ return function(context)
 			-- visible hitch; this matches what the sweep loop already does.
 			arr[last] = nil
 			x6.n = math.max(0, x6.n - 1)
+			x6.slot_dirty = true
 		end
 	end
 
@@ -1231,6 +1571,458 @@ return function(context)
 		x7.n("Sys", released .. " parts released", 2)
 	end
 
+	-- Slot Assignment. Which part goes where.
+	--
+	-- A part's place in a pattern comes from d.id today, and d.id is the claim counter:
+	-- the formation is ordered by the accident of which part the workspace walk reached
+	-- first, and the numbering is sparse and only ever rises -- shapes/Raigo.lua:19
+	-- records what an unbounded index does to a shape that maps it onto a sphere.
+	-- d.slot is dense, 1..N, and stable for as long as the population is.
+	--
+	-- "Claim" mode writes nil rather than slots in claim order, deliberately: nil is
+	-- what the shapes saw before any of this existed, so the default mode is provably
+	-- the old path and no shape can pick up an index it did not have.
+	local slot_parts = {}
+	local slot_keys = setmetatable({}, { __mode = "k" })
+	local slot_ids = setmetatable({}, { __mode = "k" })
+	local function slot_less(a, b)
+		local ka, kb = slot_keys[a], slot_keys[b]
+		if ka == kb then
+			-- Every comparator breaks ties on the claim id, so a set that has not changed
+			-- sorts identically on every call. Without it table.sort's ordering of equal
+			-- keys is unspecified, and parts trade places on the stride for no reason --
+			-- which on a map of uniform bricks is every part, every quarter second.
+			return (slot_ids[a] or 0) < (slot_ids[b] or 0)
+		end
+		return ka < kb
+	end
+
+	-- A deterministic hash rather than math.random: a fresh roll per stride is not a
+	-- shuffle, it is noise. Both multiplies stay well inside 2^53, so the arithmetic is
+	-- exact in a double and the same (id, seed) pair always lands on the same key.
+	local function shuffle_key(id, seed)
+		local x = (id * 2654435 + seed * 40503 + 1) % 1048573
+		return (x * 1103515 + 12345) % 1048573
+	end
+
+	local SLOT_MODES = {
+		Claim = true,
+		["Size Desc"] = true,
+		["Size Asc"] = true,
+		Distance = true,
+		Shuffle = true,
+	}
+	local SURPLUS_RULES = {
+		Farthest = true,
+		Nearest = true,
+		Newest = true,
+		Oldest = true,
+		Smallest = true,
+		Largest = true,
+	}
+
+	function x4.reindex_slots()
+		local arr = x6.active_array
+		local data = x6.a
+		local mode = x1.SlotMode or "Claim"
+		-- A hand-edited or half-migrated settings file is the one path that can put an
+		-- unrecognised string in here, and the safe reading of one is the inert mode --
+		-- not whatever the comparison chain below happens to fall through to.
+		if not SLOT_MODES[mode] then
+			mode = "Claim"
+		end
+		-- Cleared up here rather than beside the sort, so it happens on the Claim path
+		-- too. slot_parts is a plain array of parts and this function lives for the whole
+		-- session: left populated on the early return, it pinned every part of the last
+		-- sorted population -- destroyed or not -- for as long as the mode stayed Claim.
+		-- x6.a is weak-keyed to make exactly that collectable. The other two are
+		-- weak-keyed themselves and are cleared here only to keep the three in step.
+		table.clear(slot_parts)
+		table.clear(slot_keys)
+		table.clear(slot_ids)
+		local n = #arr
+		if mode == "Claim" then
+			for i = 1, n do
+				local d = data[arr[i]]
+				if d then
+					d.slot, d.slot_n = nil, nil
+				end
+			end
+			return 0
+		end
+		local cen = x6.b and x6.b.Position or nil
+		local seed = x1.SlotSeed or 0
+		local m = 0
+		for i = 1, n do
+			local p = arr[i]
+			local d = p and data[p]
+			if d then
+				m = m + 1
+				slot_parts[m] = p
+				slot_ids[p] = d.id or i
+				local key
+				if mode == "Size Desc" then
+					key = -part_size(p)
+				elseif mode == "Size Asc" then
+					key = part_size(p)
+				elseif mode == "Distance" then
+					-- Squared, not the distance: monotone, so the ordering is identical
+					-- and it saves a sqrt per part per stride.
+					if cen then
+						local off = p.Position - cen
+						key = off:Dot(off)
+					else
+						key = 0
+					end
+				else
+					key = shuffle_key(d.id or i, seed)
+				end
+				slot_keys[p] = key
+			end
+		end
+		if m > 1 then
+			table.sort(slot_parts, slot_less)
+		end
+		for i = 1, m do
+			local d = data[slot_parts[i]]
+			if d then
+				d.slot, d.slot_n = i, m
+			end
+		end
+		return m
+	end
+
+	-- Re-roll. Clears the per-part scratch for every held part, which makes every shape
+	-- that seeds a random phase lazily (`if not d.v6 then d.v6 = math.random() * ... end`
+	-- is the idiom, in 32 places) re-seed on its next frame: a new scatter of the same
+	-- shape without dropping the claim. Bumping the seed re-orders Shuffle at the same
+	-- time, so one action means "lay this out again" whichever mechanism is doing it.
+	function x4.reroll_seeds()
+		local arr = x6.active_array
+		local data = x6.a
+		local n = 0
+		for k = 1, #arr do
+			local d = data[arr[k]]
+			if d then
+				reset_scratch(d)
+				n = n + 1
+			end
+		end
+		x1.SlotSeed = ((x1.SlotSeed or 0) + 1) % 100000
+		x6.slot_dirty = true
+		return n
+	end
+
+	-- Target Part Count and Claim Rules share this walk. Both pick a set of held parts and
+	-- release it, and both have to do it without the O(n^2) that a table.find per release
+	-- would cost on a few thousand parts.
+	--
+	-- Descending, and x4.f2 is handed the index: f2 fills the hole by moving the array's
+	-- last element into it, and every index above k has already been visited by the time we
+	-- get to k, so the element that moves down is one this walk is finished with. The length
+	-- shrinks under us, which is why arr[k] is re-read and nil-checked rather than captured.
+	--
+	-- No count ceiling here, deliberately: the mark set *is* the ceiling. Each part appears
+	-- in active_array once (x4.f1 refuses a part it already holds), so the walk cannot
+	-- release more than was marked, and a `released >= limit` break would be a branch that
+	-- can never be taken -- which mutation testing duly proved it was.
+	local function release_marked(mark)
+		local arr = x6.active_array
+		local released = 0
+		for k = #arr, 1, -1 do
+			local p = arr[k]
+			if p and mark[p] then
+				-- drop_release: zero the velocity on the way out so the part falls where
+				-- it was instead of keeping whatever the constraint last wrote to it.
+				x4.f2(p, true, k)
+				released = released + 1
+			end
+		end
+		if released > 0 then
+			x6.slot_dirty = true
+		end
+		return released
+	end
+
+	local cap_parts = {}
+	local cap_keys = setmetatable({}, { __mode = "k" })
+	local cap_ids = setmetatable({}, { __mode = "k" })
+	local function cap_less(a, b)
+		local ka, kb = cap_keys[a], cap_keys[b]
+		if ka == kb then
+			return (cap_ids[a] or 0) < (cap_ids[b] or 0)
+		end
+		return ka < kb
+	end
+
+	-- Every key below is a release priority, sorted ascending, so the first `over`
+	-- entries are the ones that go. Parts under Part Control are never surplus: they were
+	-- placed by hand, and a ceiling that quietly deletes a pinned assembly is not a
+	-- ceiling.
+	function x4.enforce_part_cap()
+		-- Cleared before the early returns, for the reason reindex_slots gives: cap_parts
+		-- is a plain array of parts, and the common case is returning early with the
+		-- ceiling off, which would otherwise leave the last enforced population pinned
+		-- against a weak table built to let it go.
+		table.clear(cap_parts)
+		table.clear(cap_keys)
+		table.clear(cap_ids)
+		local cap = x1.TargetParts or 0
+		if cap <= 0 then
+			return 0
+		end
+		local arr = x6.active_array
+		local data = x6.a
+		local over = #arr - cap
+		if over <= 0 then
+			return 0
+		end
+		local rule = x1.SurplusRule or "Farthest"
+		if not SURPLUS_RULES[rule] then
+			rule = "Farthest"
+		end
+		local cen = x6.b and x6.b.Position or nil
+		local m = 0
+		for i = 1, #arr do
+			local p = arr[i]
+			local d = p and data[p]
+			if d and d.pc_mode == nil then
+				m = m + 1
+				cap_parts[m] = p
+				cap_ids[p] = d.id or i
+				local key = 0
+				if rule == "Newest" then
+					key = -(d.id or i)
+				elseif rule == "Oldest" then
+					key = d.id or i
+				elseif rule == "Smallest" then
+					key = part_size(p)
+				elseif rule == "Largest" then
+					key = -part_size(p)
+				elseif cen then
+					local off = p.Position - cen
+					local d2 = off:Dot(off)
+					key = rule == "Nearest" and d2 or -d2
+				end
+				cap_keys[p] = key
+			end
+		end
+		if m == 0 then
+			return 0
+		end
+		if m > 1 then
+			table.sort(cap_parts, cap_less)
+		end
+		if over > m then
+			over = m
+		end
+		local mark = {}
+		for i = 1, over do
+			mark[cap_parts[i]] = true
+		end
+		return release_marked(mark)
+	end
+
+	-- Editing a rule has to do something to the formation in front of you, not only to
+	-- the next claim. The radius rule is excluded on purpose: the core moves, so a radius
+	-- that evicted held parts would release and re-claim continuously as you walked.
+	function x4.recheck_rules()
+		local arr = x6.active_array
+		local mark = nil
+		for i = 1, #arr do
+			local p = arr[i]
+			if p and rule_reject(p, false) then
+				mark = mark or {}
+				mark[p] = true
+			end
+		end
+		if not mark then
+			return 0
+		end
+		return release_marked(mark)
+	end
+
+	-- Formation Preview. Ghost markers that run the selected shape's math and show where
+	-- the formation would put parts, with nothing claimed and nothing grabbed -- which is
+	-- the only way to tune a shape, or to author one, in a game with nothing unanchored
+	-- in it.
+	--
+	-- The markers live in a Folder inside the core's own AS folder, so both teardown
+	-- paths already reach them: x4.f5 destroys x6.b.Parent and main.lua's destroy()
+	-- destroys the same holder. preview_clear is called from the toggle, from f5 and from
+	-- apply_disabled as well; the parenting is the backstop, because a missed call should
+	-- still not be able to leave parts in somebody's game.
+	local GHOST_SIZE = Vector3.new(1.6, 1.6, 1.6)
+	local GHOST_LIMIT = 4000
+
+	function x4.preview_clear()
+		local g = x6.ghosts
+		if g then
+			for i = #g, 1, -1 do
+				local part = g[i]
+				if part then
+					pcall(part.Destroy, part)
+				end
+				g[i] = nil
+			end
+		end
+		if x6.ghost_folder then
+			pcall(x6.ghost_folder.Destroy, x6.ghost_folder)
+		end
+		x6.ghosts, x6.ghost_pos, x6.ghost_d, x6.ghost_folder = nil, nil, nil, nil
+	end
+	x6.preview_clear = x4.preview_clear
+
+	function x4.preview_step(clock, cen, f2, cfg, real_dt)
+		if not f2 or not x6.b or not cen then
+			x4.preview_clear()
+			return 0
+		end
+		local want = x1.PreviewCount
+		if type(want) ~= "number" or want ~= want then
+			want = 40
+		end
+		want = math.floor(math.clamp(want, 4, 200))
+
+		local folder = x6.ghost_folder
+		if folder and not folder.Parent then
+			-- The holder went away under us -- a stop, or a re-execution -- and took the
+			-- parts with it, so drop the pool rather than writing to dead instances.
+			x4.preview_clear()
+			folder = nil
+		end
+		if not folder then
+			folder = Instance.new("Folder")
+			folder.Name = "GRV_PREVIEW"
+			folder.Parent = x6.b.Parent or v4
+			x6.ghost_folder = folder
+		end
+		local ghosts, pos, recs = x6.ghosts, x6.ghost_pos, x6.ghost_d
+		if not ghosts or not pos or not recs then
+			ghosts, pos, recs = {}, {}, {}
+			x6.ghosts, x6.ghost_pos, x6.ghost_d = ghosts, pos, recs
+		end
+
+		for i = #ghosts, want + 1, -1 do
+			local part = ghosts[i]
+			if part then
+				pcall(part.Destroy, part)
+			end
+			ghosts[i], pos[i], recs[i] = nil, nil, nil
+		end
+		for i = #ghosts + 1, want do
+			local part = Instance.new("Part")
+			part.Name = "GRV_GHOST"
+			part.Size = GHOST_SIZE
+			-- Anchored is not decoration: x7.e refuses an anchored part, which is what
+			-- keeps the claim sweep running beside these from picking them up.
+			part.Anchored = true
+			part.CanCollide = false
+			part.CastShadow = false
+			part.Massless = true
+			part.Material = Enum.Material.SmoothPlastic
+			part.Color = x1.k3
+			part.Transparency = 0.6
+			part.Position = cen
+			part.Parent = folder
+			ghosts[i] = part
+			pos[i] = cen
+			recs[i] = { id = i, integral = ZERO_VECTOR }
+		end
+		return x4.preview_run(ghosts, pos, recs, want, clock, cen, f2, cfg, real_dt)
+	end
+
+	-- The step itself, split out so the pool management above and the field evaluation
+	-- here can be tested separately -- and because this is the half that has to mirror
+	-- the sweep's blend, which is the thing most likely to drift.
+	function x4.preview_run(ghosts, pos, recs, want, clock, cen, f2, cfg, real_dt)
+		local step = real_dt or (1 / 60)
+		local bf2, bcfg, bwb, bs = x6.bl_f2, x6.bl_cfg, x6.bl_w or 0, x6.bl_s or 0
+		for i = 1, want do
+			local part = ghosts[i]
+			local rec = recs[i]
+			if part and rec then
+				rec.slot, rec.slot_n = i, want
+				local pt = pos[i] or cen
+				-- Written before the shape runs, so a shape that reads p.Position sees the
+				-- position this preview is actually tracking. The authoritative copy stays
+				-- in Lua: reading it back off the instance would integrate whatever the
+				-- engine rounded into the next step.
+				part.Position = pt
+				local ok, delta, pure = pcall(f2, part, cen, rec, clock, cfg, x1, x6, x9)
+				if not ok then
+					delta, pure = nil, nil
+				end
+				if bf2 then
+					local frac = want > 1 and ((i - 1) / (want - 1)) or 0
+					local bw = blend_w(bwb, bs, frac)
+					if bw > 0 then
+						local bd = rec.bd
+						if not bd then
+							bd = { id = rec.id, integral = ZERO_VECTOR }
+							rec.bd = bd
+						end
+						bd.slot, bd.slot_n = i, want
+						local bok, b_delta, b_pure = pcall(bf2, part, cen, bd, clock, bcfg, x1, x6, x9)
+						if bok then
+							if typeof(b_delta) == "Vector3" and typeof(delta) == "Vector3" then
+								delta = delta:Lerp(b_delta, bw)
+							elseif typeof(b_delta) == "Vector3" then
+								delta = b_delta
+							end
+							if typeof(pure) == "Vector3" and typeof(b_pure) == "Vector3" then
+								pure = pure:Lerp(b_pure, bw)
+							elseif bw >= 1 then
+								pure = b_pure
+							else
+								pure = nil
+							end
+						end
+					end
+				end
+				-- typeof rather than a truth test, and only here: the preview is the path
+				-- most likely to be pointed at a half-written shape (the AI writes local
+				-- ones straight into GravityShapes), and a shape that hands back a number
+				-- instead of a Vector3 would otherwise throw out of the arithmetic below,
+				-- past the pcall that guards the call itself, and take the frame with it.
+				local np = pt
+				if typeof(pure) == "Vector3" then
+					np = pure
+				elseif typeof(delta) == "Vector3" then
+					-- The same Euler step the LinearVelocity constraint takes on a real
+					-- part: what a shape hands back is a velocity, so this is what the part
+					-- this marker stands for would do with it.
+					np = pt + (delta * step)
+				end
+				-- A shape handed a population of zero -- which is the normal case for the
+				-- preview -- can divide by it and hand back a NaN, and writing one into a
+				-- Position is an engine error rather than a wrong picture. Checked before
+				-- the radius clamp, because clamping an infinity produces a NaN of its own.
+				local nx, ny, nz = np.X, np.Y, np.Z
+				if
+					nx ~= nx or ny ~= ny or nz ~= nz
+					or nx > 1e18 or nx < -1e18
+					or ny > 1e18 or ny < -1e18
+					or nz > 1e18 or nz < -1e18
+				then
+					np = cen
+				end
+				-- Ghosts are driven by a field that a real part's mass and the loop's speed
+				-- limit would damp, and neither applies here, so an unconstrained shape can
+				-- walk one out of the world. Held to a radius rather than a speed, since
+				-- that is the failure that matters for something you are looking at.
+				local off = np - cen
+				local d2 = off:Dot(off)
+				if d2 > GHOST_LIMIT * GHOST_LIMIT then
+					np = cen + (off * (GHOST_LIMIT / math.sqrt(d2)))
+				end
+				pos[i] = np
+				part.Position = np
+			end
+		end
+		return want
+	end
+
 	-- Disabling is clean_physics without giving up the claim: the constraints stay
 	-- on the part so enabling picks up instantly, but nothing drives it and it gets
 	-- its collision back, so it falls and lands like a released part in the
@@ -1297,6 +2089,16 @@ return function(context)
 			-- particular would otherwise be left as a solid slab hanging in the air
 			-- with nothing updating it. px rebuilds it on the first enabled frame.
 			cleanup_shape(x1.k6)
+			-- The blend shape owns instances on exactly the same terms, and f3_body -- the
+			-- only thing that tracks x6.last_blend -- returns early while disabled, so it
+			-- cannot notice the blend went inert.
+			if x6.last_blend and x6.last_blend ~= x1.k6 then
+				cleanup_shape(x6.last_blend)
+			end
+			x6.last_blend = nil
+			-- Ghosts are markers for a formation that is not being driven any more, and
+			-- f3_body's own clear is unreachable from here for the same reason.
+			x4.preview_clear()
 		end
 		if x6.b then
 			refresh_core_visual()
@@ -1317,6 +2119,15 @@ return function(context)
 		-- Before the core folder goes, so a shape-owned instance living inside it is
 		-- released deliberately rather than only incidentally.
 		cleanup_shape(x1.k6)
+		-- Both of these live under the core folder too, and both have an owner that only
+		-- runs inside f3_body: x6.last_blend is what hands a blended shape its instance
+		-- back, and the ghost pool is destroyed with its folder either way. Explicit here
+		-- so "Stop" is a full stop rather than a race with the next frame.
+		if x6.last_blend and x6.last_blend ~= x1.k6 then
+			cleanup_shape(x6.last_blend)
+		end
+		x6.last_blend = nil
+		x4.preview_clear()
 		if x6.b then
 			x6.b.Parent:Destroy()
 			x6.b = nil
@@ -1640,5 +2451,10 @@ return function(context)
 		end
 	end
 
-	return { x4 = x4, x8 = x8 }
+	-- x7 goes out with the other two. It was already handed to the sculptor and Part
+	-- Control binders above, and the formation controls put their pure decisions on it
+	-- (advance_clock, blend_w, rule_reject, part_size, reset_scratch) precisely so they
+	-- can be exercised without the loop -- which no harness can drive, because the stub
+	-- Roblox environment's events drop their callbacks.
+	return { x4 = x4, x8 = x8, x7 = x7 }
 end

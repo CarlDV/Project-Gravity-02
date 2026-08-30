@@ -19,7 +19,8 @@ local function sphere_pt(idx, total)
 	-- Wrapped. d.id comes from x6.part_id_counter, which only ever goes up, so it
 	-- outruns x6.n the moment anything is released and re-claimed. Unwrapped, y
 	-- fell below -1, rad went to zero through the max(), and every part past the
-	-- live count piled onto the south pole.
+	-- live count piled onto the south pole. d.slot, when slot ordering is on, is
+	-- already inside 1..N, so for that case the wrap is a no-op.
 	idx = idx % total
 	local y = 1 - (idx / total) * 2
 	local rad = math.sqrt(math.max(0, 1 - y * y))
@@ -226,7 +227,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		end
 	end
 
-	local id = d.id or 1
+	local id = d.slot or d.id or 1
 	local total_pts = math.max(1, x6.n or 50)
 	local orb_center = st.orb_pos
 

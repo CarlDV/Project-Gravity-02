@@ -89,7 +89,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		end
 	end
 
-	local item_idx = d.id or 1
+	local item_idx = d.slot or d.id or 1
 	local slot_idx = (item_idx - 1) % total_cnt
 	local beam_idx = (slot_idx % beam_count) + 1
 	local trail_idx = math.floor(slot_idx / beam_count) + 1

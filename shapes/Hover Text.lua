@@ -198,7 +198,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 
 	local st = get_slab(x6, x1, c, t)
 	local spacing = c.k11 or 6
-	local id = d.id or 1
+	local id = d.slot or d.id or 1
 	local i = (id * pts.step) % n + 1
 	local lx = pts.px[i] * spacing
 	local ly = pts.py[i] * spacing
