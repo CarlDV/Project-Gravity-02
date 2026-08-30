@@ -135,6 +135,20 @@ MUTATIONS = [
     ("the mobile panel loses a control's range", "mobilever/UI.lua",
      '"Ghost Count", 4, 200', '"Ghost Count", 4, 20',
      "tests/formation_panel.lua"),
+    # The Advanced panel's ordering. UIListLayout.SortOrder defaults to Name, so a list that
+    # mixes classes sorts every heading to the bottom -- which is what the panel did.
+    ("the Advanced list goes back to sorting by class name", "UI.lua",
+     "order_children(ac, acl)", "-- order_children(ac, acl)",
+     "tests/formation_panel.lua"),
+    ("the layout is left in the SortOrder default", "UI.lua",
+     "layout.SortOrder = Enum.SortOrder.LayoutOrder", "local _ = layout",
+     "tests/formation_panel.lua"),
+    ("only the desktop panel gets its ordering fixed", "mobilever/UI.lua",
+     "order_children(ac, acl)", "-- order_children(ac, acl)",
+     "tests/formation_panel.lua"),
+    ("the Advanced rows stop being numbered in build order", "UI.lua",
+     "n = n + 1\n\t\t\t\t\tchild.LayoutOrder = n", "n = n + 1",
+     "tests/formation_panel.lua"),
 ]
 
 # The d.slot revert, aimed at a shape that actually carries one.

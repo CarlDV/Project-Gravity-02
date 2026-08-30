@@ -170,6 +170,21 @@ for _, tree in ipairs({
 	check(t_leave == nil or t_leave:find("v6:Create") ~= nil,
 		path .. ": and tweens it back out the same way")
 
+	-- Ordering. UIListLayout.SortOrder defaults to Name, not LayoutOrder, and three of these
+	-- panels put more than one class of child in one list -- Frames for sliders, toggles,
+	-- text boxes, key rows and folding sections, TextLabels for headings and hints,
+	-- TextButtons for buttons. Sorted by name, "Frame" < "TextButton" < "TextLabel", so
+	-- every heading in the Advanced, Keybinds and Part Control panels sorted into one block
+	-- at the bottom, away from the controls it was labelling. One helper numbers each list
+	-- in build order and puts its layout into LayoutOrder mode.
+	check(src:find("local function order_children%(container, layout%)") ~= nil,
+		path .. ": list ordering has one owner")
+	check(src:find("layout%.SortOrder = Enum%.SortOrder%.LayoutOrder") ~= nil,
+		path .. ": which takes the list out of the Name default")
+	check(src:find("order_children%(ac, acl%)") ~= nil, path .. ": the Advanced list is numbered")
+	local pc_ordered = src:find("order_children%(pcc, pc[c]?l%)")
+	check(pc_ordered ~= nil, path .. ": and so is Part Control's")
+
 	-- The Advanced panel was the one panel in either tree without section headers, and
 	-- it is the longest. Formation and Preview joined the list with the six formation
 	-- controls; tests/formation_lint.lua checks what is *inside* those two, this checks

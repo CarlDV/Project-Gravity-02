@@ -33,21 +33,27 @@ local function wrap_elements(real, seen)
 	for k, v in pairs(real) do
 		M[k] = v
 	end
+	-- The container every Advanced control is parented to, captured so a test can inspect
+	-- the panel's own child order rather than taking the source's word for it.
+	local function note(p, label, rec)
+		seen[label] = rec
+		seen.__box = seen.__box or p
+	end
 	M.s = function(p, label, mn, mx, df, cb, is_int, desc)
-		seen[label] = { kind = "slider", cb = cb, min = mn, max = mx, default = df }
+		note(p, label, { kind = "slider", cb = cb, min = mn, max = mx, default = df })
 		return real.s(p, label, mn, mx, df, cb, is_int, desc)
 	end
 	M.t = function(p, label, df, cb, desc)
-		seen[label] = { kind = "toggle", cb = cb, default = df }
+		note(p, label, { kind = "toggle", cb = cb, default = df })
 		return real.t(p, label, df, cb, desc)
 	end
 	M.b = function(p, label, cb)
-		seen[label] = { kind = "button", cb = cb }
+		note(p, label, { kind = "button", cb = cb })
 		return real.b(p, label, cb)
 	end
 	M.tb = function(p, label, df, cb, desc, max_chars)
 		local box = real.tb(p, label, df, cb, desc, max_chars)
-		seen[label] = { kind = "textbox", cb = cb, box = box, default = df }
+		note(p, label, { kind = "textbox", cb = cb, box = box, default = df })
 		return box
 	end
 	return M
@@ -170,6 +176,46 @@ for _, tree in ipairs({
 	end
 	check(cycle("Slot Order") ~= nil, T .. "Slot Order is a cycling button")
 	check(cycle("Surplus Rule") ~= nil, T .. "Surplus Rule is a cycling button")
+
+	-- The panel's own child order, which is what the layout actually lays out.
+	-- UIListLayout.SortOrder defaults to Name, and this list mixes classes: sliders,
+	-- toggles and text boxes are Frames, headings and descriptions are TextLabels, the
+	-- cycling buttons are TextButtons. Sorted by name, "Frame" < "TextButton" <
+	-- "TextLabel", so every control floats to the top and every heading sinks into one
+	-- block at the bottom -- which is exactly how the panel looked. The fix is an explicit
+	-- LayoutOrder in build order, and these are the checks that it happened.
+	local box = seen.__box
+	check(box ~= nil, T .. "the Advanced container was captured")
+	if box then
+		local layout, rows = nil, {}
+		for _, child in ipairs(box:GetChildren()) do
+			local cls = child.ClassName
+			if cls == "UIListLayout" then
+				layout = child
+			elseif cls ~= "UIPadding" then
+				rows[#rows + 1] = child
+			end
+		end
+		check(layout ~= nil, T .. "the Advanced list has a UIListLayout")
+		check(layout and layout.SortOrder == Enum.SortOrder.LayoutOrder,
+			T .. "which is in LayoutOrder mode rather than the Name default")
+		check(#rows > 30, ("%sthe panel built its rows (%d)"):format(T, #rows))
+		local numbered, first_label, first_frame = true, nil, nil
+		for i, child in ipairs(rows) do
+			if child.LayoutOrder ~= i then
+				numbered = false
+			end
+			if child.ClassName == "TextLabel" and not first_label then
+				first_label = i
+			end
+			if child.ClassName == "Frame" and not first_frame then
+				first_frame = i
+			end
+		end
+		check(numbered, T .. "every row is numbered in the order it was built")
+		check(first_label ~= nil and first_frame ~= nil and first_label < first_frame,
+			T .. "and the first heading sits above the first control instead of below all of them")
+	end
 
 	-- Every default shown is the value the config actually holds. A control built from a
 	-- different number is one that writes that number back the first time it is touched.

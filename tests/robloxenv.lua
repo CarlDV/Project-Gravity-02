@@ -161,7 +161,22 @@ local function newInstance(class, parent)
   methods.PivotTo=function() end
   methods.MoveTo=function() end
   methods.BreakJoints=function() end
-  if parent then table.insert(children, self) end
+  -- Children, in insertion order. This used to insert `self` into its *own* children
+  -- table, so GetChildren() always came back empty and FindFirstChild could only ever
+  -- find the instance itself -- which meant nothing in the suite could see the shape of a
+  -- panel it had just built. Registering with the parent is what lets a test assert the
+  -- order a UIListLayout is going to lay out, and ordering is the whole reason
+  -- UIListLayout.SortOrder exists.
+  --
+  -- Constructor path only, deliberately: `x.Parent = y` after the fact still just records
+  -- the property, exactly as before, so no existing expectation moves.
+  rawset(self, "_children", children)
+  if parent then
+    local pc = rawget(parent, "_children")
+    if pc then
+      pc[#pc + 1] = self
+    end
+  end
   return self
 end
 Instance = { new=function(c,p) return newInstance(c,p) end }

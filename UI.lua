@@ -737,6 +737,42 @@ return function(context)
 		local SLOT_MODES = { "Claim", "Size Desc", "Size Asc", "Distance", "Shuffle" }
 		local SURPLUS_RULES = { "Farthest", "Nearest", "Newest", "Oldest", "Smallest", "Largest" }
 
+		-- UIListLayout.SortOrder defaults to **Name**, not LayoutOrder. For a list whose
+		-- children are all one class that is harmless: they share a name, the sort is stable,
+		-- and the order they were built in survives -- which is why every list in this file
+		-- got away with the default. The Advanced panel is the one list that mixes classes.
+		-- Sliders, toggles and text boxes are Frames, section headers and descriptions are
+		-- TextLabels, and the cycling buttons are TextButtons; sorted by name,
+		-- "Frame" < "TextButton" < "TextLabel", so every control floated to the top of the
+		-- panel and every heading sank into a single block at the bottom. That is what the
+		-- panel has looked like since it gained headers, and adding two more sections, two
+		-- buttons and three descriptions is what finally made it unmissable.
+		--
+		-- Numbering the children in build order and putting the layout into LayoutOrder mode
+		-- is the whole fix. It has to run again after any rebuild, because new children arrive
+		-- at LayoutOrder 0 and would sort ahead of everything already numbered.
+		local LAYOUT_MODIFIERS = {
+			UIListLayout = true, UIPadding = true, UICorner = true, UIStroke = true,
+			UIGradient = true, UIScale = true, UISizeConstraint = true, UIFlexItem = true,
+			UIAspectRatioConstraint = true, UITextSizeConstraint = true,
+		}
+		local function order_children(container, layout)
+			if layout then
+				layout.SortOrder = Enum.SortOrder.LayoutOrder
+			end
+			local n = 0
+			for _, child in ipairs(container:GetChildren()) do
+				-- ClassName against a list of the modifiers, rather than IsA("GuiObject"):
+				-- LayoutOrder does not exist on a UIPadding, and writing a property an
+				-- instance does not have is an error rather than a no-op.
+				if not LAYOUT_MODIFIERS[child.ClassName] then
+					n = n + 1
+					child.LayoutOrder = n
+				end
+			end
+			return n
+		end
+
 		-- Rebuildable, so a reset can repaint it. Every control in here caches its
 		-- value at build time -- UI_elements M.s keeps `current` as a private local --
 		-- and this block used to be built exactly once. After "Reset All Settings" the
@@ -1049,6 +1085,10 @@ return function(context)
 				x1.k3 = Color3.fromRGB(ch(x1.k3.R), ch(x1.k3.G), v)
 				update_color()
 			end, true)
+
+			-- Last, once every row exists: this is what keeps each control under its own
+			-- heading instead of sorted by class name. See order_children.
+			order_children(ac, acl)
 		end
 		populate_advanced()
 		x5.refresh_advanced = populate_advanced
@@ -1230,6 +1270,10 @@ return function(context)
 					end)
 				end)
 			end
+			-- Same mixed-class list, same fix: the two headings here are TextLabels among
+			-- Frames, so by name they sorted below every key row. Rebuilt on each keystroke
+			-- in the search box, so the numbering has to be redone here rather than once.
+			order_children(kc, layout)
 		end
 
 		ksearch:GetPropertyChangedSignal("Text"):Connect(function()
@@ -1874,6 +1918,11 @@ return function(context)
 		end
 		refresh_partctl()
 		x5.refresh_partctl = refresh_partctl
+		-- And the third mixed-class list: this panel holds headings and hints (TextLabels),
+		-- mode rows and folding sections (Frames) and five buttons, so by name its headings
+		-- and hints sorted to the bottom too. Its rows are built once, above, so this runs
+		-- once here -- refresh_partctl only repaints what already exists.
+		order_children(pcc, pcl)
 		-- Published for System_partctl: selecting, assigning and releasing all run
 		-- from input handlers that know nothing about the panel, and this is what
 		-- makes the count and the active-mode marker live rather than a snapshot
