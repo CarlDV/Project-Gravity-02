@@ -28,6 +28,54 @@ local function root_of(char)
 	return char:FindFirstChild("HumanoidRootPart") or char:FindFirstChildWhichIsA("BasePart")
 end
 
+-- Whether a character part is worth spending mech parts on.
+--
+-- HumanoidRootPart is excluded by name. It draws nothing, its box is the largest in
+-- a stock rig, and the volume share in build_cloud therefore handed it the biggest
+-- slice of any part -- 267 of 1199 points in R6, 18% of the cloud in R15. In R6 that
+-- box also sits exactly on the Torso's, so those parts went inside the chest twice
+-- over. Worse, its transform in root space is the identity by construction, so they
+-- could not animate at all: they stood at the root while the rest of the mech moved.
+-- Matched on the name rather than against whatever root_of picked, because on a rig
+-- with no HumanoidRootPart root_of falls back to the first BasePart, and that one is
+-- a real limb we still want.
+--
+-- Fully invisible parts go for the same reason -- games bolt hitboxes and shadow
+-- volumes onto characters, and a point inside one is a part that draws nothing.
+-- Anything merely see-through is kept, because it is still visible.
+-- LocalTransparencyModifier is deliberately not read: that is the first-person fade
+-- on your own character, and folding it in would delete the mech whenever you zoomed
+-- in. The type guard is for rigs that never set Transparency at all.
+local function samples(part)
+	if part.Name == "HumanoidRootPart" then
+		return false
+	end
+	local tr = part.Transparency
+	return not (type(tr) == "number" and tr >= 1)
+end
+
+-- One pass over the character's BaseParts. `all` skips the filter, for the fallback
+-- tier in build_cloud.
+local function collect(char, inv, all)
+	local boxes, total = {}, 0
+	for _, part in ipairs(char:GetChildren()) do
+		if part:IsA("BasePart") and (all or samples(part)) then
+			local sz = part.Size
+			local vol = sz.X * sz.Y * sz.Z
+			if vol > 0 then
+				total = total + vol
+				boxes[#boxes + 1] = {
+					part = part,
+					cf = inv * part.CFrame,
+					size = sz,
+					vol = vol,
+				}
+			end
+		end
+	end
+	return boxes, total
+end
+
 -- Samples the player's own character into a point cloud.
 --
 -- The offsets stored here are PART-LOCAL, not root-local, and each point records
@@ -51,21 +99,12 @@ local function build_cloud(char, detail)
 	end
 	local inv = root.CFrame:Inverse()
 
-	local boxes, total = {}, 0
-	for _, part in ipairs(char:GetChildren()) do
-		if part:IsA("BasePart") then
-			local sz = part.Size
-			local vol = sz.X * sz.Y * sz.Z
-			if vol > 0 then
-				total = total + vol
-				boxes[#boxes + 1] = {
-					part = part,
-					cf = inv * part.CFrame,
-					size = sz,
-					vol = vol,
-				}
-			end
-		end
+	local boxes, total = collect(char, inv, false)
+	-- A character can be legitimately all-invisible, or nothing but a root part for a
+	-- few frames after a respawn. Sampling everything in that case keeps the mech
+	-- standing rather than blinking out, which is what an empty cloud does.
+	if total <= 0 then
+		boxes, total = collect(char, inv, true)
 	end
 	if total <= 0 then
 		return nil
@@ -183,15 +222,21 @@ function M.px(t, c, x6, x9, x1)
 	st.gen = gen
 
 	local detail = math.floor(c.k16 or 1200)
-	local live = 0
+	-- Both counts. The cloud has to be rebuilt when a limb comes or goes, and also when
+	-- one is hidden or revealed: a game that fades characters changes what is worth
+	-- sampling without changing how many parts there are.
+	local live, drawn = 0, 0
 	for _, part in ipairs(char:GetChildren()) do
 		if part:IsA("BasePart") then
 			live = live + 1
+			if samples(part) then
+				drawn = drawn + 1
+			end
 		end
 	end
-	if st.char ~= char or st.detail ~= detail or st.live ~= live or not st.cloud then
+	if st.char ~= char or st.detail ~= detail or st.live ~= live or st.drawn ~= drawn or not st.cloud then
 		st.cloud = build_cloud(char, detail)
-		st.char, st.detail, st.live = char, detail, live
+		st.char, st.detail, st.live, st.drawn = char, detail, live, drawn
 	end
 	local cloud = st.cloud
 	if not cloud then

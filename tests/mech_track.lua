@@ -12,10 +12,12 @@ local newInstance, LocalPlayer, ANY = env.newInstance, env.LocalPlayer, env.ANY
 
 -- A real R6-shaped rig whose parts actually report IsA("BasePart"), so the cloud
 -- is genuinely built (the generic sweep stub did not, which made Mech Suit a no-op).
-local function bp(name, pos, size)
+local function bp(name, pos, size, tr)
   local p = newInstance("Part", nil)
   local props = { Name=name, Size=size, CFrame=CFrame.new(pos.X,pos.Y,pos.Z), Position=pos,
-                  AssemblyLinearVelocity=Vector3.zero, Anchored=false, CanCollide=true }
+                  AssemblyLinearVelocity=Vector3.zero, Anchored=false, CanCollide=true,
+                  -- A real BasePart always answers Transparency, and the cloud filter reads it.
+                  Transparency=tr or 0 }
   local mt = getmetatable(p); local prev = mt.__index
   mt.__index = function(t,k)
     if k=="IsA" then return function(_,c) return c=="BasePart" or c=="Part" end end
@@ -42,18 +44,26 @@ add("Right Arm",        Vector3.new(1.5,3,0),  Vector3.new(1,2,1))
 add("Left Leg",         Vector3.new(-0.5,1,0), Vector3.new(1,2,1))
 add("Right Leg",        Vector3.new(0.5,1,0),  Vector3.new(1,2,1))
 
-local char = newInstance("Model", nil)
-local byName = {}
-for _,p in ipairs(parts) do byName[p.Name] = p end
-getmetatable(char).__index = function(_,k)
-  if k=="GetChildren" then return function() return parts end end
-  if k=="FindFirstChild" then return function(_,n) return byName[n] end end
-  if k=="FindFirstChildWhichIsA" then return function() return parts[1] end end
-  if k=="IsA" then return function(_,c) return c=="Model" end end
-  if k=="Name" then return "Tester" end
-  if byName[k] then return byName[k] end
-  return ANY
+-- Wraps a part list in a character model. Factored out because the sampling checks
+-- below need rigs of their own -- an invisible hitbox, a root-only rig -- without
+-- disturbing the R6 rig every tracking check measures against.
+local function mk_char(parts)
+  local char = newInstance("Model", nil)
+  local byName = {}
+  for _,p in ipairs(parts) do byName[p.Name] = p end
+  getmetatable(char).__index = function(_,k)
+    if k=="GetChildren" then return function() return parts end end
+    if k=="FindFirstChild" then return function(_,n) return byName[n] end end
+    if k=="FindFirstChildWhichIsA" then return function() return parts[1] end end
+    if k=="IsA" then return function(_,c) return c=="Model" end end
+    if k=="Name" then return "Tester" end
+    if byName[k] then return byName[k] end
+    return ANY
+  end
+  return char
 end
+
+local char = mk_char(parts)
 LocalPlayer.Character = char
 
 local BASE = {}
@@ -197,7 +207,74 @@ do
   check(bad == 0, "animated tracking produces no NaN/inf")
 end
 
--- 6. cleanup
+-- 6. only parts that actually draw something get sampled
+--
+-- HumanoidRootPart renders nothing, and in R6 its 2x2x1 box sits exactly on the
+-- Torso's. It used to take the largest volume share of any part -- 267 of 1199
+-- points in R6, 18% of the cloud in R15 -- and its transform in root space is the
+-- identity by construction, so every part sent there stood rigid at the root while
+-- the rest of the mech animated. Reported as "parts following humanoid root part
+-- and essentially a waste of parts", which is exactly what it was.
+do
+  local cfg, x6 = fresh()
+  sample(S, cfg, x6, 0, {1})
+  local cloud = x6.pre["Mech Suit"].cloud
+  local named = {}
+  for bi, b in ipairs(cloud.boxes) do named[bi] = b.part.Name end
+  local root_pts = 0
+  for i = 1, cloud.n do
+    if named[cloud.owner[i]] == "HumanoidRootPart" then root_pts = root_pts + 1 end
+  end
+  check(root_pts == 0, ("no point lands on HumanoidRootPart (was 267 of 1199): %d"):format(root_pts))
+  check(#cloud.boxes == 6, ("the six drawn R6 limbs are sampled: %d boxes"):format(#cloud.boxes))
+end
+
+-- Fully invisible parts are waste for the same reason: games bolt hitboxes and
+-- shadow volumes onto characters, and a part placed inside one draws nothing. The
+-- 8x8x8 hitbox here would take 98% of the cloud on volume share alone.
+do
+  local saved = LocalPlayer.Character
+  local torso  = bp("Torso",  Vector3.new(0,3,0), Vector3.new(2,2,1), 0)
+  local hitbox = bp("Hitbox", Vector3.new(0,3,0), Vector3.new(8,8,8), 1)
+  local ghost  = bp("Ghost",  Vector3.new(0,5,0), Vector3.new(2,2,1), 0.5)
+  LocalPlayer.Character = mk_char({ torso, hitbox, ghost })
+  local cfg, x6 = fresh()
+  sample(S, cfg, x6, 0, {1})
+  local names = {}
+  for _, b in ipairs(x6.pre["Mech Suit"].cloud.boxes) do names[b.part.Name] = true end
+  check(not names.Hitbox, "a fully invisible part is not sampled")
+  check(names.Ghost, "a semi-transparent part still is")
+  -- This rig has no HumanoidRootPart, so root_of falls back to the first BasePart --
+  -- a real limb. Excluding by name rather than by identity with that pick is what
+  -- keeps it in the cloud.
+  check(names.Torso, "a fallback root part is still sampled when it is a real limb")
+  LocalPlayer.Character = saved
+end
+
+-- The fallbacks. A character can be nothing but a root part mid-respawn, or wholly
+-- invisible because the game hid it. The mech keeps standing in both cases rather
+-- than blinking out, which is what filtering down to nothing would do.
+do
+  local saved = LocalPlayer.Character
+  -- Parenthesised: bp returns the part and its prop table, and a bare call at the end
+  -- of a constructor would drop that second value into the rig as a bogus child.
+  LocalPlayer.Character = mk_char({ (bp("HumanoidRootPart", Vector3.new(0,3,0), Vector3.new(2,2,1), 1)) })
+  local cfg, x6 = fresh()
+  sample(S, cfg, x6, 0, {1})
+  local st = x6.pre["Mech Suit"]
+  check(st.cloud ~= nil and st.cloud.n > 0, "a root-only rig still builds a cloud")
+
+  local hidden = {}
+  for i, p in ipairs(parts) do hidden[i] = bp(p.Name, propmap[p.Name].Position, p.Size, 1) end
+  LocalPlayer.Character = mk_char(hidden)
+  local cfg2, x62 = fresh()
+  sample(S, cfg2, x62, 0, {1})
+  local st2 = x62.pre["Mech Suit"]
+  check(st2.cloud ~= nil and st2.cloud.n > 0, "a wholly invisible rig still builds a cloud")
+  LocalPlayer.Character = saved
+end
+
+-- 7. cleanup
 do
   local cfg, x6 = fresh()
   sample(S, cfg, x6, 0, {1})

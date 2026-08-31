@@ -51,20 +51,26 @@ Color3.fromRGB = Color3.new
 local function conn() return { Connected = true, Disconnect = function(s) s.Connected = false end } end
 local function signal() return { Connect = function() return conn() end } end
 
+-- An anatomically plausible standing R6 rig: root at the hips, legs below it, arms
+-- out to the sides. The positions used to be a plain `i * 0.5, i * 0.8` staircase,
+-- which put every part *above* the root -- so the only thing reaching below it was
+-- HumanoidRootPart's own invisible box, and Mech Suit's feet-hold check passed only
+-- because that box was being sampled. Now that the cloud skips parts that draw
+-- nothing, the fixture has to supply real legs. Same rig tests/mech_track.lua uses.
 local CHAR_PARTS = {
-	{ Name = "HumanoidRootPart", Size = Vector3.new(2, 2, 1) },
-	{ Name = "Head",             Size = Vector3.new(2, 1, 1) },
-	{ Name = "Torso",            Size = Vector3.new(2, 2, 1) },
-	{ Name = "Left Arm",         Size = Vector3.new(1, 2, 1) },
-	{ Name = "Right Arm",        Size = Vector3.new(1, 2, 1) },
-	{ Name = "Left Leg",         Size = Vector3.new(1, 2, 1) },
-	{ Name = "Right Leg",        Size = Vector3.new(1, 2, 1) },
+	{ Name = "HumanoidRootPart", Size = Vector3.new(2, 2, 1), Pos = Vector3.new(0, 3, 0) },
+	{ Name = "Head",             Size = Vector3.new(2, 1, 1), Pos = Vector3.new(0, 4.5, 0) },
+	{ Name = "Torso",            Size = Vector3.new(2, 2, 1), Pos = Vector3.new(0, 3, 0) },
+	{ Name = "Left Arm",         Size = Vector3.new(1, 2, 1), Pos = Vector3.new(-1.5, 3, 0) },
+	{ Name = "Right Arm",        Size = Vector3.new(1, 2, 1), Pos = Vector3.new(1.5, 3, 0) },
+	{ Name = "Left Leg",         Size = Vector3.new(1, 2, 1), Pos = Vector3.new(-0.5, 1, 0) },
+	{ Name = "Right Leg",        Size = Vector3.new(1, 2, 1), Pos = Vector3.new(0.5, 1, 0) },
 }
 local character = {}
 do
 	local kids = {}
 	for i, spec in ipairs(CHAR_PARTS) do
-		local pos = Vector3.new(i * 0.5, i * 0.8, 0)
+		local pos = spec.Pos
 		kids[i] = {
 			Name = spec.Name,
 			Size = spec.Size,
@@ -72,6 +78,9 @@ do
 			-- and CFrame off every limb.
 			Position = pos,
 			CFrame = CFrame.new(pos),
+			-- Every limb draws. HumanoidRootPart does not, and a real one reports
+			-- exactly this, which is how the Mech Suit cloud knows to skip it.
+			Transparency = spec.Name == "HumanoidRootPart" and 1 or 0,
 			-- Standing still by default; the walk tests drive this directly.
 			AssemblyLinearVelocity = Vector3.new(0, 0, 0),
 			IsA = function(_, cls) return cls == "BasePart" end,
