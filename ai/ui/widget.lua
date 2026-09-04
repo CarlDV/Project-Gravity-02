@@ -2,6 +2,7 @@
 return function(env)
 	local kit = env.require("ui/kit")
 	local COL = kit.COL
+	local SZ = kit.SZ
 
 	local M = {}
 	local widget
@@ -11,10 +12,10 @@ return function(env)
 		widget = kit.textButton(parentGui, {
 			text = "AI",
 			font = Enum.Font.GothamBold,
-			size = 11,
+			size = SZ.widgetSize,
 			bg = COL.bg,
-			pos = UDim2.new(1, -48, 0.5, -18),
-			dim = UDim2.new(0, 36, 0, 36)
+			pos = UDim2.new(1, -(SZ.widgetD + SZ.widgetGap), 0.5, -(SZ.widgetD / 2)),
+			dim = UDim2.new(0, SZ.widgetD, 0, SZ.widgetD)
 		})
 		widget.Name = "AI_Circle_Toggle"
 		widget.Active = true
@@ -22,8 +23,8 @@ return function(env)
 		Instance.new("UICorner", widget).CornerRadius = UDim.new(0.5, 0)
 		kit.stroke(widget, COL.stroke, 1)
 
-		-- Handle is the widget itself: it is a 36px grab target with nothing inside
-		-- it to conflict with, so the whole surface should drag.
+		-- Handle is the widget itself: it is one round grab target with nothing
+		-- inside it to conflict with, so the whole surface should drag.
 		local wasDragged = kit.draggable(widget, widget)
 
 		widget.MouseButton1Click:Connect(function()

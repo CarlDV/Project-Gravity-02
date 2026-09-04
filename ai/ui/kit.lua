@@ -5,6 +5,88 @@ return function(env)
 
 	local M = {}
 
+	-- main.lua's SUB_DIR only redirects System and UI, so desktop and mobile load
+	-- the same ai/ tree and every window in it was drawn from one set of literals:
+	-- phone geometry, which on a monitor left the chat panel at 300x240 -- a sixth
+	-- of a 1080p viewport -- with 8px header text and bubbles capped at 214px. The
+	-- two columns below are the only place that difference lives, so a use site
+	-- reads a name rather than a magic number. MOBILE is what the panel shipped
+	-- with; a value that differed by a pixel or two between neighbouring rows has
+	-- been folded into one key, since those gaps were drift rather than intent.
+	local MOBILE = {
+		-- Chat window and its header row.
+		chatW = 300, chatH = 240,
+		chatMinW = 240, chatMinH = 180, chatMaxW = 340, chatMaxH = 270,
+		headerH = 30, headerPad = 6, headerGap = 6,
+		titlePad = 6, titleW = 52, titleSize = 11,
+		statusSize = 8, statusGap = 4,
+		ctrlH = 18, ctrlSize = 8, clearW = 34, logoutW = 42, iconW = 14,
+		-- Model picker button and its dropdown.
+		modelX = 58, modelW = 68,
+		dropW = 108, dropRowH = 20, dropRowStep = 22, dropPad = 3,
+		-- Transcript and bubbles. The Frac pair is the share of the feed width a
+		-- bubble may reach before it wraps; the rest is the gutter that makes the
+		-- two sides read as a conversation.
+		feedPad = 7, feedTopGap = 4, feedBotGap = 2, itemGap = 7,
+		bubblePadX = 9, bubblePadY = 6, bubbleGap = 3,
+		bubbleFrac = 0.75, bubbleSysFrac = 0.84,
+		tagSize = 8, bodySize = 11, scrollBar = 2,
+		-- Composer.
+		footerH = 26, footerPad = 8, footerBottom = 6,
+		inputPadX = 9, inputSize = 10,
+		sendW = 32, sendH = 18, sendMarginR = 6, sendGap = 3, sendSize = 9,
+		-- Auth modal.
+		authW = 230, authH = 180,
+		authMinW = 200, authMinH = 160, authMaxW = 250, authMaxH = 200,
+		authHeaderH = 32, authPad = 10, authGap = 6, authTopPad = 4,
+		authTitleSize = 9, authIconW = 18,
+		authTabH = 24, authTabSize = 9,
+		authRefH = 24, authRefSize = 8,
+		authFieldH = 24, authFieldSize = 9,
+		authBtnH = 26, authBtnSize = 9,
+		authErrH = 12, authErrSize = 8,
+		-- Floating AI button.
+		widgetD = 36, widgetGap = 12, widgetSize = 11
+	}
+
+	-- Desktop is not mobile scaled up by a constant: the window grows more than
+	-- the type does, because the thing a monitor buys is line length and visible
+	-- history, not larger glyphs. Text goes up roughly two points, hit targets to
+	-- ~22px, and the chat window to 560x430 -- still narrower than a side panel is
+	-- tall, so it does not read as taking over the screen.
+	local DESKTOP = {
+		chatW = 560, chatH = 430,
+		chatMinW = 420, chatMinH = 320, chatMaxW = 780, chatMaxH = 640,
+		headerH = 38, headerPad = 8, headerGap = 6,
+		titlePad = 10, titleW = 64, titleSize = 13,
+		statusSize = 10, statusGap = 8,
+		ctrlH = 22, ctrlSize = 10, clearW = 46, logoutW = 54, iconW = 20,
+		modelX = 74, modelW = 92,
+		dropW = 150, dropRowH = 24, dropRowStep = 27, dropPad = 5,
+		feedPad = 12, feedTopGap = 6, feedBotGap = 4, itemGap = 10,
+		bubblePadX = 13, bubblePadY = 9, bubbleGap = 4,
+		bubbleFrac = 0.72, bubbleSysFrac = 0.82,
+		tagSize = 10, bodySize = 13, scrollBar = 4,
+		footerH = 34, footerPad = 12, footerBottom = 8,
+		inputPadX = 12, inputSize = 12,
+		sendW = 46, sendH = 24, sendMarginR = 8, sendGap = 6, sendSize = 12,
+		authW = 330, authH = 240,
+		authMinW = 280, authMinH = 220, authMaxW = 400, authMaxH = 320,
+		authHeaderH = 38, authPad = 14, authGap = 8, authTopPad = 6,
+		authTitleSize = 12, authIconW = 22,
+		authTabH = 30, authTabSize = 11,
+		authRefH = 30, authRefSize = 10,
+		authFieldH = 32, authFieldSize = 11,
+		authBtnH = 32, authBtnSize = 11,
+		authErrH = 14, authErrSize = 10,
+		widgetD = 44, widgetGap = 14, widgetSize = 13
+	}
+
+	-- context.is_mobile is main.lua's own test (TouchEnabled and not
+	-- KeyboardEnabled). Absent -- as in the load smoke harness -- means desktop.
+	M.isMobile = (env.context and env.context.is_mobile) and true or false
+	M.SZ = M.isMobile and MOBILE or DESKTOP
+
 	M.COL = {
 		bg = Color3.fromRGB(12, 12, 15),
 		panel = Color3.fromRGB(18, 18, 22),
@@ -101,6 +183,15 @@ return function(env)
 		M.corner(t, opts.radius or 5)
 		M.stroke(t)
 		return t
+	end
+
+	-- Pixel width a bubble may reach before it wraps. UISizeConstraint.MaxSize is
+	-- absolute-only, so the share has to be resolved against a known width rather
+	-- than left as a UDim scale: the feed is the chat window less its two gutters.
+	function M.bubbleCap(isSys)
+		local sz = M.SZ
+		local feedW = sz.chatW - sz.feedPad * 2
+		return math.floor(feedW * (isSys and sz.bubbleSysFrac or sz.bubbleFrac))
 	end
 
 	function M.window(parent, opts)

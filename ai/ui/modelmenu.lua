@@ -4,10 +4,12 @@ return function(env)
 	local kit = env.require("ui/kit")
 	local st = env.require("state")
 	local COL = kit.COL
+	local SZ = kit.SZ
 
-	local DROP_W = 108
-	local ROW_H = 20
-	local ROW_STEP = 22
+	local DROP_W = SZ.dropW
+	local ROW_H = SZ.dropRowH
+	local ROW_STEP = SZ.dropRowStep
+	local DROP_PAD = SZ.dropPad
 
 	local M = {}
 
@@ -15,16 +17,16 @@ return function(env)
 		local button = kit.textButton(header, {
 			text = st.session.model .. " v",
 			color = COL.label,
-			size = 8,
+			size = SZ.ctrlSize,
 			bg = COL.raised,
-			pos = UDim2.new(0, 60, 0.5, -9),
-			dim = UDim2.new(0, 68, 0, 18),
+			pos = UDim2.new(0, SZ.modelX, 0.5, -(SZ.ctrlH / 2)),
+			dim = UDim2.new(0, SZ.modelW, 0, SZ.ctrlH),
 			radius = 4,
 			stroke = COL.strokeSoft
 		})
 
 		local drop = Instance.new("Frame", window)
-		drop.Position = UDim2.new(0, 58, 0, 30)
+		drop.Position = UDim2.new(0, SZ.modelX, 0, SZ.headerH)
 		drop.Size = UDim2.new(0, DROP_W, 0, 0)
 		drop.BackgroundColor3 = Color3.fromRGB(22, 22, 27)
 		drop.ClipsDescendants = true
@@ -38,10 +40,10 @@ return function(env)
 		layout.SortOrder = Enum.SortOrder.LayoutOrder
 
 		local pad = Instance.new("UIPadding", drop)
-		pad.PaddingTop = UDim.new(0, 3)
-		pad.PaddingBottom = UDim.new(0, 3)
-		pad.PaddingLeft = UDim.new(0, 3)
-		pad.PaddingRight = UDim.new(0, 3)
+		pad.PaddingTop = UDim.new(0, DROP_PAD)
+		pad.PaddingBottom = UDim.new(0, DROP_PAD)
+		pad.PaddingLeft = UDim.new(0, DROP_PAD)
+		pad.PaddingRight = UDim.new(0, DROP_PAD)
 
 		local open = false
 
@@ -60,7 +62,7 @@ return function(env)
 				local optBtn = kit.textButton(drop, {
 					text = modelName,
 					color = isSel and COL.text or Color3.fromRGB(150, 150, 160),
-					size = 8,
+					size = SZ.ctrlSize,
 					bg = isSel and Color3.fromRGB(38, 38, 48) or Color3.fromRGB(25, 25, 30),
 					dim = UDim2.new(1, 0, 0, ROW_H),
 					radius = 3
@@ -107,7 +109,7 @@ return function(env)
 			refresh()
 			drop.Visible = true
 			v6:Create(drop, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-				Size = UDim2.new(0, DROP_W, 0, #st.MODELS * ROW_STEP + 6)
+				Size = UDim2.new(0, DROP_W, 0, #st.MODELS * ROW_STEP + DROP_PAD * 2)
 			}):Play()
 		end)
 

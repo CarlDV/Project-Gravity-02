@@ -2,6 +2,7 @@
 return function(env)
 	local kit = env.require("ui/kit")
 	local COL = kit.COL
+	local SZ = kit.SZ
 	local v6 = env.v6
 
 	local TYPE_STEPS = 30
@@ -19,22 +20,23 @@ return function(env)
 		local agent = env.require("agent")
 
 		local footer = Instance.new("Frame", window)
-		footer.Position = UDim2.new(0, 8, 1, -32)
-		footer.Size = UDim2.new(1, -16, 0, 26)
+		footer.Position = UDim2.new(0, SZ.footerPad, 1, -(SZ.footerH + SZ.footerBottom))
+		footer.Size = UDim2.new(1, -SZ.footerPad * 2, 0, SZ.footerH)
 		footer.BackgroundColor3 = COL.field
 		kit.corner(footer, 6)
 		local footerStroke = kit.stroke(footer)
 
 		local inputTxt = Instance.new("TextBox", footer)
-		inputTxt.Position = UDim2.new(0, 9, 0, 0)
-		inputTxt.Size = UDim2.new(1, -50, 1, 0)
+		inputTxt.Position = UDim2.new(0, SZ.inputPadX, 0, 0)
+		-- Everything the send button and its margins claim on the right.
+		inputTxt.Size = UDim2.new(1, -(SZ.inputPadX + SZ.sendGap + SZ.sendW + SZ.sendMarginR), 1, 0)
 		inputTxt.BackgroundTransparency = 1
 		inputTxt.PlaceholderText = "Ask AI or command engine..."
 		inputTxt.PlaceholderColor3 = COL.muted
 		inputTxt.Text = ""
 		inputTxt.TextColor3 = COL.text
 		inputTxt.Font = Enum.Font.Gotham
-		inputTxt.TextSize = 10
+		inputTxt.TextSize = SZ.inputSize
 		inputTxt.ClearTextOnFocus = false
 		inputTxt.TextXAlignment = Enum.TextXAlignment.Left
 		inputTxt.ClipsDescendants = true
@@ -52,8 +54,9 @@ return function(env)
 			text = "GO",
 			bg = COL.btn,
 			font = Enum.Font.GothamBold,
-			pos = UDim2.new(1, -38, 0.5, -9),
-			dim = UDim2.new(0, 32, 0, 18),
+			size = SZ.sendSize,
+			pos = UDim2.new(1, -(SZ.sendW + SZ.sendMarginR), 0.5, -(SZ.sendH / 2)),
+			dim = UDim2.new(0, SZ.sendW, 0, SZ.sendH),
 			radius = 4
 		})
 		local sendStroke = kit.stroke(sendBtn, COL.strokeBtn)
