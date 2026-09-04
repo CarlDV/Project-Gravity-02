@@ -387,6 +387,35 @@ return function(context)
 			end)
 		end
 
+		-- Text-only hover, for the transparent buttons layered over a row: a favourite
+		-- star, the clear-target ×, the row's own label. AutoButtonColor tints a
+		-- background, so on a BackgroundTransparency 1 button it has nothing to work
+		-- with -- these were the controls here with no feedback of any kind, engine or
+		-- otherwise. Tinting the glyph is the equivalent move.
+		local function glyph_hover(obj, idle, hot)
+			obj.MouseEnter:Connect(function()
+				v6:Create(obj, A.TINT, { TextColor3 = hot }):Play()
+			end)
+			obj.MouseLeave:Connect(function()
+				v6:Create(obj, A.TINT, { TextColor3 = idle }):Play()
+			end)
+		end
+
+		-- A list row's tint lives on the Frame behind it, but both list rows here are
+		-- covered edge to edge by transparent TextButtons, and a button under the
+		-- pointer takes the enter/leave for itself. The tint was only reachable on the
+		-- few pixels of Frame the buttons leave uncovered -- so the hover added to
+		-- those rows was, in practice, not there. Pointing the covering children at
+		-- the same paint is what makes it visible anywhere on the row.
+		local function hover_proxy(src, target, idle, hot)
+			src.MouseEnter:Connect(function()
+				v6:Create(target, A.HOVER, { BackgroundColor3 = hot }):Play()
+			end)
+			src.MouseLeave:Connect(function()
+				v6:Create(target, A.HOVER, { BackgroundColor3 = idle }):Play()
+			end)
+		end
+
 		-- Every window in this tree closes with the same 20x20 red circle. Part
 		-- Control used to be the one exception -- a grey text "x", 30x30, at its own
 		-- offset -- and Advanced had no close button at all.
@@ -1728,11 +1757,12 @@ return function(context)
 				row.BackgroundColor3 = row_on and Color3.fromRGB(40, 40, 180) or Color3.fromRGB(25, 25, 30)
 				row.BorderSizePixel = 0
 				Instance.new("UICorner", row).CornerRadius = UDim.new(0, 6)
-				row_hover(
-					row,
-					row.BackgroundColor3,
-					row_on and Color3.fromRGB(55, 55, 200) or Color3.fromRGB(35, 35, 40)
-				)
+				-- Hoisted so the two covering buttons can drive the same pair; the
+				-- selected row keeps its own tint, which is why idle is passed rather
+				-- than read back off the Frame on mouse-out.
+				local row_idle = row.BackgroundColor3
+				local row_hot = row_on and Color3.fromRGB(55, 55, 200) or Color3.fromRGB(35, 35, 40)
+				row_hover(row, row_idle, row_hot)
 
 				local pick = Instance.new("TextButton", row)
 				pick.Position = UDim2.new(0, 8, 0, 0)
@@ -1744,15 +1774,24 @@ return function(context)
 				pick.TextSize = 12
 				pick.TextXAlignment = Enum.TextXAlignment.Left
 				pick.TextTruncate = Enum.TextTruncate.AtEnd
+				hover_proxy(pick, row, row_idle, row_hot)
 
 				local star = Instance.new("TextButton", row)
 				star.Position = UDim2.new(1, -35, 0, 0)
 				star.Size = UDim2.new(0, 35, 1, 0)
 				star.BackgroundTransparency = 1
 				star.Text = favorites[sn] and "★" or "☆"
-				star.TextColor3 = favorites[sn] and Color3.fromRGB(255, 200, 50) or Color3.fromRGB(80, 80, 85)
+				local star_idle = favorites[sn] and Color3.fromRGB(255, 200, 50) or Color3.fromRGB(80, 80, 85)
+				star.TextColor3 = star_idle
 				star.Font = Enum.Font.GothamBold
 				star.TextSize = 14
+				-- An unfavourited star is nearly the row's own colour, so without this
+				-- there was nothing to say the right end of the row was clickable.
+				-- Brightened rather than tinted towards gold: gold on an empty ☆ reads
+				-- as already-favourited, which is the one thing hover must not say.
+				hover_proxy(star, row, row_idle, row_hot)
+				glyph_hover(star, star_idle, brighten(star_idle, 0.35))
+				UI_elements.press(star, 0.9)
 				star.MouseButton1Click:Connect(function()
 					favorites[sn] = not favorites[sn]
 					save_favs()
@@ -1975,14 +2014,24 @@ return function(context)
 		db.Font = Enum.Font.GothamBold
 		db.TextSize = 13
 		db.TextXAlignment = 0
+		-- "DOMAIN EXPANSION INFINITE VOID" set uppercase at 13 is wider than this
+		-- button, and nothing here clips, so the longest shape names used to run
+		-- underneath the ▼. The padding reserves the arrow's column so the truncation
+		-- happens before it rather than over it; arr is kept inside db -- so the press
+		-- dip still takes the arrow with it -- and re-anchored to the padded edge,
+		-- which is the same 30px from the right that it drew at before.
+		db.TextTruncate = Enum.TextTruncate.AtEnd
+		local ARROW_W = 30
+		local dbp = Instance.new("UIPadding", db)
+		dbp.PaddingRight = UDim.new(0, ARROW_W)
 		Instance.new("UICorner", db).CornerRadius = UDim.new(0, 6)
 		local dst = Instance.new("UIStroke", db)
 		dst.Color = Color3.fromRGB(40, 40, 45)
 
 		local arr = Instance.new("TextLabel", db)
 		arr.BackgroundTransparency = 1
-		arr.Position = UDim2.new(1, -30, 0, 0)
-		arr.Size = UDim2.new(0, 30, 1, 0)
+		arr.Position = UDim2.new(1, 0, 0, 0)
+		arr.Size = UDim2.new(0, ARROW_W, 1, 0)
 		arr.Text = "▼"
 		arr.TextColor3 = Color3.fromRGB(150, 150, 160)
 		arr.TextSize = 10
@@ -2145,6 +2194,7 @@ return function(context)
 			l_btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 			l_btn.Font = Enum.Font.GothamBold
 			l_btn.TextSize = 13
+			l_btn.AutoButtonColor = false
 			Instance.new("UICorner", l_btn).CornerRadius = UDim.new(0, 6)
 			-- == true, not the bare value: Visible rejects nil, and an unset
 			-- SlingshotManual made this whole expression nil whenever Slingshot was
@@ -2152,10 +2202,48 @@ return function(context)
 			-- taking the target selector, the shape controls and reset with it.
 			l_btn.Visible = x1.k6 == "Slingshot" and x1.SlingshotManual == true
 
+			-- The one button here that repaints itself between two states, which is why
+			-- row_hover did not fit: that helper captures a single idle tint, and a
+			-- captured red would have snapped the armed blue back to red on mouse-out.
+			-- The Heartbeat below also rewrote BackgroundColor3 every frame, so a hover
+			-- tween would have been overwritten before it landed -- the button was left
+			-- on AutoButtonColor's flat engine highlight, the one control in the tree
+			-- not on the shared curve. Label and both tints derive from IsLaunching
+			-- instead, and the write is skipped while the state has not moved, so the
+			-- Heartbeat no longer restarts a tween sixty times a second.
+			local LAUNCH_IDLE = Color3.fromRGB(200, 50, 50)
+			local LAUNCH_ARMED = Color3.fromRGB(50, 150, 200)
+			local l_hover, l_painted = false, nil
+			local function paint_launch()
+				local armed = x1.IsLaunching and true or false
+				local key = tostring(armed) .. tostring(l_hover)
+				if l_painted == key then
+					return
+				end
+				l_painted = key
+				local base = armed and LAUNCH_ARMED or LAUNCH_IDLE
+				l_btn.Text = armed and "RESET SYSTEM" or "FORCE LAUNCH"
+				v6:Create(l_btn, A.HOVER, {
+					BackgroundColor3 = l_hover and brighten(base, 0.22) or base,
+				}):Play()
+			end
+			-- Runs once here as well, because the constructor above hardcodes the idle
+			-- red: opening the panel with IsLaunching already true showed a red button
+			-- reading FORCE LAUNCH until the next frame corrected it.
+			paint_launch()
+			l_btn.MouseEnter:Connect(function()
+				l_hover = true
+				paint_launch()
+			end)
+			l_btn.MouseLeave:Connect(function()
+				l_hover = false
+				paint_launch()
+			end)
+			UI_elements.press(l_btn)
+
 			l_btn.MouseButton1Click:Connect(function()
 				x1.IsLaunching = not x1.IsLaunching
-				l_btn.Text = x1.IsLaunching and "RESET SYSTEM" or "FORCE LAUNCH"
-				l_btn.BackgroundColor3 = x1.IsLaunching and Color3.fromRGB(50, 150, 200) or Color3.fromRGB(200, 50, 50)
+				paint_launch()
 			end)
 
 			table.insert(
@@ -2163,9 +2251,7 @@ return function(context)
 				v3.Heartbeat:Connect(function()
 					if x1.k6 == "Slingshot" and x1.SlingshotManual == true then
 						l_btn.Visible = true
-						l_btn.Text = x1.IsLaunching and "RESET SYSTEM" or "FORCE LAUNCH"
-						l_btn.BackgroundColor3 = x1.IsLaunching and Color3.fromRGB(50, 150, 200)
-							or Color3.fromRGB(200, 50, 50)
+						paint_launch()
 					else
 						l_btn.Visible = false
 					end
@@ -2189,6 +2275,9 @@ return function(context)
 			tdb.Font = Enum.Font.GothamBold
 			tdb.TextSize = 12
 			tdb.TextXAlignment = 0
+			-- A long DisplayName plus the "TARGET: " prefix reaches the clear × that
+			-- appears at the right end whenever a target is set.
+			tdb.TextTruncate = Enum.TextTruncate.AtEnd
 			Instance.new("UICorner", tdb).CornerRadius = UDim.new(0, 6)
 			local dst2 = Instance.new("UIStroke", tdb)
 			dst2.Color = Color3.fromRGB(40, 40, 45)
@@ -2229,8 +2318,15 @@ return function(context)
 				ctb.Position = UDim2.new(1, -30, 0, 0)
 				ctb.Size = UDim2.new(0, 30, 1, 0)
 				ctb.Text = "×"
-				ctb.TextColor3 = Color3.fromRGB(200, 80, 80)
+				local ctb_idle = Color3.fromRGB(200, 80, 80)
+				ctb.TextColor3 = ctb_idle
 				ctb.TextSize = 20
+				-- Transparent, so AutoButtonColor had no background to tint and this
+				-- gave nothing back at all. It also sits on top of tdb and swallows
+				-- that button's hover, so the row tint is driven from here too.
+				hover_proxy(ctb, tdb, Color3.fromRGB(25, 25, 30), Color3.fromRGB(35, 35, 40))
+				glyph_hover(ctb, ctb_idle, brighten(ctb_idle, 0.3))
+				UI_elements.press(ctb, 0.9)
 				ctb.MouseButton1Click:Connect(function()
 					table.clear(x1.Targets)
 					x1.TgtActive = false
@@ -2548,6 +2644,19 @@ return function(context)
 				Instance.new("UICorner", cancel_btn).CornerRadius = UDim.new(0, 6)
 				local cancel_stroke = Instance.new("UIStroke", cancel_btn)
 				cancel_stroke.Color = Color3.fromRGB(50, 50, 55)
+				-- Both of these turned AutoButtonColor off and put nothing in its place,
+				-- so the one dialog in the tree where being sure which button is under
+				-- the pointer actually matters was also the only pair that gave no
+				-- feedback at all. Same helper and same curve as every other button.
+				row_hover(
+					cancel_btn,
+					Color3.fromRGB(30, 30, 35),
+					Color3.fromRGB(45, 45, 52),
+					cancel_stroke,
+					Color3.fromRGB(50, 50, 55),
+					Color3.fromRGB(80, 80, 88)
+				)
+				UI_elements.press(cancel_btn)
 
 				local confirm_reset_btn = Instance.new("TextButton", confirm)
 				confirm_reset_btn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
@@ -2562,6 +2671,15 @@ return function(context)
 				Instance.new("UICorner", confirm_reset_btn).CornerRadius = UDim.new(0, 6)
 				local confirm_reset_stroke = Instance.new("UIStroke", confirm_reset_btn)
 				confirm_reset_stroke.Color = Color3.fromRGB(120, 30, 30)
+				row_hover(
+					confirm_reset_btn,
+					Color3.fromRGB(180, 40, 40),
+					Color3.fromRGB(215, 55, 55),
+					confirm_reset_stroke,
+					Color3.fromRGB(120, 30, 30),
+					Color3.fromRGB(170, 45, 45)
+				)
+				UI_elements.press(confirm_reset_btn)
 
 				-- Both buttons dismiss the same way, and the destroy has to wait out
 				-- the fade -- so the delay is read off the curve rather than
@@ -2706,12 +2824,11 @@ return function(context)
 				f.BackgroundColor3 = row_on and Color3.fromRGB(40, 40, 180) or Color3.fromRGB(25, 25, 30)
 				Instance.new("UICorner", f).CornerRadius = UDim.new(0, 6)
 				-- idle passed in rather than read back, so the selected row keeps its tint
-				-- when the pointer leaves.
-				row_hover(
-					f,
-					f.BackgroundColor3,
-					row_on and Color3.fromRGB(55, 55, 200) or Color3.fromRGB(35, 35, 40)
-				)
+				-- when the pointer leaves. Hoisted because the label and the star cover
+				-- this Frame completely and have to drive the same pair.
+				local row_idle = f.BackgroundColor3
+				local row_hot = row_on and Color3.fromRGB(55, 55, 200) or Color3.fromRGB(35, 35, 40)
+				row_hover(f, row_idle, row_hot)
 
 				local ib = Instance.new("TextButton", f)
 				ib.Size = UDim2.new(1, -40, 1, 0)
@@ -2722,15 +2839,24 @@ return function(context)
 				ib.Font = Enum.Font.GothamBold
 				ib.TextSize = 12
 				ib.TextXAlignment = 0
+				-- Part Control's identical row already truncated; this one did not, so
+				-- "Domain Expansion Infinite Void" ran straight across the star and out
+				-- past the row's right edge -- nothing here clips it.
+				ib.TextTruncate = Enum.TextTruncate.AtEnd
+				hover_proxy(ib, f, row_idle, row_hot)
 
 				local sb = Instance.new("TextButton", f)
 				sb.Position = UDim2.new(1, -35, 0, 0)
 				sb.Size = UDim2.new(0, 35, 1, 0)
 				sb.BackgroundTransparency = 1
 				sb.Text = favorites[mn] and "★" or "☆"
-				sb.TextColor3 = favorites[mn] and Color3.fromRGB(255, 200, 50) or Color3.fromRGB(80, 80, 85)
+				local sb_idle = favorites[mn] and Color3.fromRGB(255, 200, 50) or Color3.fromRGB(80, 80, 85)
+				sb.TextColor3 = sb_idle
 				sb.Font = Enum.Font.GothamBold
 				sb.TextSize = 14
+				hover_proxy(sb, f, row_idle, row_hot)
+				glyph_hover(sb, sb_idle, brighten(sb_idle, 0.35))
+				UI_elements.press(sb, 0.9)
 
 				sb.MouseButton1Click:Connect(function()
 					favorites[mn] = not favorites[mn]
