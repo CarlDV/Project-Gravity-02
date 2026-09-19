@@ -198,12 +198,16 @@ end
 do
 	local name = "Phoenix Ascendant"
 	local mod, cfg = modules[name], config.x2[name]
-	-- The bird now rides a flight path, so its parts are laid out in a moving
-	-- frame rather than about the raw anchor. At travel 0 (a fresh start) the
-	-- circle puts it at +Radius on X, heading -Z, which fixes the frame below.
-	-- Project each part back into that frame to recover the local wing/tail axes.
-	local center = origin + Vector3.new(cfg.k18, cfg.k16, 0)
-	local fwd = Vector3.new(0, 0, -1)
+	-- The bird rides a Celestial-Ribbon-style Lissajous path, so its parts are
+	-- laid out in a moving frame rather than about the raw anchor. Reconstruct
+	-- that frame at travel 0 (a fresh start) and project each part back into it
+	-- to recover the local wing/tail axes.
+	local hover = origin + Vector3.new(0, cfg.k16, 0)
+	local function point(th)
+		return hover + Vector3.new(math.cos(th * 1.0) * cfg.k18, math.sin(th * 0.577) * cfg.k20, math.sin(th * 1.618) * cfg.k18)
+	end
+	local center = point(0)
+	local fwd = (point(0.05) - center).Unit
 	local right = Vector3.new(0, 1, 0):Cross(fwd).Unit
 	local up = fwd:Cross(right).Unit
 	local left, rightw, tail = 0, 0, 0

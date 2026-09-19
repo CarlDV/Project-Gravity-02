@@ -8,11 +8,17 @@ local WORLD_RIGHT = Vector3.new(1, 0, 0)
 local WORLD_FWD = Vector3.new(0, 0, -1)
 
 -- The wings flap several times per lap of the flight path. Travelling at the
--- raw wingbeat rate would whip the whole bird around the circle faster than it
--- could beat its wings, so the path advances at a fraction of it. Both still
--- ride the one Flight Speed slider (k13), which keeps "speed zero holds pose"
--- true for the path as well as the flap.
-local PATH_RATE = 0.15
+-- raw wingbeat rate would whip the bird along the curve faster than it could
+-- beat its wings, so the path advances at a fraction of it. Both still ride the
+-- one Flight Speed slider (k13), which keeps "speed zero holds pose" true for
+-- the path as well as the flap.
+local PATH_RATE = 0.4
+
+-- The three incommensurate frequencies that make the path wander like Celestial
+-- Ribbon's spine rather than close into a plain loop: a Lissajous curve whose X
+-- sweeps once while Z loops ~1.6 times and the height rises ~0.58 times, so it
+-- never quite repeats and swoops through all three axes.
+local FREQ_X, FREQ_Y, FREQ_Z = 1.0, 0.577, 1.618
 
 function M.px(t, c, x6, x9)
 	x6.pre = x6.pre or {}
@@ -28,28 +34,27 @@ function M.px(t, c, x6, x9)
 	-- lap rather than being whipped round the circle.
 	local dt = t - st.t
 	st.t = t
-	local speed = math.clamp(c.k13 or 12, 0, 40) * x9.c2
+	local speed = math.clamp(c.k13 or 24, 0, 60) * x9.c2
 	st.phase = st.phase + dt * speed
 	st.travel = st.travel + dt * speed * PATH_RATE
 end
 
--- Where the bird is along its flight path, and the direction it is heading.
--- Circle orbits the anchor; figure-8 is a Gerono lemniscate through it. The
--- returned tangent is the heading f2 points the nose down in level flight.
+-- A point on the Celestial-Ribbon-style Lissajous path. Move Area (k18) sets the
+-- horizontal reach, Swoop Height (k20) the vertical rise.
+local function path_point(cen, th, R, h)
+	return cen + Vector3.new(math.cos(th * FREQ_X) * R, math.sin(th * FREQ_Y) * h, math.sin(th * FREQ_Z) * R)
+end
+
+-- Where the bird is along the wandering path, and the direction it is heading.
+-- The heading is a short forward difference along the curve, the same way
+-- Celestial Ribbon derives its spine tangent, so the nose follows the swoop
+-- through all three axes instead of tracing a flat loop.
 local function flight(cen, th, c)
-	local R = math.clamp(c.k18 or 220, 0, 600)
-	local shape = math.floor(c.k20 or 1)
-
-	if shape >= 2 then
-		local pos = cen + WORLD_RIGHT * (R * math.cos(th)) + WORLD_FWD * (R * 0.5 * math.sin(2 * th))
-		local tan = WORLD_RIGHT * (-R * math.sin(th)) + WORLD_FWD * (R * math.cos(2 * th))
-		return pos, (tan.Magnitude > 0.001) and tan.Unit or WORLD_FWD
-	end
-
-	local s, co = math.sin(th), math.cos(th)
-	local pos = cen + (WORLD_RIGHT * co + WORLD_FWD * s) * R
-	local tan = WORLD_FWD * co - WORLD_RIGHT * s
-	return pos, (tan.Magnitude > 0.001) and tan.Unit or WORLD_FWD
+	local R = math.clamp(c.k18 or 250, 0, 800)
+	local h = math.clamp(c.k20 or 120, 0, 300)
+	local pos = path_point(cen, th, R, h)
+	local fwd = path_point(cen, th + 0.05, R, h) - pos
+	return pos, (fwd.Magnitude > 0.001) and fwd.Unit or WORLD_FWD
 end
 
 function M.f2(p, cen, d, t, c, x1, x6, x9)
@@ -127,13 +132,13 @@ end
 M.Controls = {
 	{ Type = "Slider", Name = "Wing Reach", Min = 40, Max = 400, Key = "k11", Default = 160 },
 	{ Type = "Slider", Name = "Feathers per Wing", Min = 4, Max = 28, Key = "k12", Default = 14, IntOnly = true },
-	{ Type = "Slider", Name = "Flight Speed", Min = 0, Max = 40, Key = "k13", Default = 12, ExactMax = true },
+	{ Type = "Slider", Name = "Flight Speed", Min = 0, Max = 60, Key = "k13", Default = 24, ExactMax = true },
 	{ Type = "Slider", Name = "Tail Length", Min = 30, Max = 500, Key = "k14", Default = 180 },
 	{ Type = "Slider", Name = "Wingbeat Angle", Min = 0, Max = 80, Key = "k15", Default = 45 },
 	{ Type = "Slider", Name = "Hover Height", Min = -100, Max = 500, Key = "k16", Default = 100 },
 	{ Type = "Slider", Name = "Feather Sweep %", Min = 10, Max = 100, Key = "k17", Default = 45, IntOnly = true },
-	{ Type = "Slider", Name = "Flight · Radius", Min = 0, Max = 600, Key = "k18", Default = 220 },
-	{ Type = "Slider", Name = "Flight · Path (1 Circle, 2 Figure 8)", Min = 1, Max = 2, Key = "k20", Default = 1, IntOnly = true },
+	{ Type = "Slider", Name = "Flight · Move Area", Min = 0, Max = 800, Key = "k18", Default = 250 },
+	{ Type = "Slider", Name = "Flight · Swoop Height", Min = 0, Max = 300, Key = "k20", Default = 120 },
 }
 
 return M
