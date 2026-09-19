@@ -198,14 +198,23 @@ end
 do
 	local name = "Phoenix Ascendant"
 	local mod, cfg = modules[name], config.x2[name]
-	local left, right, tail = 0, 0, 0
+	-- The bird now rides a flight path, so its parts are laid out in a moving
+	-- frame rather than about the raw anchor. At travel 0 (a fresh start) the
+	-- circle puts it at +Radius on X, heading -Z, which fixes the frame below.
+	-- Project each part back into that frame to recover the local wing/tail axes.
+	local center = origin + Vector3.new(cfg.k18, cfg.k16, 0)
+	local fwd = Vector3.new(0, 0, -1)
+	local right = Vector3.new(0, 1, 0):Cross(fwd).Unit
+	local up = fwd:Cross(right).Unit
+	local left, rightw, tail = 0, 0, 0
 	for _, pos in ipairs(cloud(mod, cfg, start(mod, cfg), 800)) do
-		local v = pos - origin
-		if v.X < -cfg.k11 * 0.6 then left = left + 1 end
-		if v.X > cfg.k11 * 0.6 then right = right + 1 end
-		if v.Z < -cfg.k14 * 0.8 then tail = tail + 1 end
+		local d = pos - center
+		local lx, lz = right:Dot(d), fwd:Dot(d)
+		if lx < -cfg.k11 * 0.6 then left = left + 1 end
+		if lx > cfg.k11 * 0.6 then rightw = rightw + 1 end
+		if lz < -cfg.k14 * 0.8 then tail = tail + 1 end
 	end
-	check(left > 80 and right > 80 and tail > 30, "Phoenix: two full wings and trailing feathers")
+	check(left > 80 and rightw > 80 and tail > 30, "Phoenix: two full wings and trailing feathers")
 end
 do
 	local name = "Astral Kraken"

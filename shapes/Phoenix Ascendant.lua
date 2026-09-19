@@ -3,15 +3,53 @@ local NAME = "Phoenix Ascendant"
 local TAU = math.pi * 2
 local PHI = 0.6180339887498949
 
+local UP = Vector3.new(0, 1, 0)
+local WORLD_RIGHT = Vector3.new(1, 0, 0)
+local WORLD_FWD = Vector3.new(0, 0, -1)
+
+-- The wings flap several times per lap of the flight path. Travelling at the
+-- raw wingbeat rate would whip the whole bird around the circle faster than it
+-- could beat its wings, so the path advances at a fraction of it. Both still
+-- ride the one Flight Speed slider (k13), which keeps "speed zero holds pose"
+-- true for the path as well as the flap.
+local PATH_RATE = 0.15
+
 function M.px(t, c, x6, x9)
 	x6.pre = x6.pre or {}
 	local st = x6.pre[NAME]
 	if not st then
-		st = { phase = 0, t = t }
+		st = { phase = 0, travel = 0, t = t }
 		x6.pre[NAME] = st
 	end
-	st.phase = st.phase + (t - st.t) * math.clamp(c.k13 or 12, 0, 40) * x9.c2
+
+	-- Wingbeat and flight both ride the one Flight Speed slider so that speed
+	-- zero (or a frozen clock) holds the whole pose. The path advances at a
+	-- fraction of the flap rate so the bird beats its wings several times per
+	-- lap rather than being whipped round the circle.
+	local dt = t - st.t
 	st.t = t
+	local speed = math.clamp(c.k13 or 12, 0, 40) * x9.c2
+	st.phase = st.phase + dt * speed
+	st.travel = st.travel + dt * speed * PATH_RATE
+end
+
+-- Where the bird is along its flight path, and the direction it is heading.
+-- Circle orbits the anchor; figure-8 is a Gerono lemniscate through it. The
+-- returned tangent is the heading f2 points the nose down in level flight.
+local function flight(cen, th, c)
+	local R = math.clamp(c.k18 or 220, 0, 600)
+	local shape = math.floor(c.k20 or 1)
+
+	if shape >= 2 then
+		local pos = cen + WORLD_RIGHT * (R * math.cos(th)) + WORLD_FWD * (R * 0.5 * math.sin(2 * th))
+		local tan = WORLD_RIGHT * (-R * math.sin(th)) + WORLD_FWD * (R * math.cos(2 * th))
+		return pos, (tan.Magnitude > 0.001) and tan.Unit or WORLD_FWD
+	end
+
+	local s, co = math.sin(th), math.cos(th)
+	local pos = cen + (WORLD_RIGHT * co + WORLD_FWD * s) * R
+	local tan = WORLD_FWD * co - WORLD_RIGHT * s
+	return pos, (tan.Magnitude > 0.001) and tan.Unit or WORLD_FWD
 end
 
 function M.f2(p, cen, d, t, c, x1, x6, x9)
@@ -67,7 +105,18 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		end
 	end
 
-	local target = cen + Vector3.new(x, y + (c.k16 or 100), z)
+	-- Fly the path: lift the whole route to hover height, find the point on it
+	-- and the heading there, then build an upright frame around that heading so
+	-- the bird turns to face the way it is going. fwd is the local +Z (nose),
+	-- right is the local +X (wing line), up stays near world up so it never rolls
+	-- fully upside down.
+	local center = cen + Vector3.new(0, c.k16 or 100, 0)
+	local pos, fwd = flight(center, st and st.travel or 0, c)
+	local right = UP:Cross(fwd)
+	right = (right.Magnitude > 0.001) and right.Unit or WORLD_RIGHT
+	local up = fwd:Cross(right).Unit
+
+	local target = pos + right * x + up * y + fwd * z
 	return (target - p.Position) * (x1.k10 * x9.c1), target
 end
 
@@ -83,6 +132,8 @@ M.Controls = {
 	{ Type = "Slider", Name = "Wingbeat Angle", Min = 0, Max = 80, Key = "k15", Default = 45 },
 	{ Type = "Slider", Name = "Hover Height", Min = -100, Max = 500, Key = "k16", Default = 100 },
 	{ Type = "Slider", Name = "Feather Sweep %", Min = 10, Max = 100, Key = "k17", Default = 45, IntOnly = true },
+	{ Type = "Slider", Name = "Flight · Radius", Min = 0, Max = 600, Key = "k18", Default = 220 },
+	{ Type = "Slider", Name = "Flight · Path (1 Circle, 2 Figure 8)", Min = 1, Max = 2, Key = "k20", Default = 1, IntOnly = true },
 }
 
 return M
