@@ -136,6 +136,12 @@ return {
 		},
 	},
 	x2 = {
+		["Astral Kraken"] = { k11 = 38, k12 = 8, k13 = 8, k14 = 180, k15 = 1.5, k16 = 7, k17 = 120 },
+		["Cosmic Lotus"] = { k11 = 130, k12 = 8, k13 = 6, k14 = 3, k15 = 75, k16 = 40, k17 = true },
+		["Phoenix Ascendant"] = { k11 = 160, k12 = 14, k13 = 12, k14 = 180, k15 = 45, k16 = 100, k17 = 45 },
+		["Rift Gate"] = { k11 = 100, k12 = 220, k13 = 8, k14 = 9, k15 = 65, k16 = 3, k17 = 130, k18 = true },
+		["Reality Shatter"] = { k11 = 90, k12 = 130, k13 = 12, k14 = 160, k15 = 24, k16 = 120, k17 = true },
+		["Hypercube Nexus"] = { k11 = 95, k12 = 4, k13 = 7, k14 = 20, k15 = 150, k16 = 2, k17 = 3 },
 		["Pulsar Vortex"] = { k11 = 200, k12 = 8, k13 = 10, k14 = 0, k15 = 0, k16 = 0, k17 = 0, k23 = false },
 		["Big Ring Things"] = { k12 = 100, k13 = 10, k14 = 5, k16 = 0.6, k15 = 10, k11 = 2, k17 = 150, k23 = false },
 		["Celestial Ribbon"] = { k12 = 0, k13 = 15, k14 = 30, k16 = 0.4, k11 = 1, k17 = 150, k18 = false, k19 = 2, k23 = false },

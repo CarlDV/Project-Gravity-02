@@ -146,11 +146,8 @@ return function(context)
 		error("Failed to load UI_elements", 0)
 	end
 	local UI_elements = UI_elements_builder(context)
-	-- The AI chat is optional: the call sites below already nil-guard it. Calling
-	-- load_module's result directly meant a nil threw here first, so one flaky
-	-- fetch for the chat took the whole panel down.
-	local ai_chat_builder = load_module("ai_chat.lua")
-	local ai_chat_module = ai_chat_builder and ai_chat_builder(context)
+	-- Project UAI is launched on demand; repeated clicks share the in-flight load.
+	local ai_loading = false
 	local es, et, eb, eh = UI_elements.s, UI_elements.t, UI_elements.b, UI_elements.h
 	local etb = UI_elements.tb
 
@@ -1699,8 +1696,19 @@ return function(context)
 		pcb.Size = UDim2.new(1, 0, 0, 20)
 
 		local ai_btn = eb(c, "PROJECT GRAVITY AI", function()
-			if ai_chat_module and ai_chat_module.toggle then
-				ai_chat_module.toggle(sg)
+			if ai_loading then return end
+			ai_loading = true
+			local ok, err = pcall(function()
+				loadstring(game:HttpGet("https://raw.githubusercontent.com/CarlDV/ProjectUAI/main/dist/uai.lua"))()
+			end)
+			ai_loading = false
+			if not ok then
+				warn("Project Gravity: failed to launch Project UAI: " .. tostring(err))
+				pcall(function()
+					v5:SetCore("SendNotification", {
+						Title = "Project UAI", Text = "Could not launch AI. Please try again.", Duration = 5,
+					})
+				end)
 			end
 		end)
 		ai_btn.Size = UDim2.new(1, 0, 0, 20)
@@ -2709,10 +2717,7 @@ return function(context)
 			if x6.tdlst_container and x6.tdlst_container.Visible then
 				toggle_window(x6.tdlst_container, false)
 			end
-			-- The AI chat is a sibling of the panel, not a child, and it stays up
-			-- when the panel collapses: a long generation is worth watching while
-			-- the panel is out of the way. The reset dialog still goes, since it is
-			-- a modal belonging to a panel that is no longer on screen.
+			-- Dismiss the reset dialog when its owning panel leaves the screen.
 			if x6.reset_confirm then
 				if x6.reset_confirm.Parent then
 					x6.reset_confirm:Destroy()
@@ -2739,9 +2744,6 @@ return function(context)
 				if saved_canvas then
 					c.CanvasPosition = saved_canvas
 					saved_canvas = nil
-				end
-				if ai_chat_module and ai_chat_module.showWidget then
-					pcall(ai_chat_module.showWidget)
 				end
 				anim_busy = false
 			end)

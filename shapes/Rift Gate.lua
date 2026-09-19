@@ -1,0 +1,74 @@
+local M = {}
+local NAME = "Rift Gate"
+local TAU = math.pi * 2
+local PHI = 0.6180339887498949
+
+function M.px(t, c, x6, x9)
+	x6.pre = x6.pre or {}
+	local st = x6.pre[NAME]
+	if not st then
+		st = { phase = 0, t = t }
+		x6.pre[NAME] = st
+	end
+	st.phase = st.phase + (t - st.t) * math.clamp(c.k13 or 8, 0, 40) * x9.c2
+	st.t = t
+end
+
+function M.f2(p, cen, d, t, c, x1, x6, x9)
+	local id = d.slot or d.id or 1
+	local pick = (id * PHI) % 1
+	local u, v = (id * 0.8191725133961645) % 1, (id * 0.6710436067037893) % 1
+	local st = x6.pre and x6.pre[NAME]
+	local phase = st and st.phase or 0
+	local radius = math.clamp(c.k11 or 100, 30, 300)
+	local depth = math.clamp(c.k12 or 220, 20, 600)
+	local blades = math.clamp(math.floor(c.k14 or 9), 4, 18)
+	local opening = math.clamp(c.k15 or 65, 10, 100) / 100
+	local twists = math.clamp(c.k16 or 3, 0, 8)
+	if c.k18 ~= false then
+		opening = opening * (0.85 + 0.15 * math.cos(phase * 1.3))
+	end
+	local side = id % 2 == 0 and 1 or -1
+	local r, a, z
+
+	if pick < 0.28 then
+		-- Raised rings preserve both mouths while the iris turns inside them.
+		a = u * TAU + side * phase * 0.4
+		r = radius * (1.08 + 0.025 * math.cos(v * TAU))
+		z = side * depth * 0.5 + radius * 0.025 * math.sin(v * TAU)
+	elseif pick < 0.68 then
+		local strand = (id - 1) % blades
+		local along = u * 2 - 1
+		r = radius * (opening + (1 - opening) * along * along)
+		r = r + radius * 0.012 * math.cos(v * TAU)
+		a = strand * TAU / blades + u * twists * TAU - phase
+		z = along * depth * 0.5
+	else
+		local blade = math.floor((id - 1) / 2) % blades
+		local width = math.sin(math.pi * u) ^ 0.7
+		r = radius * (opening * 0.72 + u * (1.15 - opening * 0.72))
+		a = blade * TAU / blades + side * phase * 0.35 + 0.7 * (1 - u)
+			+ (v - 0.5) * (TAU / blades) * 0.65 * width
+		z = side * (depth * 0.5 + radius * 0.12 * math.sin(math.pi * u))
+	end
+
+	local target = cen + Vector3.new(r * math.cos(a), r * math.sin(a) + (c.k17 or 130), z)
+	return (target - p.Position) * (x1.k10 * x9.c1), target
+end
+
+function M.cleanup(x6)
+	if x6.pre then x6.pre[NAME] = nil end
+end
+
+M.Controls = {
+	{ Type = "Slider", Name = "Gate Radius", Min = 30, Max = 300, Key = "k11", Default = 100 },
+	{ Type = "Slider", Name = "Tunnel Depth", Min = 20, Max = 600, Key = "k12", Default = 220 },
+	{ Type = "Slider", Name = "Vortex Speed", Min = 0, Max = 40, Key = "k13", Default = 8, ExactMax = true },
+	{ Type = "Slider", Name = "Iris Blades", Min = 4, Max = 18, Key = "k14", Default = 9, IntOnly = true },
+	{ Type = "Slider", Name = "Aperture %", Min = 10, Max = 100, Key = "k15", Default = 65, IntOnly = true },
+	{ Type = "Slider", Name = "Tunnel Twists", Min = 0, Max = 8, Key = "k16", Default = 3, IntOnly = true },
+	{ Type = "Slider", Name = "Hover Height", Min = -100, Max = 500, Key = "k17", Default = 130 },
+	{ Type = "Toggle", Name = "Breathing Aperture", Key = "k18", Default = true },
+}
+
+return M
