@@ -28,6 +28,12 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	if c.k18 ~= false then
 		opening = opening * (0.85 + 0.15 * math.cos(phase * 1.3))
 	end
+	-- Stack of gates rising above the main one. Parts are dealt round-robin to a
+	-- gate, so each still gets rings, strands and blades, and the lift is always
+	-- positive so the stack only ever grows upward -- nothing spawns below the
+	-- main rift.
+	local rifts = math.clamp(math.floor(c.k19 or 3), 1, 6)
+	local lift = ((id - 1) % rifts) * math.clamp(c.k20 or 320, 0, 600)
 	local side = id % 2 == 0 and 1 or -1
 	local r, a, z
 
@@ -52,7 +58,26 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		z = side * (depth * 0.5 + radius * 0.12 * math.sin(math.pi * u))
 	end
 
-	local target = cen + Vector3.new(r * math.cos(a), r * math.sin(a) + (c.k17 or 130), z)
+	-- Orient each gate about its own ring centre. Roll spins the iris in its own
+	-- plane, pitch tips the tunnel up/down, yaw turns it left/right. The stacking
+	-- lift is added afterward in world +Y, so tilting a gate never changes the
+	-- stack direction -- the tower still rises straight up.
+	local lx, ly, lz = r * math.cos(a), r * math.sin(a), z
+	local roll, pitch, yaw = math.rad(c.k21 or 0), math.rad(c.k22 or 0), math.rad(c.k23 or 0)
+	if roll ~= 0 then
+		local cr, sr = math.cos(roll), math.sin(roll)
+		lx, ly = lx * cr - ly * sr, lx * sr + ly * cr
+	end
+	if pitch ~= 0 then
+		local cp, sp = math.cos(pitch), math.sin(pitch)
+		ly, lz = ly * cp - lz * sp, ly * sp + lz * cp
+	end
+	if yaw ~= 0 then
+		local cy, sy = math.cos(yaw), math.sin(yaw)
+		lx, lz = lx * cy + lz * sy, -lx * sy + lz * cy
+	end
+
+	local target = cen + Vector3.new(lx, ly + (c.k17 or 130) + lift, lz)
 	return (target - p.Position) * (x1.k10 * x9.c1), target
 end
 
@@ -69,6 +94,11 @@ M.Controls = {
 	{ Type = "Slider", Name = "Tunnel Twists", Min = 0, Max = 8, Key = "k16", Default = 3, IntOnly = true },
 	{ Type = "Slider", Name = "Hover Height", Min = -100, Max = 500, Key = "k17", Default = 130 },
 	{ Type = "Toggle", Name = "Breathing Aperture", Key = "k18", Default = true },
+	{ Type = "Slider", Name = "Rift Count", Min = 1, Max = 6, Key = "k19", Default = 3, IntOnly = true },
+	{ Type = "Slider", Name = "Rift Spacing", Min = 0, Max = 600, Key = "k20", Default = 320 },
+	{ Type = "Slider", Name = "Roll", Min = 0, Max = 350, Key = "k21", Default = 0, IntOnly = true },
+	{ Type = "Slider", Name = "Pitch", Min = 0, Max = 350, Key = "k22", Default = 0, IntOnly = true },
+	{ Type = "Slider", Name = "Yaw", Min = 0, Max = 350, Key = "k23", Default = 0, IntOnly = true },
 }
 
 return M
