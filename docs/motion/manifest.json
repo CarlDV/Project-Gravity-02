@@ -1,0 +1,1836 @@
+{
+  "runtime": "lune 0.10.5",
+  "frames": 72,
+  "duration": 6.0,
+  "parts": 384,
+  "mode": "debris",
+  "cell": 384,
+  "time": 0,
+  "simulation_hz": 60,
+  "sample_stride": 1,
+  "groups": [
+    {
+      "title": "Creatures",
+      "gif": "shapes-01.gif",
+      "shapes": [
+        {
+          "name": "Phoenix Ascendant",
+          "source": "shapes/Phoenix Ascendant.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {
+            "k18": 90,
+            "k20": 45
+          },
+          "config": {
+            "k11": 160,
+            "k12": 14,
+            "k13": 24,
+            "k14": 180,
+            "k15": 45,
+            "k16": 100,
+            "k17": 45,
+            "k18": 90,
+            "k20": 45,
+            "k21": 25
+          },
+          "source_fingerprint": "023de5d80c988590e1182755d5a45c53ef7cdeb89ff6d47429ff4706c4d1a90b",
+          "moving_parts": 384,
+          "max_displacement": 462.191,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Astral Kraken",
+          "source": "shapes/Astral Kraken.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 38,
+            "k12": 8,
+            "k13": 8,
+            "k14": 180,
+            "k15": 1.5,
+            "k16": 7,
+            "k17": 120
+          },
+          "source_fingerprint": "6868fdf1791cf45fabf4d2ee75ccc47ae86759963aeceec107ca4ade1159063d",
+          "moving_parts": 384,
+          "max_displacement": 169.257,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Abyssal Jellyfish",
+          "source": "shapes/Abyssal Jellyfish.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 100,
+            "k12": 12,
+            "k13": 10,
+            "k14": 240,
+            "k15": 35,
+            "k16": 1.5,
+            "k17": 280,
+            "k18": 45,
+            "k24": 55
+          },
+          "source_fingerprint": "5bf5a210fac5101af814b991f48b9a3adffc4f902afe8831349872a0f2f414ab",
+          "moving_parts": 384,
+          "max_displacement": 52.228,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Celestial Manta",
+          "source": "shapes/Celestial Manta.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 80,
+            "k12": 170,
+            "k13": 8,
+            "k14": 200,
+            "k15": 35,
+            "k16": 180,
+            "k17": 70,
+            "k24": 55
+          },
+          "source_fingerprint": "4512cca471771f913039c74faad956216751400eb323f882da98a5e390b7f0f3",
+          "moving_parts": 384,
+          "max_displacement": 79.885,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Megalodon",
+          "source": "shapes/Megalodon.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 140,
+            "k12": 38,
+            "k13": 7,
+            "k14": 100,
+            "k15": 30,
+            "k16": 160,
+            "k17": 100,
+            "k24": 55
+          },
+          "source_fingerprint": "6547e081da7b9e2d0c429966af9501d3bbae3fbf67fa96c52fc7da1340bb4b90",
+          "moving_parts": 384,
+          "max_displacement": 35.653,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Ouroboros",
+          "source": "shapes/Ouroboros.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 145,
+            "k12": 20,
+            "k13": 8,
+            "k14": 28,
+            "k15": 32,
+            "k16": 35,
+            "k17": 210,
+            "k18": 35,
+            "k19": 18,
+            "k24": 55
+          },
+          "source_fingerprint": "fe170a3664737580f02b97e3158629311faff51f5d2232276b8c96f40af37c07",
+          "moving_parts": 384,
+          "max_displacement": 59.611,
+          "distinct_frames": 72
+        }
+      ]
+    },
+    {
+      "title": "Monuments",
+      "gif": "shapes-02.gif",
+      "shapes": [
+        {
+          "name": "Rift Gate",
+          "source": "shapes/Rift Gate.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 100,
+            "k12": 220,
+            "k13": 8,
+            "k14": 9,
+            "k15": 65,
+            "k16": 3,
+            "k17": 130,
+            "k18": true,
+            "k19": 3,
+            "k20": 320,
+            "k21": 0,
+            "k22": 0,
+            "k23": 0
+          },
+          "source_fingerprint": "0f300c81763fd01e47be9029c049438b1cbff26495ee08f9e4c2c2f8d7ccb004",
+          "moving_parts": 384,
+          "max_displacement": 181.614,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Void Cathedral",
+          "source": "shapes/Void Cathedral.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 125,
+            "k12": 6,
+            "k13": 5,
+            "k14": 240,
+            "k15": 65,
+            "k16": 8,
+            "k17": 55,
+            "k18": 1.8,
+            "k24": 55
+          },
+          "source_fingerprint": "2aac41818478dedbac8f008a975d8e79d2dc38bcde2b6fb5f86c3dba27c5fe98",
+          "moving_parts": 384,
+          "max_displacement": 30.279,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Aegis Bastion",
+          "source": "shapes/Aegis Bastion.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 140,
+            "k12": 100,
+            "k13": 5,
+            "k14": 32,
+            "k15": 75,
+            "k16": 190,
+            "k17": 18,
+            "k24": 55
+          },
+          "source_fingerprint": "225d61d560459b2a76a411e9d171afcce289a97e798b3a35732b7a39ef8b1c0a",
+          "moving_parts": 384,
+          "max_displacement": 31.903,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Ghost Galleon",
+          "source": "shapes/Ghost Galleon.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 155,
+            "k12": 52,
+            "k13": 5,
+            "k14": 170,
+            "k15": 80,
+            "k16": 115,
+            "k17": 3,
+            "k24": 55
+          },
+          "source_fingerprint": "1c893ac8e57081045d01e20c1d1c62a051fed6036aa03aa4bf7762e0f09e6083",
+          "moving_parts": 384,
+          "max_displacement": 22.338,
+          "distinct_frames": 72
+        },
+        {
+          "name": "World Tree",
+          "source": "shapes/World Tree.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 135,
+            "k12": 250,
+            "k13": 5,
+            "k14": 7,
+            "k15": 55,
+            "k16": true,
+            "k17": 80,
+            "k24": 55
+          },
+          "source_fingerprint": "cb682096ef36209a68ac9a615691973cbfb35a6d70ba1151c02e7e99898773c3",
+          "moving_parts": 384,
+          "max_displacement": 43.169,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Infernal Skull",
+          "source": "shapes/Infernal Skull.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 95,
+            "k12": 55,
+            "k13": 6,
+            "k14": 115,
+            "k15": 60,
+            "k16": 210,
+            "k17": 30,
+            "k24": 55
+          },
+          "source_fingerprint": "0f8a8723f96debbd7482bbbbaa1589601fbf9c887da8c0116924d9912a205fab",
+          "moving_parts": 384,
+          "max_displacement": 19.642,
+          "distinct_frames": 72
+        }
+      ]
+    },
+    {
+      "title": "Relics and storms",
+      "gif": "shapes-03.gif",
+      "shapes": [
+        {
+          "name": "Ragnarok Hammer",
+          "source": "shapes/Ragnarok Hammer.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 85,
+            "k12": 42,
+            "k13": 6,
+            "k14": 220,
+            "k15": 125,
+            "k16": 220,
+            "k17": 20,
+            "k24": 55
+          },
+          "source_fingerprint": "df97b28a2d2d98a7e9a4eb40680a3db0eacf2345367aca8e3d9377b937c62dee",
+          "moving_parts": 384,
+          "max_displacement": 56.432,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Eclipse Scythe",
+          "source": "shapes/Eclipse Scythe.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 115,
+            "k12": 38,
+            "k13": 6,
+            "k14": 260,
+            "k15": 110,
+            "k16": 230,
+            "k17": -15,
+            "k24": 55
+          },
+          "source_fingerprint": "11b24f1ba9b4764fdad83f534a7a28d7c760cd7b8856c02080bc697a0bc7759c",
+          "moving_parts": 384,
+          "max_displacement": 27.923,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Singularity Trident",
+          "source": "shapes/Singularity Trident.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 95,
+            "k12": 22,
+            "k13": 6,
+            "k14": 240,
+            "k15": 150,
+            "k16": 220,
+            "k17": 3,
+            "k24": 55
+          },
+          "source_fingerprint": "3a154f40a1aba3ba33262fc14da914900cf84ffa0ec3aed83f98f4b62a5aeac5",
+          "moving_parts": 384,
+          "max_displacement": 21.351,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Chrono Hourglass",
+          "source": "shapes/Chrono Hourglass.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 95,
+            "k12": 240,
+            "k13": 7,
+            "k14": 6,
+            "k15": 14,
+            "k16": 200,
+            "k17": 18,
+            "k24": 55
+          },
+          "source_fingerprint": "7372d9099c0afbbf3aea34f7363b2876a551f13b81e835e0c891a49e61ba6be5",
+          "moving_parts": 384,
+          "max_displacement": 110.501,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Storm Gyre",
+          "source": "shapes/Storm Gyre.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 100,
+            "k12": 230,
+            "k13": 8,
+            "k14": 3,
+            "k15": 105,
+            "k16": 65,
+            "k17": 150,
+            "k24": 55
+          },
+          "source_fingerprint": "bd7ffe181ae878e8ce836f5d8b81b616e10ed3b4ef6543e1476f7c5783e9b9ab",
+          "moving_parts": 384,
+          "max_displacement": 102.443,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Cosmic Lotus",
+          "source": "shapes/Cosmic Lotus.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 130,
+            "k12": 8,
+            "k13": 6,
+            "k14": 3,
+            "k15": 75,
+            "k16": 40,
+            "k17": true
+          },
+          "source_fingerprint": "8fc4b6915262967eb1581329623aebcd4b903a580ff46089f51a3a4d109783f4",
+          "moving_parts": 384,
+          "max_displacement": 95.123,
+          "distinct_frames": 72
+        }
+      ]
+    },
+    {
+      "title": "Mathematical forms",
+      "gif": "shapes-04.gif",
+      "shapes": [
+        {
+          "name": "Hopf Fibration",
+          "source": "shapes/Hopf Fibration.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 85,
+            "k12": 8,
+            "k13": 6,
+            "k14": 55,
+            "k15": 35,
+            "k16": 1.5,
+            "k17": 210,
+            "k18": 25,
+            "k24": 55
+          },
+          "source_fingerprint": "a2c70b246c3149d33992a800ab05ad71dcd206dbf4f505bc93055303347a9bf3",
+          "moving_parts": 384,
+          "max_displacement": 99.429,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Torus Knot",
+          "source": "shapes/Torus Knot.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 3,
+            "k12": 2,
+            "k13": 10,
+            "k14": 50,
+            "k15": 20,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "3a913213a7937a21a3fbc516d2154f044d204682b02a7b9d13583de572bd00cc",
+          "moving_parts": 384,
+          "max_displacement": 139.318,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Klein Bottle",
+          "source": "shapes/Klein Bottle.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 60,
+            "k12": 20,
+            "k13": 20,
+            "k14": 0,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "be11284bb711c033cb51fe1dc0757113e0019d103cb0f9c8b67b900370c5d91e",
+          "moving_parts": 384,
+          "max_displacement": 179.184,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Möbius Strip",
+          "source": "shapes/Möbius Strip.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 50,
+            "k12": 20,
+            "k13": 15,
+            "k14": 0,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "5bd0bfefc7006c0a344e3dc21752c8a18877d3b7e796dcd97eebcbfda2d2153d",
+          "moving_parts": 384,
+          "max_displacement": 129.75,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Hypercube Nexus",
+          "source": "shapes/Hypercube Nexus.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 95,
+            "k12": 4,
+            "k13": 7,
+            "k14": 20,
+            "k15": 150,
+            "k16": 2,
+            "k17": 3
+          },
+          "source_fingerprint": "13e82824a823240ccbf117773cb42e7472a6c4b15e006ddc95ed69807d6b64ea",
+          "moving_parts": 384,
+          "max_displacement": 491.712,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Tesseract",
+          "source": "shapes/Tesseract.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 40,
+            "k12": 80,
+            "k13": 10,
+            "k14": 50,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "66589c4de0fb4cc355effd0e2ada48c7d89168896edb962fdd71c40e6a06c5bd",
+          "moving_parts": 384,
+          "max_displacement": 298.036,
+          "distinct_frames": 72
+        }
+      ]
+    },
+    {
+      "title": "Orbital machines",
+      "gif": "shapes-05.gif",
+      "shapes": [
+        {
+          "name": "Arcane Orrery",
+          "source": "shapes/Arcane Orrery.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 120,
+            "k12": 4,
+            "k13": 8,
+            "k14": 200,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "98beca8d03bdcd3960855f41dee007f5b9b008e3636f6c1edb4805de20c49bf3",
+          "moving_parts": 384,
+          "max_displacement": 161.811,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Graviton Engine",
+          "source": "shapes/Graviton Engine.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 4,
+            "k12": 60,
+            "k13": 12,
+            "k14": 200,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "2181291d8a485618e3839b373d7c0ddbb00a74d7aedf3513bf12c7dd4c7a258a",
+          "moving_parts": 384,
+          "max_displacement": 134.104,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Quantum Core",
+          "source": "shapes/Quantum Core.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 100,
+            "k12": 30,
+            "k13": 40,
+            "k14": 50,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "59495813459f39303b091a9c4f34d713b0045450b1533ca411752c2762afa744",
+          "moving_parts": 384,
+          "max_displacement": 259.979,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Quantum Atoms",
+          "source": "shapes/Quantum Atoms.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 60,
+            "k12": 0,
+            "k13": 15,
+            "k14": 0,
+            "k15": 3,
+            "k16": 0,
+            "k23": false
+          },
+          "source_fingerprint": "a20c3a887d9957f2dfafaea0c60c8af2740d98b3e5ca493e2502baeaef49600c",
+          "moving_parts": 384,
+          "max_displacement": 119.996,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Space Station",
+          "source": "shapes/Space Station.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 80,
+            "k12": 30,
+            "k13": 10,
+            "k14": 150,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "84d5a76a1063557f63fd466310e00401ef0c28d0f77c2386b8cec6914990c574",
+          "moving_parts": 384,
+          "max_displacement": 127.628,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Alien Mothership",
+          "source": "shapes/Alien Mothership.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 120,
+            "k12": 40,
+            "k13": 15,
+            "k14": 200,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "2ffa9ef217500b46d6968e2319c1501baf535c12eb0ad5c45631eab8254ab9fd",
+          "moving_parts": 384,
+          "max_displacement": 335.392,
+          "distinct_frames": 72
+        }
+      ]
+    },
+    {
+      "title": "Sky phenomena",
+      "gif": "shapes-06.gif",
+      "shapes": [
+        {
+          "name": "Aurora Borealis",
+          "source": "shapes/Aurora Borealis.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 600,
+            "k12": 300,
+            "k13": 15,
+            "k14": 100,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "bcf7d7a6f31c4061da3ec294ed6d5c9044cd11a48e0782347d73931ab0fc03e1",
+          "moving_parts": 384,
+          "max_displacement": 182.509,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Black Hole",
+          "source": "shapes/Black Hole.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 40,
+            "k12": 100,
+            "k13": 15,
+            "k14": 50,
+            "k15": 5,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "99f644bcdf5be60162c21a6c726ccc10fcc55528726eac5f5b62e69cae8ac958",
+          "moving_parts": 384,
+          "max_displacement": 199.64,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Dyson Sphere",
+          "source": "shapes/Dyson Sphere.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 150,
+            "k12": 8,
+            "k13": 10,
+            "k14": 0,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "90b45a9586bff8c01e1e371306fdceead512eebe4b9b03571d76a7fdd25e6487",
+          "moving_parts": 367,
+          "max_displacement": 129.463,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Supernova",
+          "source": "shapes/Supernova.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 15,
+            "k12": 100,
+            "k13": 25,
+            "k14": 50,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "dcc9729b48ed4d4ecbd7e093747c505662dd2abc3cdf57415be19135f00c8eba",
+          "moving_parts": 384,
+          "max_displacement": 84.745,
+          "distinct_frames": 68
+        },
+        {
+          "name": "Meteor Shower",
+          "source": "shapes/Meteor Shower.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 500,
+            "k12": 300,
+            "k13": 150,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "b8b3bdb36f30b66635d00d92e1797eca783098a41f4affefa889a5aa7e469fa1",
+          "moving_parts": 384,
+          "max_displacement": 648.12,
+          "distinct_frames": 48
+        },
+        {
+          "name": "Cosmic Comet",
+          "source": "shapes/Cosmic Comet.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 5,
+            "k12": 50,
+            "k13": 20,
+            "k14": 20,
+            "k15": 5,
+            "k16": 0.5,
+            "k17": 150,
+            "k23": false
+          },
+          "source_fingerprint": "19e617b14d11aee043411e0a71d0f089f15d07c20dd733ea9c93299187eefdcc",
+          "moving_parts": 384,
+          "max_displacement": 301.324,
+          "distinct_frames": 72
+        }
+      ]
+    },
+    {
+      "title": "Serpents and ribbons",
+      "gif": "shapes-07.gif",
+      "shapes": [
+        {
+          "name": "Celestial Ribbon",
+          "source": "shapes/Celestial Ribbon.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 1,
+            "k12": 0,
+            "k13": 15,
+            "k14": 30,
+            "k16": 0.4,
+            "k17": 150,
+            "k18": false,
+            "k19": 2,
+            "k23": false
+          },
+          "source_fingerprint": "e34bb986f4b0ed9bd396f375666ae9b19b0eacbac51cac912765c2e80e826b7d",
+          "moving_parts": 384,
+          "max_displacement": 406.885,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Hollow Worm",
+          "source": "shapes/Hollow Worm.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 15,
+            "k12": 0,
+            "k13": 15,
+            "k14": 35,
+            "k15": 10,
+            "k16": 0.4,
+            "k17": 150,
+            "k23": false
+          },
+          "source_fingerprint": "50fba16b26a20299d510d4b4e5d03026f797728b857f157e6d19f838187b8bf5",
+          "moving_parts": 384,
+          "max_displacement": 334.655,
+          "distinct_frames": 72
+        },
+        {
+          "name": "World Serpent",
+          "source": "shapes/World Serpent.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 400,
+            "k12": 100,
+            "k13": 20,
+            "k14": 20,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "07172ace1fd0503cbc042cc9854a5f5aafde88c2cbe5cffb5119a21040de5ae8",
+          "moving_parts": 384,
+          "max_displacement": 355.003,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Leviathan Coil",
+          "source": "shapes/Leviathan Coil.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 50,
+            "k12": 15,
+            "k13": 8,
+            "k14": 250,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "f15088091a5c57d05a82f429b1106c34129ec8f820629f10f5045ccff6590ec7",
+          "moving_parts": 384,
+          "max_displacement": 120.664,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Eldritch Binding",
+          "source": "shapes/Eldritch Binding.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 100,
+            "k12": 200,
+            "k13": 5,
+            "k14": 8,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "ef39c3ee67e9ea435e21f80c76442320e1178a8932000fec3d08f91c4931cb31",
+          "moving_parts": 384,
+          "max_displacement": 192.053,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Seraphim",
+          "source": "shapes/Seraphim.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 80,
+            "k12": 4,
+            "k13": 15,
+            "k14": 40,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "4b5a3ad805d13cb0367c98f8ed4a528737a5ae178d434cf585a283a5cad373ef",
+          "moving_parts": 384,
+          "max_displacement": 159.999,
+          "distinct_frames": 72
+        }
+      ]
+    },
+    {
+      "title": "Currents and webs",
+      "gif": "shapes-08.gif",
+      "shapes": [
+        {
+          "name": "Vortex Funnel",
+          "source": "shapes/Vortex Funnel.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 50,
+            "k12": 300,
+            "k13": 30,
+            "k14": 400,
+            "k15": 5,
+            "k16": 0,
+            "k23": false
+          },
+          "source_fingerprint": "385e443547479a7f73adb17a70b678196228848d48311dab295305b3a52dc1e3",
+          "moving_parts": 384,
+          "max_displacement": 359.011,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Pulsar Vortex",
+          "source": "shapes/Pulsar Vortex.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 200,
+            "k12": 8,
+            "k13": 10,
+            "k14": 0,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "015b3e6d27e0909e51bb307b29e0546b5d8ef66e4ec472be0f9d04acf630890b",
+          "moving_parts": 384,
+          "max_displacement": 427.988,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Maelstrom Spire",
+          "source": "shapes/Maelstrom Spire.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 30,
+            "k12": 200,
+            "k13": 15,
+            "k14": 6,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "c86b64e2f232a0c16723913dafe3b47f9ec90830592d3f41ed5e5f032f2fc5ed",
+          "moving_parts": 384,
+          "max_displacement": 666.661,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Galactic Web",
+          "source": "shapes/Galactic Web.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 400,
+            "k12": 10,
+            "k13": 5,
+            "k14": 0,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false,
+            "k24": 200
+          },
+          "source_fingerprint": "3a64caa55253462995fe1129f4b80ffef4f0dda30b45117e6068b1acebab873b",
+          "moving_parts": 384,
+          "max_displacement": 1236.949,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Fractal Web",
+          "source": "shapes/Fractal Web.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 40,
+            "k12": 3,
+            "k13": 3,
+            "k14": 5,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "e37e4ce57a445a42648b21435da7bc5c2d57312129accbb33e6bd8155e4a33dc",
+          "moving_parts": 384,
+          "max_displacement": 94.291,
+          "distinct_frames": 72
+        },
+        {
+          "name": "DNA Helix",
+          "source": "shapes/DNA Helix.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 20,
+            "k12": 80,
+            "k13": 10,
+            "k14": 50,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "bb05cd7a23c555f8dcdfc6967944a1699fe5541530fc4c5e2005d244e06a5d0f",
+          "moving_parts": 384,
+          "max_displacement": 39.832,
+          "distinct_frames": 72
+        }
+      ]
+    },
+    {
+      "title": "Spins and transformations",
+      "gif": "shapes-09.gif",
+      "shapes": [
+        {
+          "name": "Big Ring Things",
+          "source": "shapes/Big Ring Things.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 2,
+            "k12": 100,
+            "k13": 10,
+            "k14": 5,
+            "k15": 10,
+            "k16": 0.6,
+            "k17": 150,
+            "k23": false
+          },
+          "source_fingerprint": "0a46f549c96c1d8b3f9579e452b8488ca4013a00dd9989915d07cf728c84a674",
+          "moving_parts": 384,
+          "max_displacement": 333.193,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Halo Ring",
+          "source": "shapes/Halo Ring.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 40,
+            "k12": 0,
+            "k13": 5,
+            "k14": 80,
+            "k15": 0,
+            "k16": 0,
+            "k17": 50,
+            "k23": false
+          },
+          "source_fingerprint": "08f1781cb1bca2c84ac11a978a0dfd773bd3769ad50100179dfcc818c9ef4dd8",
+          "moving_parts": 384,
+          "max_displacement": 53.918,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Spinning Cube",
+          "source": "shapes/Spinning Cube.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 40,
+            "k12": 200,
+            "k13": false,
+            "k14": false,
+            "k15": true
+          },
+          "source_fingerprint": "974e021dd1ecbf5f555440128740ef3c883c8f1829d893efedd559c321d89e88",
+          "moving_parts": 384,
+          "max_displacement": 113.065,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Reality Shatter",
+          "source": "shapes/Reality Shatter.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 90,
+            "k12": 130,
+            "k13": 12,
+            "k14": 160,
+            "k15": 24,
+            "k16": 120,
+            "k17": true
+          },
+          "source_fingerprint": "230b02e38c0be550e5c9823e0fbca9f654aa4a3809363ff0faec4a2f1c6506ac",
+          "moving_parts": 384,
+          "max_displacement": 171.396,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Quantum Entanglement",
+          "source": "shapes/Quantum Entanglement.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 50,
+            "k12": 100,
+            "k13": 200,
+            "k14": 0.3,
+            "k15": 0.2,
+            "k16": 0.5
+          },
+          "source_fingerprint": "6af17d57310a92992a220ddf86cebe665bff2c28cbd65849ad02dfac01b39bc3",
+          "moving_parts": 384,
+          "max_displacement": 292.707,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Dense Spin",
+          "source": "shapes/Dense Spin.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {
+            "k11": 2,
+            "k12": 20
+          },
+          "config": {
+            "k11": 2,
+            "k12": 20
+          },
+          "source_fingerprint": "b406939e8430ea82f143424673b887969cf72697b208afe1e8d6c25d6ef95f2a",
+          "moving_parts": 384,
+          "max_displacement": 40.0,
+          "distinct_frames": 72
+        }
+      ]
+    },
+    {
+      "title": "Energy abilities",
+      "gif": "shapes-10.gif",
+      "shapes": [
+        {
+          "name": "Goro Goro no Mi",
+          "source": "shapes/Goro Goro no Mi.lua",
+          "review": false,
+          "fixture": "Scripted aim + hold/release",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 200,
+            "k12": 18,
+            "k13": 14,
+            "k14": 12,
+            "k15": 3,
+            "k16": 0.3,
+            "k17": 0.4,
+            "k18": 2,
+            "k19": true,
+            "k20": false,
+            "k21": false
+          },
+          "source_fingerprint": "6dca4455931b3a2a6ac9928c30e47aa27d6bdad99818224fcb17d672ed2ac541",
+          "moving_parts": 384,
+          "max_displacement": 144.993,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Raigo",
+          "source": "shapes/Raigo.lua",
+          "review": false,
+          "fixture": "Scripted launch + return",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 8,
+            "k12": 250,
+            "k13": 80,
+            "k14": 0.7,
+            "k15": 12,
+            "k18": true,
+            "k19": true,
+            "k21": 100,
+            "k22": 0
+          },
+          "source_fingerprint": "340e354fb4da0233ddcf14a2cdeba465c20d09bb238872464e64d173a22ec62c",
+          "moving_parts": 384,
+          "max_displacement": 177.741,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Light Light no Mi",
+          "source": "shapes/Light Light no Mi.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {
+            "k13": 1,
+            "k14": 6
+          },
+          "config": {
+            "k11": 150,
+            "k12": 400,
+            "k13": 1,
+            "k14": 6,
+            "k18": true
+          },
+          "source_fingerprint": "32ad28a507d9bc1c744c10080263820b275022820ae36d5e8845b6fe6d5004e3",
+          "moving_parts": 384,
+          "max_displacement": 402.724,
+          "distinct_frames": 72
+        },
+        {
+          "name": "ROOM Ope Ope no Mi",
+          "source": "shapes/ROOM Ope Ope no Mi.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 150,
+            "k12": 2,
+            "k13": 1.5,
+            "k14": 20,
+            "k18": true
+          },
+          "source_fingerprint": "e3a05992b39d80d1b75d1a7fe17eed163b0ab489ff3767b2b507c8c0c187f344",
+          "moving_parts": 384,
+          "max_displacement": 299.922,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Twin Core Beam",
+          "source": "shapes/Twin Core Beam.lua",
+          "review": false,
+          "fixture": "Scripted aim + hold/release",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 80,
+            "k12": 15,
+            "k13": 150,
+            "k14": 900,
+            "k15": 4,
+            "k18": false
+          },
+          "source_fingerprint": "f9fb7d6b682890c6401f69181146ad21a8b395346fcc6380c7778eb72519541d",
+          "moving_parts": 384,
+          "max_displacement": 206.727,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Domain Expansion Infinite Void",
+          "source": "shapes/Domain Expansion Infinite Void.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 90,
+            "k12": 0,
+            "k13": 15,
+            "k14": 0,
+            "k15": 0,
+            "k16": 0,
+            "k18": true,
+            "k19": true,
+            "k23": false
+          },
+          "source_fingerprint": "bbfcea490be4dbe4af48854b4a46f82cc71837453a7aafa108ea396f935f081e",
+          "moving_parts": 384,
+          "max_displacement": 179.994,
+          "distinct_frames": 72
+        }
+      ]
+    },
+    {
+      "title": "Tools and puppets",
+      "gif": "shapes-11.gif",
+      "shapes": [
+        {
+          "name": "Mech Suit",
+          "source": "shapes/Mech Suit.lua",
+          "review": false,
+          "fixture": "Walking R6 fixture",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 2,
+            "k12": 30,
+            "k13": 2,
+            "k14": false,
+            "k15": true,
+            "k16": 1200,
+            "k17": 0,
+            "k18": 1,
+            "k19": 1
+          },
+          "source_fingerprint": "22889ce897ff29e506231a22891056f6d8ab62b81d9ae6f55942d75da6b31b8b",
+          "moving_parts": 384,
+          "max_displacement": 17.011,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Platform",
+          "source": "shapes/Platform.lua",
+          "review": false,
+          "fixture": "Walking R6 fixture",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 8,
+            "k12": -3,
+            "k13": 12,
+            "k14": 3,
+            "k15": 0,
+            "k16": 1,
+            "k17": 0,
+            "k18": 1,
+            "k19": true,
+            "k20": false,
+            "k21": false,
+            "k22": true,
+            "k23": 1,
+            "k24": 0,
+            "k25": 0,
+            "k26": 0.6,
+            "k27": 6,
+            "k28": 0,
+            "k29": 1.2,
+            "k30": 1,
+            "k31": 0,
+            "k32": false,
+            "k33": 1,
+            "k34": 0,
+            "k35": 0.6,
+            "k36": 1,
+            "k37": 1,
+            "k38": 0,
+            "k39": 80,
+            "k40": 5,
+            "k41": 6,
+            "k42": 250,
+            "k43": 24,
+            "k44": 0,
+            "k45": 100,
+            "k46": 0,
+            "k47": 1,
+            "k48": false,
+            "k49": 60,
+            "k50": 3,
+            "k51": 0,
+            "k52": 16,
+            "k53": 0.5,
+            "k54": 0.5,
+            "k55": false,
+            "k56": 60,
+            "k57": false,
+            "k58": false,
+            "k59": 0
+          },
+          "source_fingerprint": "8a81aede6a8d2ef98b362d9a8ea8a4bbd931d8d0c425a95dd2584a1c1944ebca",
+          "moving_parts": 384,
+          "max_displacement": 18.351,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Hover Text",
+          "source": "shapes/Hover Text.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 6,
+            "k12": 30,
+            "k13": 15,
+            "k14": 0.8,
+            "k15": 2,
+            "k16": 0,
+            "k18": "HELLO",
+            "k19": true
+          },
+          "source_fingerprint": "1c9d83836b62dc639fc9299f050e20283e16d9c75657b6c00805c8023673a152",
+          "moving_parts": 384,
+          "max_displacement": 34.652,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Sculptor",
+          "source": "shapes/Sculptor.lua",
+          "review": false,
+          "fixture": "Scripted selection + drag",
+          "method": "integrated velocity field",
+          "overrides": {},
+          "config": {
+            "k11": 0,
+            "k12": 0,
+            "k13": 0,
+            "k14": 0,
+            "k15": 0,
+            "k16": 0,
+            "k17": 0,
+            "k23": false
+          },
+          "source_fingerprint": "223433d4b77d98d8301bb7c0697a8968cf3a41062d80296e519a5034d8158628",
+          "moving_parts": 384,
+          "max_displacement": 72.095,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Shield Wall",
+          "source": "shapes/Shield Wall.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 20,
+            "k12": 25,
+            "k13": 20,
+            "k14": 50,
+            "k15": 10,
+            "k16": 0,
+            "k17": 50,
+            "k23": false
+          },
+          "source_fingerprint": "bb5cdb6f05bd3c4456c00fb567f091e26b515bc3deeb560b5ed064eb5b1a9feb",
+          "moving_parts": 384,
+          "max_displacement": 99.992,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Big Bad Broom",
+          "source": "shapes/Big Bad Broom.lua",
+          "review": false,
+          "fixture": "Scripted aim + hold/release",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 60,
+            "k12": 30,
+            "k13": 35,
+            "k14": 25,
+            "k15": 1,
+            "k16": 2,
+            "k17": 8,
+            "k18": 10,
+            "k19": 3
+          },
+          "source_fingerprint": "9292e0cc2f36a3b74904a9534c60b956b1eaeaaa6ff5f1f25709e125fd221eee",
+          "moving_parts": 384,
+          "max_displacement": 143.223,
+          "distinct_frames": 72
+        }
+      ]
+    },
+    {
+      "title": "Launches and impacts",
+      "gif": "shapes-12.gif",
+      "shapes": [
+        {
+          "name": "Rocket Engine",
+          "source": "shapes/Rocket Engine.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 120,
+            "k12": 1,
+            "k13": 1,
+            "k14": 15,
+            "k15": 10,
+            "k16": 18,
+            "k17": 45,
+            "k18": 60,
+            "k19": 10,
+            "k20": 1,
+            "k21": false,
+            "k22": 4
+          },
+          "source_fingerprint": "01a550de2a370d2e16f1cb5b64e2e3f32bd815ed32211894af23009e0903b350",
+          "moving_parts": 384,
+          "max_displacement": 283.254,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Meteor Hammer",
+          "source": "shapes/Meteor Hammer.lua",
+          "review": false,
+          "fixture": "Scripted core swing",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 90,
+            "k13": 60,
+            "k14": 0.8,
+            "k15": 60,
+            "k16": 1.2,
+            "k17": 16,
+            "k18": 4,
+            "k19": 55
+          },
+          "source_fingerprint": "3ac6f3706612c3f8943f14f3a899eff6fcd7b4ff97473067fa1e46358dfa3f7b",
+          "moving_parts": 384,
+          "max_displacement": 124.21,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Mochi Mochi no Mi",
+          "source": "shapes/Mochi Mochi no Mi.lua",
+          "review": false,
+          "fixture": "Scripted core swing",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 60,
+            "k12": 26,
+            "k13": 45,
+            "k14": 0,
+            "k15": 22,
+            "k16": 70,
+            "k17": 62
+          },
+          "source_fingerprint": "7ae029d8acd0eeb74aeea9e69deb040df88184d257ec4b94d660f78e08ea7d44",
+          "moving_parts": 384,
+          "max_displacement": 110.218,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Cursed Technique Red",
+          "source": "shapes/Cursed Technique Red.lua",
+          "review": false,
+          "fixture": "Scripted moving core",
+          "method": "integrated velocity field",
+          "overrides": {},
+          "config": {
+            "k12": 100
+          },
+          "source_fingerprint": "6931f6706beb8d6c94821c4993d6d6c0bb989c39bd38216fadc43f789c3c0f22",
+          "moving_parts": 384,
+          "max_displacement": 142.268,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Point Impact",
+          "source": "shapes/Point Impact.lua",
+          "review": false,
+          "fixture": "Scripted moving core",
+          "method": "integrated velocity field",
+          "overrides": {},
+          "config": {},
+          "source_fingerprint": "cdf439e42033589e6e31054ce8e27cb75360bc0c2e46b967c4789d3a6b81e4d9",
+          "moving_parts": 384,
+          "max_displacement": 120.451,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Slingshot",
+          "source": "shapes/Slingshot.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "integrated velocity field",
+          "overrides": {},
+          "config": {
+            "k11": 50,
+            "k12": 3,
+            "k13": 100,
+            "k14": 0,
+            "k15": 5,
+            "k16": 0,
+            "k17": 100,
+            "k23": false
+          },
+          "source_fingerprint": "f476e9bc51ca6fbd99a49d61cffef4945b33ef5662cd572a5df7f6d845c83aba",
+          "moving_parts": 384,
+          "max_displacement": 137.598,
+          "distinct_frames": 72
+        }
+      ]
+    },
+    {
+      "title": "World probes and review shapes",
+      "gif": "shapes-13.gif",
+      "shapes": [
+        {
+          "name": "Gods Call",
+          "source": "shapes/Gods Call.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "integrated velocity field",
+          "overrides": {},
+          "config": {
+            "k11": 10,
+            "k12": 0,
+            "k13": 0,
+            "k14": 0,
+            "k15": 0,
+            "k16": 0,
+            "k17": 50,
+            "k23": false
+          },
+          "source_fingerprint": "737d5adfca778ab9dfd74790cf3abcbd6ef4199300d10fd057252f3ca81025c1",
+          "moving_parts": 384,
+          "max_displacement": 59.167,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Ymir's Flesh",
+          "source": "shapes/Ymir's Flesh.lua",
+          "review": false,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k13": 300,
+            "k14": 140,
+            "k15": 110,
+            "k16": 4,
+            "k17": 1,
+            "k18": 1,
+            "k20": 40,
+            "k21": 60,
+            "k22": 120
+          },
+          "source_fingerprint": "ab20a687306df0e87924f1c36f43c99564192d9d352df6986240f219ff99d472",
+          "moving_parts": 384,
+          "max_displacement": 172.132,
+          "distinct_frames": 27
+        },
+        {
+          "name": "Dragons Teeth",
+          "source": "shapes-onreview/Dragons Teeth.lua",
+          "review": true,
+          "fixture": "Scripted core trail",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 300,
+            "k13": 34,
+            "k14": 18,
+            "k15": 7,
+            "k16": 75,
+            "k17": 4,
+            "k18": 6,
+            "k19": 0.1,
+            "k20": 3,
+            "k21": true,
+            "k22": false
+          },
+          "source_fingerprint": "184fb163da5910f04132338cea0b3677027fc20d684fa84ff84990b011534fb0",
+          "moving_parts": 384,
+          "max_displacement": 146.112,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Mugen Train",
+          "source": "shapes-onreview/Mugen Train.lua",
+          "review": true,
+          "fixture": "Scripted core trail",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k11": 420,
+            "k13": 90,
+            "k14": 4,
+            "k15": 26,
+            "k16": 14,
+            "k17": 14,
+            "k18": 10,
+            "k19": 22,
+            "k20": 9,
+            "k21": 1,
+            "k24": false
+          },
+          "source_fingerprint": "a9f33d4bd768275a0b4ac50ada0c4821e168f220a59d22beca24ba61f6b09b8f",
+          "moving_parts": 384,
+          "max_displacement": 211.343,
+          "distinct_frames": 65
+        },
+        {
+          "name": "Yamata no Orochi",
+          "source": "shapes-onreview/Yamata no Orochi.lua",
+          "review": true,
+          "fixture": "Fixed core",
+          "method": "shape targets",
+          "overrides": {},
+          "config": {
+            "k13": 400,
+            "k15": 5,
+            "k16": 50,
+            "k17": 5,
+            "k18": 16,
+            "k20": 14,
+            "k22": 0.1
+          },
+          "source_fingerprint": "831f46a0e7da8a4e525d6e79ab02dc060f929e8bffecd5839fcc7435c4c8871d",
+          "moving_parts": 384,
+          "max_displacement": 782.538,
+          "distinct_frames": 72
+        },
+        {
+          "name": "Drop",
+          "source": "shapes-onreview/Drop.lua",
+          "review": true,
+          "fixture": "Reselect + drop every 2.5 s",
+          "method": "release + gravity fixture",
+          "overrides": {},
+          "config": {},
+          "source_fingerprint": "6e144195de8d894ca92412f8e77c37f0f65899db911438bab98eb56b7db7f36b",
+          "moving_parts": 384,
+          "max_displacement": 89.5,
+          "distinct_frames": 13
+        }
+      ]
+    }
+  ]
+}

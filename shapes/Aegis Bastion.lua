@@ -1,0 +1,80 @@
+local M = {}
+M.ContinuousMotion = true
+local NAME = "Aegis Bastion"
+local TAU = math.pi * 2
+local PHI = 0.6180339887498949
+
+function M.px(t, c, x6, x9)
+	x6.pre = x6.pre or {}
+	local st = x6.pre[NAME]
+	if not st then
+		st = { phase = 0, t = t }
+		x6.pre[NAME] = st
+	end
+	st.phase = st.phase + (t - st.t) * math.clamp(c.k13 or 5, 0, 40) * x9.c2
+	st.t = t
+end
+
+function M.f2(p, cen, d, t, c, x1, x6, x9)
+	local id = d.slot or d.id or 1
+	local pick = (id * PHI) % 1
+	local u = (id * 0.8191725133961645) % 1
+	local v = (id * 0.6710436067037893) % 1
+	local w = (id * 0.5497004779019703) % 1
+	local st = x6.pre and x6.pre[NAME]
+	local phase = st and st.phase or 0
+
+	local height = math.clamp(c.k11 or 140, 50, 300)
+	local width = math.clamp(c.k12 or 100, 30, 220)
+	local curve = math.clamp(c.k14 or 32, 5, 100)
+	local wings = math.clamp(c.k15 or 75, 20, 180)
+	local size = p.Size
+	if size and math.max(size.X, size.Y, size.Z) > width * 0.22 and pick > 0.75 then pick = pick % 0.55 end
+	local x, y, z
+	if pick < 0.75 then
+		local q = 2 * u - 1
+		local half = width * (q < 0 and (q + 1) ^ 0.7 or 1 - 0.18 * q)
+		x, y = half * (pick < 0.55 and (2 * v - 1) or (id % 2 == 0 and 1 or -1)), q * height
+		z = curve * (1 - (x / width) ^ 2 * 0.6 - q * q * 0.35) + (w - 0.5) * curve * 0.12
+	elseif pick < 0.88 then
+		local q = 2 * u - 1
+		local ring = math.sqrt(math.max(0, 1 - q * q))
+		x, y, z = width * 0.32 * ring * math.cos(v * TAU), width * 0.32 * q, curve + width * 0.25 * ring * math.sin(v * TAU)
+	else
+		local side = id % 2 == 0 and 1 or -1
+		local feather = math.floor((id - 1) / 2) % 3
+		x = side * (width * 0.9 + wings * u)
+		y = height * (0.6 - feather * 0.38) + wings * 0.55 * u - v * wings * 0.28 * math.sin(math.pi * u)
+		z = -curve * 0.3 + wings * 0.12 * u * math.sin(phase + feather)
+	end
+	local turn = phase * 0.16
+	local ca, sa = math.cos(turn), math.sin(turn)
+	local bob = math.clamp(c.k17 or 18, 0, 80) * math.sin(phase * 0.7)
+	local target = cen + Vector3.new(x * ca - z * sa, y + math.clamp(c.k16 or 190, -100, 550) + bob, x * sa + z * ca)
+	-- Compact by default for disaster-map rubble. Keep the height anchor fixed
+	-- while scaling the silhouette, so wall panels help fill broad surfaces.
+	local pivot = cen + Vector3.new(0, c.k16 or 190, 0)
+	target = pivot + (target - pivot) * (math.clamp(c.k24 or 55, 25, 150) / 100)
+	-- The runtime supplies this even at speed zero or Formation Time Scale zero.
+	-- The same offset on every piece keeps the silhouette intact while it moves.
+	if x6.motion_offset then target = target + x6.motion_offset end
+	return (target - p.Position) * (x1.k10 * x9.c1), target
+end
+
+function M.cleanup(x6)
+	if x6.pre then x6.pre[NAME] = nil end
+end
+
+M.Controls = {
+	{ Type = "Slider", Name = "Debris Scale %", Min = 25, Max = 150, Key = "k24", Default = 55, IntOnly = true,
+		Desc = "Smaller formations stay denser with limited rubble. Increase for more or larger parts." },
+	{ Type = "Slider", Name = "Shield Half Height", Min = 50, Max = 300, Key = "k11", Default = 140 },
+	{ Type = "Slider", Name = "Shield Half Width", Min = 30, Max = 220, Key = "k12", Default = 100 },
+	{ Type = "Slider", Name = "Guardian Speed", Min = 0, Max = 40, Key = "k13", Default = 5, ExactMax = true },
+	{ Type = "Slider", Name = "Shield Convexity", Min = 5, Max = 100, Key = "k14", Default = 32 },
+	{ Type = "Slider", Name = "Winglet Reach", Min = 20, Max = 180, Key = "k15", Default = 75 },
+	{ Type = "Slider", Name = "Hover Height", Min = -100, Max = 550, Key = "k16", Default = 190 },
+	{ Type = "Slider", Name = "Levitation Sway", Min = 0, Max = 80, Key = "k17", Default = 18 },
+}
+
+return M

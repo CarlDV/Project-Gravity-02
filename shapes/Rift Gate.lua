@@ -1,4 +1,4 @@
-local M = {}
+local M = { ContinuousMotion = true }
 local NAME = "Rift Gate"
 local TAU = math.pi * 2
 local PHI = 0.6180339887498949
@@ -16,6 +16,11 @@ end
 
 function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local id = d.slot or d.id or 1
+	local rifts = math.clamp(math.floor(c.k19 or 3), 1, 6)
+	local gate = (id - 1) % rifts
+	-- Choose anatomy from the index WITHIN a gate. Using the global id for
+	-- both gate and mouth made every even-sized stack lose one mouth per gate.
+	id = math.floor((id - 1) / rifts) + 1
 	local pick = (id * PHI) % 1
 	local u, v = (id * 0.8191725133961645) % 1, (id * 0.6710436067037893) % 1
 	local st = x6.pre and x6.pre[NAME]
@@ -32,8 +37,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	-- gate, so each still gets rings, strands and blades, and the lift is always
 	-- positive so the stack only ever grows upward -- nothing spawns below the
 	-- main rift.
-	local rifts = math.clamp(math.floor(c.k19 or 3), 1, 6)
-	local lift = ((id - 1) % rifts) * math.clamp(c.k20 or 320, 0, 600)
+	local lift = gate * math.clamp(c.k20 or 320, 0, 600)
 	local side = id % 2 == 0 and 1 or -1
 	local r, a, z
 
@@ -78,6 +82,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	end
 
 	local target = cen + Vector3.new(lx, ly + (c.k17 or 130) + lift, lz)
+	if x6.motion_offset then target = target + x6.motion_offset end
 	return (target - p.Position) * (x1.k10 * x9.c1), target
 end
 

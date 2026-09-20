@@ -106,6 +106,8 @@ for _, path in ipairs({ "System.lua", "mobilever/System.lua" }) do
 	has("local function advance_clock%(real_dt%)", "declares advance_clock")
 	has("x7%.advance_clock = advance_clock", "publishes it on x7 so it can be tested")
 	has("local sclock = advance_clock%(real_dt%)", "f3_body advances the shape clock once per frame")
+	has("advance_motion%(real_dt%)", "real-time motion advances independently of the pattern clock")
+	has("x6%.motion_offset = Vector3%.new", "publishes the shared bounded orbit for shapes and previews")
 	has("x6%.shape_clock", "the clock is carried on x6, so it survives across frames")
 	has("scale > 8", "an out-of-range scale is clamped up")
 	has("scale < %-8", "and down, since a hand-edited settings file is not the slider")

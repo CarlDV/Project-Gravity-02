@@ -1,0 +1,126 @@
+# Formations for mixed disaster debris
+
+Fifteen new formations join the desktop and mobile catalogs. Their geometry is
+designed around the uneven unanchored bricks, planks, beams and wall panels found
+in **Natural Disaster Survival**. Compact defaults, broad silhouettes and stable
+part assignments help the figures hold together when the available debris changes.
+
+**[Watch all 78 shapes move](motion/index.md)** — 13 GIFs with six shapes each,
+including the four modules still in review.
+
+## The fifteen additions
+
+| Shape | Motion and structure | Useful controls |
+| --- | --- | --- |
+| Abyssal Jellyfish | A contracting bell, scalloped rim, curling tentacles and folded oral ribbons. | Bell Pulse %, Tentacle Length, Tentacle Curls |
+| Void Cathedral | Pointed arches and buttresses around an open nave, spires and a counter-rotating halo. | Spire Towers, Vault Rise %, Rose Window Petals |
+| Ouroboros | A serpent closes into a ring, with a modeled head, fins and a traveling body wave. | Serpent Radius, Body Thickness, Body Undulation |
+| Hopf Fibration | Linked circular fibres derived from a Hopf projection move through a 4D rotation. | Linked Circles, Filament Radius, Bundle Spread % |
+| Celestial Manta | Broad swept wings roll in a swimming wave, with a body, head lobes and streaming tail. | Wing Reach, Wing Ripple %, Ribbon Tail Length |
+| Megalodon | A tapered shark body swims with swept fins and a beating forked tail. | Body Half Length, Body Girth, Fin Reach |
+| World Tree | A twisting trunk connects roots, branches and a breathing canopy. | Tree Height, Canopy Reach, Boughs per Tier |
+| Ragnarok Hammer | A solid-faced hammer, wrapped grip and pommel turn beneath an orbiting debris halo. | Hammer Half Width, Handle Length, Hammer Tilt |
+| Eclipse Scythe | A thick crescent blade, curved shaft and orbiting fragments sweep through space. | Crescent Radius, Haft Length, Crescent Sweep % |
+| Aegis Bastion | A convex shield with a raised boss and flexing winglets slowly turns and levitates. | Shield Convexity, Winglet Reach, Levitation Sway |
+| Singularity Trident | Three substantial prongs grow from a wrapped shaft, with a turning halo around the head. | Fork Spread, Handle Length, Prong Length |
+| Ghost Galleon | A rocking hull carries masts and billowing sails, with a trailing wake. | Hull Half Length, Mast Height, Sail Fullness % |
+| Infernal Skull | A turning horned cranium has open eye sockets and a separate animated jaw. | Horn Length, Horn Sweep %, Jaw Opening % |
+| Chrono Hourglass | Two glass-shaped lobes surround a continuous circulating sand stream; the frame rocks gently. | Bowl Radius, Hourglass Height, Sand Flow Speed |
+| Storm Gyre | Multiple braided funnels hang beneath a broad storm cloud and smoothly shaped lightning strands. | Twister Count, Twister Separation, Lightning Reach |
+
+Every new shape also has **Debris Scale %**, starting at **55**. Scale changes the
+silhouette around its hover-height pivot, so making a figure more compact does not
+move its anchor height. The range is 25–150. Most new shapes route oversized panels
+into a substantial body feature instead of fine appendages. Part identities use
+deterministic sampling, so late claims join the current animation phase.
+
+## Debris galleries
+
+These images execute the actual shape modules with synthetic irregular cuboids.
+The size mix includes small bricks, long beams, and wall panels up to 40 × 2 × 16
+studs. Colors and orientations are illustrative; the files are not game captures.
+
+**768 pieces per formation, default shape settings:**
+
+![Fifteen new formations with 768 mixed debris pieces](shape-gallery.png)
+
+**160 pieces per formation, default shape settings:**
+
+![The same formations with only 160 mixed debris pieces](shape-gallery-sparse.png)
+
+With a small part budget, reduce Debris Scale % toward 35–45 and reduce repeated
+features such as tentacles, fibres or branches. With more debris, raise the scale
+and feature counts together. Thin appendages naturally lose detail before broad
+body features. Formation Preview can help choose a size before claiming debris.
+
+## Movement when the pattern is frozen
+
+The fifteen additions, the six earlier showcase formations, Torus Knot, Klein
+Bottle and Möbius Strip receive a shared motion offset from the runtime. It follows
+a six-stud horizontal orbit with a 1.5-stud vertical sway, on an independent real
+clock. Every part receives exactly the same offset after debris scaling.
+
+Setting pattern speed or Formation Time Scale to zero holds the internal pose
+while this orbit continues. Reversing the formation clock reverses the pattern;
+the real-time orbit continues forward. The movement preserves the silhouette and
+avoids holding every piece at a static target. Full Pause retains the existing
+anti-sleep velocity behavior. Actual network ownership is controlled by Roblox;
+these offline checks do not establish retention in a live NDS server.
+
+## Other shape math improvements
+
+- **Phoenix Ascendant:** an analytic path tangent and cached flight frame keep
+  the whole bird aligned. Smooth pitch limiting handles near-vertical flight,
+  and **Turn Banking** makes it lean into curved flight paths.
+- **Rift Gate:** gate-local indexing now populates both mouths, blades and
+  connecting strands for every gate in an even-sized stack.
+- **Torus Knot:** arc-length sampling evens out travel speed. Non-coprime winding
+  numbers produce all components of the corresponding torus link. Winding
+  controls are integral, and the shared clock avoids late-claim phase offsets.
+- **Klein Bottle:** a figure-eight immersion replaces the malformed surface;
+  radius scales every term consistently, and the double cover crosses the seam
+  continuously.
+- **Möbius Strip:** a continuous two-turn traversal handles the half-twist seam
+  while preserving deterministic slot placement and shared animation timing.
+- **Celestial Ribbon:** elapsed time is no longer forced positive, so frozen
+  and reversed formation clocks behave as requested.
+
+## Reproduce the images and checks
+
+Install [Lune 0.10+](https://github.com/lune-org/lune), Python and Pillow. The sampler
+uses native Roblox vector/CFrame value types in Lune, a fixed random seed, explicit
+service fixtures and persistent per-part state. Ordinary geometry previews follow
+module target positions. Slingshot, Sculptor, Gods Call and the impact tools use a
+simple velocity integrator. Drop uses a separate gravity/floor fixture. Collisions,
+mass, constraint lag and ownership are not simulated.
+
+From the repository root:
+
+```powershell
+python tools/preview_shapes.py --parts 768 --time 2 --cell 440 --output docs/shape-gallery.png
+python tools/preview_shapes.py --parts 160 --time 2 --cell 440 --output docs/shape-gallery-sparse.png
+python tools/preview_shapes.py --all --parts 384 --cell 384 --frames 72 --duration 6 --output docs/motion
+```
+
+For a custom six-shape GIF, repeat `--shape` six times and supply `--frames` and a
+`.gif` output. `--mode markers` shows target geometry; `--set k24=40` overrides a
+shape control. Pass `--lune PATH` if needed. Sample caches live in the OS temporary
+directory and are invalidated when the module, config, sampler or runtime changes.
+
+```powershell
+lune run tools/test_luau.luau tests/insane_shapes_smoke.lua
+lune run tools/test_luau.luau tests/math_curves_smoke.lua
+lune run tools/test_luau.luau tests/formation_smoke.lua
+lune run tools/test_luau.luau tests/formation_lint.lua
+lune run tools/test_luau.luau tests/controls_lint.lua
+lune run tools/test_luau.luau tests/slider_range_lint.lua
+lune run tools/test_luau.luau tests/load_build_smoke.lua
+```
+
+The suites check finite geometry across slider extremes, mixed sizes, deterministic
+slots, frame continuity, frozen poses with continuous motion, cleanup, Phoenix
+vertical flight, complete Rift stacks, constant-speed curves, double-cover seams,
+scale invariance and pairwise Hopf linking. Desktop and mobile runtime wiring is
+checked separately. The GIF exporter also verifies full catalog coverage, six
+shapes per group, finite trajectories, moving geometry, frame counts and playback
+duration. [manifest.json](motion/manifest.json) records the gallery settings.

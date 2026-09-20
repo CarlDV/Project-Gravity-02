@@ -1,10 +1,9 @@
-local M = {}
+local M = { ContinuousMotion = true }
 local NAME = "Phoenix Ascendant"
 local TAU = math.pi * 2
 local PHI = 0.6180339887498949
 
 local UP = Vector3.new(0, 1, 0)
-local WORLD_RIGHT = Vector3.new(1, 0, 0)
 local WORLD_FWD = Vector3.new(0, 0, -1)
 
 -- The wings flap several times per lap of the flight path. Travelling at the
@@ -19,6 +18,7 @@ local PATH_RATE = 0.4
 -- sweeps once while Z loops ~1.6 times and the height rises ~0.58 times, so it
 -- never quite repeats and swoops through all three axes.
 local FREQ_X, FREQ_Y, FREQ_Z = 1.0, 0.577, 1.618
+local flight
 
 function M.px(t, c, x6, x9)
 	x6.pre = x6.pre or {}
@@ -37,6 +37,7 @@ function M.px(t, c, x6, x9)
 	local speed = math.clamp(c.k13 or 24, 0, 60) * x9.c2
 	st.phase = st.phase + dt * speed
 	st.travel = st.travel + dt * speed * PATH_RATE
+	st.flight = flight(st.travel, c)
 end
 
 -- A point on the Celestial-Ribbon-style Lissajous path. Move Area (k18) sets the
@@ -45,16 +46,29 @@ local function path_point(cen, th, R, h)
 	return cen + Vector3.new(math.cos(th * FREQ_X) * R, math.sin(th * FREQ_Y) * h, math.sin(th * FREQ_Z) * R)
 end
 
--- Where the bird is along the wandering path, and the direction it is heading.
--- The heading is a short forward difference along the curve, the same way
--- Celestial Ribbon derives its spine tangent, so the nose follows the swoop
--- through all three axes instead of tracing a flat loop.
-local function flight(cen, th, c)
+-- The analytic tangent removes forward-difference heading error. Limit pitch
+-- smoothly so a vertical-only route never flips the wing frame at its apex.
+-- All of this is shared once per frame, rather than repeated for every part.
+flight = function(th, c)
 	local R = math.clamp(c.k18 or 250, 0, 800)
 	local h = math.clamp(c.k20 or 120, 0, 300)
-	local pos = path_point(cen, th, R, h)
-	local fwd = path_point(cen, th + 0.05, R, h) - pos
-	return pos, (fwd.Magnitude > 0.001) and fwd.Unit or WORLD_FWD
+	local pos = path_point(Vector3.new(0, c.k16 or 100, 0), th, R, h)
+	local dx = -R * FREQ_X * math.sin(th * FREQ_X)
+	local dy = h * FREQ_Y * math.cos(th * FREQ_Y)
+	local dz = R * FREQ_Z * math.cos(th * FREQ_Z)
+	local flat = math.sqrt(dx * dx + dz * dz)
+	local heading = flat > 0.0001 and Vector3.new(dx / flat, 0, dz / flat) or WORLD_FWD
+	local pitch = math.atan2(dy, math.sqrt(flat * flat + (h * 0.35) ^ 2 + 1))
+	local fwd = heading * math.cos(pitch) + UP * math.sin(pitch)
+	local right = UP:Cross(heading).Unit
+	local up = fwd:Cross(right).Unit
+	local ddx = -R * FREQ_X * FREQ_X * math.cos(th * FREQ_X)
+	local ddz = -R * FREQ_Z * FREQ_Z * math.sin(th * FREQ_Z)
+	local turn = (dz * ddx - dx * ddz) / (flat * flat + R * R * 0.2 + 1)
+	local bank = math.rad(math.clamp(c.k21 or 25, 0, 60)) * turn / math.sqrt(1 + turn * turn)
+	local cb, sb = math.cos(bank), math.sin(bank)
+	right, up = right * cb + up * sb, up * cb - right * sb
+	return { pos = pos, right = right, up = up, fwd = fwd }
 end
 
 function M.f2(p, cen, d, t, c, x1, x6, x9)
@@ -115,13 +129,9 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	-- the bird turns to face the way it is going. fwd is the local +Z (nose),
 	-- right is the local +X (wing line), up stays near world up so it never rolls
 	-- fully upside down.
-	local center = cen + Vector3.new(0, c.k16 or 100, 0)
-	local pos, fwd = flight(center, st and st.travel or 0, c)
-	local right = UP:Cross(fwd)
-	right = (right.Magnitude > 0.001) and right.Unit or WORLD_RIGHT
-	local up = fwd:Cross(right).Unit
-
-	local target = pos + right * x + up * y + fwd * z
+	local frame = st and st.flight or flight(0, c)
+	local target = cen + frame.pos + frame.right * x + frame.up * y + frame.fwd * z
+	if x6.motion_offset then target = target + x6.motion_offset end
 	return (target - p.Position) * (x1.k10 * x9.c1), target
 end
 
@@ -133,6 +143,7 @@ M.Controls = {
 	{ Type = "Slider", Name = "Wing Reach", Min = 40, Max = 400, Key = "k11", Default = 160 },
 	{ Type = "Slider", Name = "Feathers per Wing", Min = 4, Max = 28, Key = "k12", Default = 14, IntOnly = true },
 	{ Type = "Slider", Name = "Flight Speed", Min = 0, Max = 60, Key = "k13", Default = 24, ExactMax = true },
+	{ Type = "Slider", Name = "Turn Banking", Min = 0, Max = 60, Key = "k21", Default = 25 },
 	{ Type = "Slider", Name = "Tail Length", Min = 30, Max = 500, Key = "k14", Default = 180 },
 	{ Type = "Slider", Name = "Wingbeat Angle", Min = 0, Max = 80, Key = "k15", Default = 45 },
 	{ Type = "Slider", Name = "Hover Height", Min = -100, Max = 500, Key = "k16", Default = 100 },

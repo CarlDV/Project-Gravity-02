@@ -1,4 +1,5 @@
 local M = {}
+M.ContinuousMotion = true
 local NAME = "Hypercube Nexus"
 local TAU = math.pi * 2
 local UP = Vector3.new(0, 1, 0)
@@ -65,6 +66,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local angle = v * TAU + u * TAU * math.clamp(c.k17 or 3, 0, 8) - phase
 	local offset = a + line * u + side * (radius * math.cos(angle)) + normal * (radius * math.sin(angle))
 	local target = cen + offset + Vector3.new(0, c.k15 or 150, 0)
+	if x6.motion_offset then target = target + x6.motion_offset end
 	return (target - p.Position) * (x1.k10 * x9.c1), target
 end
 

@@ -8,6 +8,22 @@ math.clamp = math.clamp or function(x, lo, hi) return math.max(lo, math.min(x, h
 
 local config = assert(loadfile("config.lua"))()
 local names = {
+	"Abyssal Jellyfish",
+	"Void Cathedral",
+	"Ouroboros",
+	"Hopf Fibration",
+	"Celestial Manta",
+	"Megalodon",
+	"World Tree",
+	"Ragnarok Hammer",
+	"Eclipse Scythe",
+	"Aegis Bastion",
+	"Singularity Trident",
+	"Ghost Galleon",
+	"Infernal Skull",
+	"Chrono Hourglass",
+	"Storm Gyre",
+	"Torus Knot", "Klein Bottle",
 	"Astral Kraken", "Cosmic Lotus", "Phoenix Ascendant",
 	"Rift Gate", "Reality Shatter", "Hypercube Nexus",
 }
@@ -178,6 +194,34 @@ for _, name in ipairs(names) do
 	mod.px(10000, cfg, ctx, x9, x1)
 	check(difference(zero, cloud(mod, cfg, ctx, 128)) < 1e-7, name .. ": re-entry starts without stale animation")
 	check(finite(target(mod, cfg, context(), 1)), name .. ": pure target exists before px")
+
+	if mod.ContinuousMotion then
+		-- Real debris has very different sizes. A frozen pattern still follows the
+		-- runtime's real-time orbit, rigidly and without resizing or writing parts.
+		local held = copy(cfg)
+		held.k13 = 0
+		local live = start(mod, held)
+		local sizes = { Vector3.new(4, 2, 2), Vector3.new(12, 1, 8), Vector3.new(2, 18, 2), Vector3.new(40, 2, 16) }
+		local previous, initial = {}, {}
+		for frame = 0, 90 do
+			local a = frame / 30 * 1.2
+			live.motion_offset = Vector3.new(6 * (math.cos(a) - 1), 1.5 * math.sin(a * 2), 6 * math.sin(a))
+			mod.px(0, held, live, x9, x1)
+			for id = 1, 160 do
+				local rubble = setmetatable({}, {
+					__index = { Position = origin, Size = sizes[(id - 1) % #sizes + 1] },
+					__newindex = function() error("shape changed debris properties") end,
+				})
+				local force, pos = mod.f2(rubble, origin, { id = id }, 0, held, x1, live, x9)
+				check(finite(force) and finite(pos), name .. ": mixed rubble remains finite")
+				if frame == 0 then initial[id] = pos else
+					check((pos - previous[id]).Magnitude > 0.23, name .. ": every frozen slot keeps moving")
+					check(near(pos - live.motion_offset, initial[id]), name .. ": keep-alive preserves the silhouette")
+				end
+				previous[id] = pos
+			end
+		end
+	end
 end
 
 -- Check the defining silhouettes, beyond finiteness and control wiring.
@@ -194,6 +238,22 @@ do
 		if math.abs(v.Z) < cfg.k12 * 0.1 then throat = throat + 1 end
 	end
 	check(front > 100 and back > 100 and throat > 20, "Rift Gate: both mouths and connecting throat populated")
+	for count = 1, 6 do
+		local stacked = copy(cfg)
+		stacked.k19 = count
+		local live = start(mod, stacked)
+		for gate = 0, count - 1 do
+			local positive, negative, middle = 0, 0, 0
+			for slot = 1, 384 do
+				local id = gate + 1 + (slot - 1) * count
+				local pos = target(mod, stacked, live, id) - origin - Vector3.new(0, cfg.k17 + gate * cfg.k20, 0)
+				if pos.Z > cfg.k12 * 0.48 then positive = positive + 1 end
+				if pos.Z < -cfg.k12 * 0.48 then negative = negative + 1 end
+				if math.abs(pos.Z) < cfg.k12 * 0.1 then middle = middle + 1 end
+			end
+			check(positive > 70 and negative > 70 and middle > 15, "Rift: complete mouths and throat in gate " .. gate .. "/" .. count)
+		end
+	end
 end
 do
 	local name = "Phoenix Ascendant"
@@ -219,6 +279,20 @@ do
 		if lz < -cfg.k14 * 0.8 then tail = tail + 1 end
 	end
 	check(left > 80 and rightw > 80 and tail > 30, "Phoenix: two full wings and trailing feathers")
+	for _, rise in ipairs({ 0, 120, 300 }) do
+		local vertical = copy(cfg)
+		vertical.k18, vertical.k20 = 0, rise
+		local live, previous = start(mod, vertical), nil
+		for frame = 0, 2400 do
+			mod.px(frame / 120, vertical, live, x9, x1)
+			local basis = live.pre[name].flight
+			check(math.abs(basis.right:Dot(basis.up)) < 1e-9 and math.abs(basis.right:Dot(basis.fwd)) < 1e-9,
+				"Phoenix: vertical flight basis stays orthogonal")
+			check(math.abs(basis.up.Magnitude - 1) < 1e-9 and finite(basis.pos), "Phoenix: vertical flight stays finite and normalized")
+			if previous then check(previous:Dot(basis.fwd) > 0.99, "Phoenix: no frame flip at vertical turnaround") end
+			previous = basis.fwd
+		end
+	end
 end
 do
 	local name = "Astral Kraken"

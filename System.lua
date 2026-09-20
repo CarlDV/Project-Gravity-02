@@ -151,6 +151,20 @@ return function(context)
 	end
 	x7.advance_clock = advance_clock
 
+	-- A shared, bounded orbit keeps debris formations in motion even when their
+	-- pattern clock is frozen. One offset for the entire formation preserves its
+	-- silhouette; using real time also keeps Time Scale and shape speed independent.
+	local function advance_motion(real_dt)
+		local step = real_dt or 1 / 60
+		if step ~= step or step < 0 then step = 0 end
+		step = math.min(step, 0.25)
+		x6.motion_clock = ((x6.motion_clock or 0) + step * 1.2) % (math.pi * 2)
+		local a = x6.motion_clock
+		x6.motion_offset = Vector3.new(6 * (math.cos(a) - 1), 1.5 * math.sin(a * 2), 6 * math.sin(a))
+		return x6.motion_offset
+	end
+	x7.advance_motion = advance_motion
+
 	-- One part's blend weight. At stagger 0 every part carries the global weight. At
 	-- stagger 1 the weight is a front that crosses the formation as the global weight
 	-- goes 0 -> 1, so the parts convert progressively instead of all together -- which
@@ -380,6 +394,7 @@ return function(context)
 			-- of ft at the four shape-facing call sites below; ft itself stays wall time
 			-- for everything that measures a real interval. See advance_clock.
 			local sclock = advance_clock(real_dt)
+			advance_motion(real_dt)
 			if x1.k6 == "Light Light no Mi" then
 				et = 1
 			end

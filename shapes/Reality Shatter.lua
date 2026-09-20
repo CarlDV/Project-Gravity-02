@@ -1,4 +1,5 @@
 local M = {}
+M.ContinuousMotion = true
 local NAME = "Reality Shatter"
 local TAU = math.pi * 2
 local PHI = 0.6180339887498949
@@ -88,6 +89,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 
 	local ca, sa = math.cos(phase * 0.18), math.sin(phase * 0.18)
 	local target = cen + Vector3.new(x * ca - z * sa, y + (c.k16 or 120), x * sa + z * ca)
+	if x6.motion_offset then target = target + x6.motion_offset end
 	return (target - p.Position) * (x1.k10 * x9.c1), target
 end
 

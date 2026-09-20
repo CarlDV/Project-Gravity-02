@@ -14,15 +14,9 @@ function M.px(t, c, x6, x9)
 	local s, w, h, l = (c.k13 or 10) * x9.c2, (c.k11 or 8), c.k14 or 50, (c.k16 or x9.c5) * 100
 	local dt = t - meta.last_t
 	meta.last_t = t
-	-- Clamped like Spinning Cube:24-28 and Platform:345-349. meta lives in x6.pre,
-	-- which survives a shape switch, and t is time(), which keeps advancing while
-	-- another shape is selected -- so coming back after a minute handed this a dt of
-	-- 60 and walked the phase a whole minute forward in one frame.
-	if dt <= 0 then
-		dt = 1 / 60
-	elseif dt > 0.25 then
-		dt = 0.25
-	end
+	-- This is the formation clock, not wall time. Zero freezes; negative deltas
+	-- reverse. cleanup resets the clock on shape switches, so no catch-up clamp
+	-- is needed here (and a positive fallback made a frozen ribbon keep moving).
 	meta.phase = meta.phase + dt * s
 
 	local res = 200

@@ -115,6 +115,25 @@ for _, tree in ipairs({
 	print("\n════════ " .. tree.label .. " ════════")
 	local T = tree.dir
 
+	do
+		local sys, _, x1, _, ctx = build(T)
+		x1.TimeScale = 0
+		local frozen = sys.x7.advance_clock(0)
+		local previous = sys.x7.advance_motion(0)
+		for frame = 1, 360 do
+			local current = sys.x7.advance_motion(1 / 60)
+			check(sys.x7.advance_clock(1 / 60) == frozen, T .. "pattern clock stays frozen during keep-alive")
+			check((current - previous).Magnitude > 0.119, T .. "keep-alive never settles at a turning point")
+			check(current.Magnitude < 12.2, T .. "keep-alive orbit stays bounded")
+			previous = current
+		end
+		local saved = ctx.motion_clock
+		sys.x7.advance_motion(-1)
+		sys.x7.advance_motion(0 / 0)
+		check(ctx.motion_clock == saved, T .. "invalid frame durations do not poison the motion clock")
+		check(sys.x7.advance_motion(0) == previous, T .. "duplicate frames do not move twice")
+	end
+
 	-- ── defaults are inert ────────────────────────────────────────────────────────
 	-- The whole reason six features can land in one pass: at the shipped defaults every
 	-- one of them has to leave the loop on the path it was already taking.

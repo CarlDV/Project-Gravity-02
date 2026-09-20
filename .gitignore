@@ -1,3 +1,14 @@
 projectgravitywebpage/
 antifling.lua
-docs/
+docs/*
+!docs/FORMATIONS.md
+!docs/shape-gallery.png
+!docs/shape-gallery-sparse.png
+!docs/shape-motion.gif
+!docs/motion/
+docs/motion/*
+!docs/motion/index.md
+!docs/motion/manifest.json
+!docs/motion/contact-sheet.png
+!docs/motion/shapes-*.gif
+__pycache__/

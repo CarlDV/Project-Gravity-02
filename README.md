@@ -4,7 +4,7 @@ Project Gravity is a Roblox script that grabs unanchored parts and moves them ar
 
 ## Features
 - Grabs unanchored parts automatically
-- Has over 50 shapes (like Black Hole or Celestial Ribbon)
+- Has 74 active shapes, including 15 new formations designed around uneven disaster debris
 - Works on both Desktop and Mobile
 - Let's you tweak speed, damping, and other physics live
 - Formation controls in the Advanced panel: slow down or reverse the shape's clock, mix two
@@ -15,20 +15,29 @@ Project Gravity is a Roblox script that grabs unanchored parts and moves them ar
 
 ### New formations
 
-| Shape | What it does |
-| --- | --- |
-| Astral Kraken | A breathing mantle with eight curling, tapered tentacles and raised eyes. |
-| Phoenix Ascendant | Sweeping feathered wings, a crowned head, and five flowing tail streamers. |
-| Cosmic Lotus | Layers of pointed petals bloom around a floating core and rotate in opposite directions. |
-| Rift Gate | Two rotating irises connected by a twisting, breathing wormhole. |
-| Reality Shatter | Twenty triangular shards burst apart, tumble, and reform around a central core. |
-| Hypercube Nexus | A rotating five-dimensional cube projects 80 connected edges into nested, pulsing cages. |
+**[Watch every shape move: 13 GIFs, six shapes per GIF](docs/motion/index.md).**
+The gallery covers all 74 active shapes plus the four review modules, with scripted
+inputs labeled for interactive tools.
 
-Find them by name in the shape selector on desktop or mobile. Each has controls for
-size, motion and its defining features. Try Formation Preview in the Advanced panel;
-several hundred held parts bring out the feathers, petals and shard surfaces. Setting
-a shape's speed to zero holds its current pose; Formation Time Scale also supports
-freezing and reversing these animations. They work with Shape Blend and slot ordering.
+![Six creatures in motion](docs/motion/shapes-01.gif)
+
+The 15 additions are **Abyssal Jellyfish, Void Cathedral, Ouroboros, Hopf Fibration,
+Celestial Manta, Megalodon, World Tree, Ragnarok Hammer, Eclipse Scythe, Aegis Bastion,
+Singularity Trident, Ghost Galleon, Infernal Skull, Chrono Hourglass, and Storm Gyre**.
+Find them by name in the desktop or mobile shape selector.
+
+They use compact silhouettes, deterministic part placement, and broad structural
+features for Natural Disaster Survival's mixed bricks, beams and wall panels.
+**Debris Scale %** starts at 55; reduce it when there is less rubble to fill the shape.
+The formation keeps a small shared orbit even when its pattern speed or Formation
+Time Scale is zero. The six earlier showcase formations and the improved Torus Knot,
+Klein Bottle and Möbius Strip also use this continuous motion.
+
+**[Formation guide, images and math improvements](docs/FORMATIONS.md)** includes the
+dense and sparse debris galleries, controls, and the details of Phoenix banking,
+complete stacked Rift mouths, even-speed torus links, and continuous surface seams.
+The previews show actual module trajectories in a synthetic debris fixture; live
+Roblox physics and network ownership still depend on the game session.
 
 ## Usage
 Just run `main.lua` in your executor. It pulls the rest of the files directly from GitHub
@@ -48,13 +57,33 @@ The **PROJECT GRAVITY AI** button launches [Project UAI](https://github.com/Carl
 - `config.lua`: Default settings and shape variables
 - `UI.lua` / `UI_elements.lua`: The UI stuff
 - `shapes/`: The math for how each shape is positioned
+- `shapes-onreview/`: Four experimental modules, labeled separately in the motion gallery
+- `docs/`: Formation guide, debris images, and the complete motion gallery
+- `tools/`: Reproducible previews and a Lune adapter for the test suites
 - `/mobilever`: The UI and stuff for mobile users ,ex UI
 
 ## Shape validation
 
-Run `luajit tests/insane_shapes_smoke.lua` from the repository root to check the six
-new formations. It checks geometry, control limits, preview slots, animation timing,
-late claims and cleanup using the local Roblox math stubs.
+Use [Lune](https://github.com/lune-org/lune) to run the suites in Luau, including
+modules using `continue` and Unicode filenames:
+
+```powershell
+lune run tools/test_luau.luau tests/insane_shapes_smoke.lua
+lune run tools/test_luau.luau tests/math_curves_smoke.lua
+lune run tools/test_luau.luau tests/formation_smoke.lua
+```
+
+These cover geometry, control limits, mixed part sizes, timing, continuously moving
+frozen poses, late claims, cleanup, topology and desktop/mobile runtime behavior.
+
+Rebuild the motion gallery with Python, Pillow and Lune:
+
+```powershell
+python tools/preview_shapes.py --all --parts 384 --frames 72 --duration 6 --output docs/motion
+```
+
+Pass `--lune PATH` if Lune is not on PATH. [The gallery index](docs/motion/index.md)
+records the demonstration settings and explains the scripted inputs.
 
 ---
 JUN 25 : 12:12AM GMT+8 (PHT)
