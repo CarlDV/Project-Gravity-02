@@ -5,8 +5,9 @@ designed around the uneven unanchored bricks, planks, beams and wall panels foun
 in **Natural Disaster Survival**. Compact defaults, broad silhouettes and stable
 part assignments help the figures hold together when the available debris changes.
 
-**[Watch all 78 shapes move](motion/index.md)** — 13 GIFs with six shapes each,
-including the four modules still in review.
+**[Earlier 78-shape motion gallery](motion/index.md)** — 13 GIFs with six shapes
+each, including four review modules. This snapshot predates Black Hole v2 and the latest
+Phoenix, Megalodon and Drop updates; there are now 75 active shapes.
 
 ## The fifteen additions
 
@@ -17,7 +18,7 @@ including the four modules still in review.
 | Ouroboros | A serpent closes into a ring, with a modeled head, fins and a traveling body wave. | Serpent Radius, Body Thickness, Body Undulation |
 | Hopf Fibration | Linked circular fibres derived from a Hopf projection move through a 4D rotation. | Linked Circles, Filament Radius, Bundle Spread % |
 | Celestial Manta | Broad swept wings roll in a swimming wave, with a body, head lobes and streaming tail. | Wing Reach, Wing Ripple %, Ribbon Tail Length |
-| Megalodon | A tapered shark body swims with swept fins and a beating forked tail. | Body Half Length, Body Girth, Fin Reach |
+| Megalodon | A tapered shark follows a banked 3D patrol, with a bending body, swept fins and a beating forked tail. | Patrol Swoop Height, Turn Banking, Body Follow Through % |
 | World Tree | A twisting trunk connects roots, branches and a breathing canopy. | Tree Height, Canopy Reach, Boughs per Tier |
 | Ragnarok Hammer | A solid-faced hammer, wrapped grip and pommel turn beneath an orbiting debris halo. | Hammer Half Width, Handle Length, Hammer Tilt |
 | Eclipse Scythe | A thick crescent blade, curved shaft and orbiting fragments sweep through space. | Crescent Radius, Haft Length, Crescent Sweep % |
@@ -69,9 +70,23 @@ these offline checks do not establish retention in a live NDS server.
 
 ## Other shape math improvements
 
-- **Phoenix Ascendant:** an analytic path tangent and cached flight frame keep
-  the whole bird aligned. Smooth pitch limiting handles near-vertical flight,
-  and **Turn Banking** makes it lean into curved flight paths.
+- **Phoenix Ascendant:** an analytic path tangent leads a chain of delayed flight
+  frames. The head leads into turns, the torso bends, and the tail follows older
+  headings. **Body Follow Through %** controls the bend; **Wing Flex %** adds
+  feather motion that travels across the wings. Smooth pitch limiting handles
+  near-vertical flight, and **Turn Banking** makes it lean into curved paths.
+- **Megalodon:** a smooth 3D patrol replaces the flat orbit. **Patrol Swoop Height**
+  adds vertical travel, **Turn Banking** leans into curves, and **Body Follow
+  Through %** carries the turn down the spine to the tail. Path frames are cached
+  once per formation frame; late claims join the same pose.
+- **Black Hole v2:** a spiral draws every part into a rapidly rotating core by
+  default. **Pull In Speed** sets the inward rate; **Spiral Speed** sets the orbit.
+  **Core Spin X/Y/Z (deg/s)** independently control rotation on all three axes.
+  Ring and jet percentages are optional. Real buttons regrab, release or explode
+  the tracked parts; gravity acts with the actuators disabled after an explosion.
+- **Drop (review/archive):** gathers a distributed canopy smoothly, holds it, then
+  releases a configurable staggered wave. **Drop Now** starts the wave early;
+  downward speed, scatter and incoming momentum control the release.
 - **Rift Gate:** gate-local indexing now populates both mouths, blades and
   connecting strands for every gate in an even-sized stack.
 - **Torus Knot:** arc-length sampling evens out travel speed. Non-coprime winding
@@ -86,6 +101,17 @@ these offline checks do not establish retention in a live NDS server.
   and reversed formation clocks behave as requested.
 
 ## Reproduce the images and checks
+
+The updated [creature clip](plugins/creatures-motion.gif) and
+[Black Hole v2 / Drop clip](plugins/release-motion.gif) use Python, Pillow and the
+standalone [Luau CLI](https://github.com/luau-lang/luau/releases):
+
+```powershell
+python tools/preview_updates.py --luau PATH_TO_LUAU
+```
+
+The commands below describe the older gallery exporter. The test suites use the
+standalone Luau runner shown after them.
 
 Install [Lune 0.10+](https://github.com/lune-org/lune), Python and Pillow. The sampler
 uses native Roblox vector/CFrame value types in Lune, a fixed random seed, explicit
@@ -108,13 +134,13 @@ shape control. Pass `--lune PATH` if needed. Sample caches live in the OS tempor
 directory and are invalidated when the module, config, sampler or runtime changes.
 
 ```powershell
-lune run tools/test_luau.luau tests/insane_shapes_smoke.lua
-lune run tools/test_luau.luau tests/math_curves_smoke.lua
-lune run tools/test_luau.luau tests/formation_smoke.lua
-lune run tools/test_luau.luau tests/formation_lint.lua
-lune run tools/test_luau.luau tests/controls_lint.lua
-lune run tools/test_luau.luau tests/slider_range_lint.lua
-lune run tools/test_luau.luau tests/load_build_smoke.lua
+python tools/test_luau.py --luau PATH_TO_LUAU tests/insane_shapes_smoke.lua
+python tools/test_luau.py --luau PATH_TO_LUAU tests/math_curves_smoke.lua
+python tools/test_luau.py --luau PATH_TO_LUAU tests/formation_smoke.lua
+python tools/test_luau.py --luau PATH_TO_LUAU tests/formation_lint.lua
+python tools/test_luau.py --luau PATH_TO_LUAU tests/controls_lint.lua
+python tools/test_luau.py --luau PATH_TO_LUAU tests/slider_range_lint.lua
+python tools/test_luau.py --luau PATH_TO_LUAU tests/load_build_smoke.lua
 ```
 
 The suites check finite geometry across slider extremes, mixed sizes, deterministic

@@ -96,10 +96,13 @@ return function(env)
 							local s, shape_mod = pcall(func)
 							if s and type(shape_mod) == "table" and shape_mod.Controls then
 								for _, ctrl in ipairs(shape_mod.Controls) do
-									if type(ctrl) == "table" and ctrl.Key then
+									if type(ctrl) == "table" and ctrl.Key and ctrl.Type ~= "Button" then
 										local default_val = ctrl.Default
-										if default_val == nil then default_val = ctrl.Min or 0 end
-										if ctrl.Div then default_val = default_val / ctrl.Div end
+										if default_val == nil then
+											if ctrl.Type == "Toggle" then default_val = false
+											elseif ctrl.Type == "TextBox" then default_val = ""
+											else default_val = (ctrl.Min or 0) / (ctrl.Div or 1) end
+										end
 										x2[shapeCleanName][ctrl.Key] = default_val
 									end
 								end

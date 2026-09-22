@@ -118,6 +118,7 @@ return function(context, x7)
 			return
 		end
 		pc_unref_mod(d)
+		if d.pc_mode and x7.reset_scratch then x7.reset_scratch(d) end
 		if d.pc_ride then
 			-- Hand the part back to the same rule f2/apply_disabled_part uses, so a
 			-- part whose original state was collidable and PreserveCollisions is on
@@ -351,6 +352,7 @@ return function(context, x7)
 	local VALID_MODES = { pin = true, manual = true, shape = true }
 
 	local function pc_assign(mode, opts)
+		if x6.torn_down then return 0 end
 		opts = opts or {}
 		-- Anything else is a release. "normal" is the panel's name for "no override"
 		-- and used to be storable as a literal pc_mode: the loop has no branch for
@@ -368,6 +370,7 @@ return function(context, x7)
 				return 0
 			end
 			mod = get_shape and get_shape(opts.shape)
+			if x6.torn_down then return 0 end
 			if not mod or not mod.f2 then
 				return 0
 			end
@@ -375,16 +378,12 @@ return function(context, x7)
 			if not shape_cfg and mod.Controls then
 				shape_cfg = {}
 				for _, ctrl in ipairs(mod.Controls) do
-					if ctrl.Key then
+					if ctrl.Key and ctrl.Type ~= "Button" then
 						local def = ctrl.Default
 						if def == nil then
-							def = ctrl.Min or 0
-							-- Min is a display bound, Default is already stored units --
-							-- the same asymmetry main.lua:204 documents. Dividing both
-							-- would disagree with the panel by Div squared.
-							if ctrl.Div then
-								def = def / ctrl.Div
-							end
+							if ctrl.Type == "Toggle" then def = false
+							elseif ctrl.Type == "TextBox" then def = ""
+							else def = (ctrl.Min or 0) / (ctrl.Div or 1) end
 						end
 						shape_cfg[ctrl.Key] = def
 					end
@@ -402,6 +401,11 @@ return function(context, x7)
 					-- pc_release owns the unref on this path.
 					pc_release(part)
 				else
+					-- A released shape record must become controllable when pinned or
+					-- assigned to another shape; keep free_active for the engine to rearm.
+					if (d.pc_mode ~= mode or d.pc_mod ~= mod) and x7.reset_scratch then
+						x7.reset_scratch(d)
+					end
 					if d.pc_mod and (mode ~= "shape" or d.pc_mod ~= mod) then
 						pc_unref_mod(d)
 						d.pc_mod = nil

@@ -18,7 +18,7 @@ local PATH_RATE = 0.4
 -- sweeps once while Z loops ~1.6 times and the height rises ~0.58 times, so it
 -- never quite repeats and swoops through all three axes.
 local FREQ_X, FREQ_Y, FREQ_Z = 1.0, 0.577, 1.618
-local flight
+local flight, build_spine
 
 function M.px(t, c, x6, x9)
 	x6.pre = x6.pre or {}
@@ -38,6 +38,7 @@ function M.px(t, c, x6, x9)
 	st.phase = st.phase + dt * speed
 	st.travel = st.travel + dt * speed * PATH_RATE
 	st.flight = flight(st.travel, c)
+	build_spine(st, c)
 end
 
 -- A point on the Celestial-Ribbon-style Lissajous path. Move Area (k18) sets the
@@ -71,6 +72,39 @@ flight = function(th, c)
 	return { pos = pos, right = right, up = up, fwd = fwd }
 end
 
+local function mix_frame(a, b, f)
+    local forward = (a.fwd + (b.fwd - a.fwd) * f).Unit
+    local right = (a.right + (b.right - a.right) * f).Unit
+    local up = forward:Cross(right).Unit
+    right = up:Cross(forward).Unit
+    return a.pos + (b.pos - a.pos) * f, right, up
+end
+
+build_spine = function(st, c)
+    local follow = math.clamp(c.k22 or 65, 0, 100) / 100
+    local back, front = math.clamp(c.k14 or 180, 30, 500) + math.clamp(c.k11 or 160, 40, 400) * 0.25, math.clamp(c.k11 or 160, 40, 400) * 0.5
+    local steps = 24
+    st.back_step, st.front_step = back / steps, front / steps
+    st.back, st.front = { st.flight }, { st.flight }
+    for i = 1, steps do
+        local fraction = i / steps
+        local trailing = flight(st.travel - follow * fraction * 0.8, c)
+        local leading = flight(st.travel + follow * fraction * 0.16, c)
+        local prev_back, prev_front = st.back[i], st.front[i]
+        trailing.pos = prev_back.pos - (prev_back.fwd + trailing.fwd).Unit * st.back_step
+        leading.pos = prev_front.pos + (prev_front.fwd + leading.fwd).Unit * st.front_step
+        st.back[i + 1], st.front[i + 1] = trailing, leading
+    end
+end
+
+local function on_spine(st, z)
+    local frames = z < 0 and st.back or st.front
+    local step = z < 0 and st.back_step or st.front_step
+    local q = math.clamp(math.abs(z) / step, 0, #frames - 1)
+    local i = math.min(math.floor(q) + 1, #frames - 1)
+    return mix_frame(frames[i], frames[i + 1], q - (i - 1))
+end
+
 function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local id = d.slot or d.id or 1
 	local pick = (id * PHI) % 1
@@ -93,7 +127,9 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		local width = span / feathers * 0.48 * math.sin(math.pi * u) ^ 0.7
 		local lx = span * s + length * u * 0.18 + (v * 2 - 1) * width
 		local ly = span * (0.08 + 0.18 * math.sin(math.pi * s)) - length * u * 0.1
-		local angle = flap * math.sin(phase) + 0.15 * s * math.sin(phase - 0.8)
+		local flex = math.clamp(c.k23 or 65, 0, 100) / 100
+		local beat = phase - flex * (s * 0.9 + u * 0.35)
+		local angle = flap * math.sin(beat) + 0.15 * s * math.sin(beat - 0.8)
 		x = side * (lx * math.cos(angle) - ly * math.sin(angle))
 		y = lx * math.sin(angle) + ly * math.cos(angle)
 		z = -span * 0.16 * s - length * u + width * 0.12 * math.sin(w * TAU)
@@ -124,13 +160,14 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		end
 	end
 
-	-- Fly the path: lift the whole route to hover height, find the point on it
-	-- and the heading there, then build an upright frame around that heading so
-	-- the bird turns to face the way it is going. fwd is the local +Z (nose),
-	-- right is the local +X (wing line), up stays near world up so it never rolls
-	-- fully upside down.
-	local frame = st and st.flight or flight(0, c)
-	local target = cen + frame.pos + frame.right * x + frame.up * y + frame.fwd * z
+	-- The head leads, the torso bends through the turn, and the long tail
+	-- follows older headings. Feather tips also lag their wing roots.
+	if not st then
+		st = { travel = 0, flight = flight(0, c) }
+		build_spine(st, c)
+	end
+	local center, right, up = on_spine(st, z)
+	local target = cen + center + right * x + up * y
 	if x6.motion_offset then target = target + x6.motion_offset end
 	return (target - p.Position) * (x1.k10 * x9.c1), target
 end
@@ -140,6 +177,8 @@ function M.cleanup(x6)
 end
 
 M.Controls = {
+	{ Type = "Slider", Name = "Body Follow Through %", Min = 0, Max = 100, Key = "k22", Default = 65, IntOnly = true },
+	{ Type = "Slider", Name = "Wing Flex %", Min = 0, Max = 100, Key = "k23", Default = 65, IntOnly = true },
 	{ Type = "Slider", Name = "Wing Reach", Min = 40, Max = 400, Key = "k11", Default = 160 },
 	{ Type = "Slider", Name = "Feathers per Wing", Min = 4, Max = 28, Key = "k12", Default = 14, IntOnly = true },
 	{ Type = "Slider", Name = "Flight Speed", Min = 0, Max = 60, Key = "k13", Default = 24, ExactMax = true },

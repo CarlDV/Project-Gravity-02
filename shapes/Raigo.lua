@@ -1,4 +1,4 @@
-local M = {}
+local M = { MobileControls = { Action = "LAUNCH", Range = 800 } }
 
 local PHI = 0.6180339887498949
 -- A second irrational, for the radius. Reusing PHI would tie a part's radius to
@@ -134,7 +134,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			local uis = game:GetService("UserInputService")
 			local cam = workspace.CurrentCamera
 			st.conns[#st.conns + 1] = uis.InputBegan:Connect(function(inp, gpe)
-				if gpe or not st.click_enabled then return end
+				if gpe or not st.click_enabled or (x6.mobile_input and x6.mobile_input.active) then return end
 				local hit = nil
 				if inp.UserInputType == Enum.UserInputType.MouseButton1 then
 					hit = get_cursor_world_hit(cam, uis, 1000)
@@ -159,11 +159,17 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	-- (x1.IsLaunching = false) fired Raigo once and then desynced the button, which
 	-- still read "RESET SYSTEM", and stole the flag from every other reader. Edge
 	-- detection belongs in this shape's own state.
+	local mobile = x6.mobile_input
+	if not (mobile and mobile.active and mobile.shape == "Raigo") then mobile = nil end
+	local pressed = mobile and mobile.presses > 0
+		and (mobile.generation ~= st.mobile_generation or mobile.presses ~= st.mobile_press)
+	st.mobile_press = mobile and mobile.presses or nil
+	st.mobile_generation = mobile and mobile.generation or nil
 	local launching = x1.IsLaunching and true or false
-	if launching and not st.last_launch and (st.phase == "HOVER" or st.phase == "RETURN") then
+	if (pressed or (launching and not st.last_launch)) and (st.phase == "HOVER" or st.phase == "RETURN") then
 		local cam = workspace.CurrentCamera
 		local uis = game:GetService("UserInputService")
-		local hit = get_cursor_world_hit(cam, uis, 800)
+		local hit = (mobile and mobile.aim) or get_cursor_world_hit(cam, uis, 800)
 			or (cen + (cam and cam.CFrame.LookVector or Vector3.new(0, 0, 1)) * 150)
 		st.phase = "LAUNCH"
 		st.start_pos = st.orb_pos

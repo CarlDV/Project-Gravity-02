@@ -234,7 +234,8 @@ for _, path in ipairs({ "System.lua", "mobilever/System.lua" }) do
 		path .. ": disabling clears the preview")
 	check(disabled_block:find("cleanup_shape%(x6%.last_blend%)") ~= nil,
 		path .. ": and hands the blend shape its instances back")
-	local f5_block = src:match("function x4%.f5%(%)(.-)\n\t\tif x6%.b then")
+	-- Preview and blend cleanup precede destruction of the explicitly owned core.
+	local f5_block = src:match("function x4%.f5%(%)(.-)\n\t\tlocal core, holder =")
 	check(f5_block ~= nil, path .. ": f5's head is findable")
 	f5_block = f5_block or ""
 	check(f5_block:find("x4%.preview_clear%(%)") ~= nil, path .. ": stopping clears the preview")

@@ -5,6 +5,9 @@ return function(context)
 	local get_shape = context.get_shape
 	local load_module = context.load_module
 	local reset_config = context.reset_config
+	local PluginControls = context.plugin_controls or load_module("PluginControls.lua")
+	local MobileControls
+	if context.is_mobile or v1.TouchEnabled then MobileControls = load_module("MobileControls.lua") end
 	local SUB_DIR = context.SUB_DIR or "mobilever/"
 	-- Shared motion vocabulary from main.lua; see the ANIM table there for why
 	-- each curve is what it is. Fallback keeps this module loadable standalone.
@@ -153,28 +156,36 @@ return function(context)
 
 	local x5 = {}
 	x5.g = nil
+	x5.restore_perf = RestoreAllPerf
 	x5.s = es
 	x5.t = et
 	x5.b = eb
 	x5.h = eh
 
 	function x5.st()
+		if x6.torn_down then return end
 		if x5.g and x5.g.Parent and x5.up then
 			x5.up()
 			return
 		end
 		if x5.g then
-			x5.g:Destroy()
+			local old = x5.g
+			x5.g, x6.sg = nil, nil
+			old:Destroy()
 		end
 		local sg = Instance.new("ScreenGui")
 		sg.Name = "G_" .. math.random(999)
+		-- Register ownership before WaitForChild can yield to a replacement session.
+		x6.sg, x5.g = sg, sg
 		if gethui then
 			sg.Parent = gethui()
 		elseif syn and syn.protect_gui then
 			syn.protect_gui(sg)
 			sg.Parent = game:GetService("CoreGui")
 		else
-			sg.Parent = v8:WaitForChild("PlayerGui")
+			local parent = v8:WaitForChild("PlayerGui")
+			if x6.torn_down then sg:Destroy(); return end
+			sg.Parent = parent
 		end
 		x6.sg = sg
 		x5.g = sg
@@ -182,6 +193,7 @@ return function(context)
 	end
 
 	function x5.mw(sg)
+		if MobileControls then MobileControls(context, sg) end
 		-- Panel geometry. The minimize animation tweens between these, so they
 		-- cannot stay as literals duplicated between the constructor and the
 		-- handler -- that split is what let the two drift apart before.
@@ -1695,7 +1707,7 @@ return function(context)
 		end)
 		pcb.Size = UDim2.new(1, 0, 0, 20)
 
-		local ai_btn = eb(c, "PROJECT GRAVITY AI", function()
+		local ai_btn = eb(c, "PROJECT UAI", function()
 			if ai_loading then return end
 			ai_loading = true
 			local ok, err = pcall(function()
@@ -2011,12 +2023,25 @@ return function(context)
 			end)
 
 			if not x1.SimpleMode then
-				local shape_mod = get_shape(x1.k6)
+				local shape_name = x1.k6
+				local shape_mod = get_shape(shape_name)
+				if x6.torn_down then return end
 				if shape_mod and shape_mod.Controls then
 					for _, ctrl in ipairs(shape_mod.Controls) do
 						local current_val = s[ctrl.Key]
 						local p_frame = ctrl.Parent == "gsc" and gsc or sc
-						if ctrl.Type == "Slider" then
+						if ctrl.Type == "Button" then
+							local button = eb(p_frame, ctrl.Name, function()
+								if x6.torn_down or x1.k6 ~= shape_name then return end
+								local ok, err = PluginControls.activate(ctrl, x2[shape_name] or s, x6, x1)
+								if not ok then
+									warn("Project Gravity: " .. tostring(err))
+									if context.x8 then context.x8.notify("Shape action", tostring(err), 4) end
+								end
+							end)
+							button.Name = ctrl.Key or ctrl.Name
+							button.Size = UDim2.new(1, 0, 0, 44)
+						elseif ctrl.Type == "Slider" then
 							if ctrl.LegacyToggle and type(current_val) == "boolean" then
 								current_val = current_val and 2 or 1
 								s[ctrl.Key] = current_val
@@ -2619,6 +2644,7 @@ return function(context)
 		end)
 
 		local closeb = circle_btn(h, Color3.fromRGB(200, 60, 60), "×", 10)
+		closeb.Name = "UnloadProjectGravity"
 		closeb.Position = UDim2.new(1, -22, 0.5, -7)
 
 		-- Minimize runs in two stages: the body rolls up into the header, then
@@ -2813,18 +2839,22 @@ return function(context)
 		closeb.MouseButton1Click:Connect(function()
 			-- Invisible on the pill but still hit-testable, and stacked over minb.
 			if collapsed then return end
-			RestoreAllPerf()
-			if context.x4 and context.x4.f5 then
-				context.x4.f5()
+			if context.destroy then
+				context.destroy()
+			else
+				RestoreAllPerf()
+				if context.x4 and context.x4.f5 then context.x4.f5() end
+				sg:Destroy()
 			end
-			if sg.Parent then sg:Destroy() end
 		end)
 		
 		pcall(function()
 			sg.Destroying:Connect(function()
+				local owns_gui = x6.sg == sg
 				RestoreAllPerf()
 				if x5.g == sg then x5.g = nil end
-				if x6.sg == sg then x6.sg = nil end
+				if owns_gui then x6.sg = nil end
+				if owns_gui and not x6.torn_down and context.destroy then context.destroy() end
 			end)
 		end)
 

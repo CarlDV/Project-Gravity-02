@@ -43,7 +43,7 @@ return function(env)
 		headerLine.BorderSizePixel = 0
 
 		kit.label(header, {
-			text = "PG/AI",
+			text = "PROJECT UAI",
 			font = Enum.Font.GothamMedium,
 			size = SZ.titleSize,
 			pos = UDim2.new(0, SZ.titlePad, 0, 0),

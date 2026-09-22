@@ -12,3 +12,9 @@ docs/motion/*
 !docs/motion/contact-sheet.png
 !docs/motion/shapes-*.gif
 __pycache__/
+.wrangler/
+.dev.vars*
+.env*
+!.env.example
+!docs/PLUGINS.md
+!docs/plugins/

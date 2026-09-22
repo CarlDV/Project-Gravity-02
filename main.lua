@@ -131,7 +131,9 @@ local function safe_http_get(url)
 end
 
 local function load_module(path)
+	if getgenv()._GRAVITY_SESSION_ID ~= SESSION_ID then return nil end
 	local code = safe_http_get(BASE_URL .. path)
+	if getgenv()._GRAVITY_SESSION_ID ~= SESSION_ID then return nil end
 	if code and not string.match(code, "^404: Not Found") then
 		local func, err = loadstring(code)
 		if func then
@@ -145,11 +147,12 @@ local function load_module(path)
 end
 
 local config = load_module("config.lua")
+local plugin_controls = load_module("PluginControls.lua")
 -- load_module returns nil on a failed download or a syntax error, and this is
 -- above the init pcall, so a bare config.x1 threw with the loading spinner still
 -- on screen and its RenderStepped still connected -- no message, no way to clear
 -- it, and _GRAVITY_DESTROY not yet set for a re-execution to clean up.
-if not config or type(config.x1) ~= "table" or type(config.x2) ~= "table" then
+if not config or type(config.x1) ~= "table" or type(config.x2) ~= "table" or not plugin_controls then
 	if spin_conn then
 		pcall(function() spin_conn:Disconnect() end)
 	end
@@ -196,29 +199,7 @@ if isfolder and makefolder and listfiles and readfile then
 							end
 						end
 						if shape_mod then
-							local block = {}
-							if shape_mod.Controls then
-								for _, ctrl in ipairs(shape_mod.Controls) do
-									if type(ctrl) == "table" and ctrl.Key then
-										local default_val = ctrl.Default
-										if default_val == nil then
-											-- Min is a *display* bound, so it needs the divide to
-											-- become a stored value. Default does not: it is already
-											-- in stored units, which is why UI.lua:1287-1289 multiplies it
-											-- by Div to get the display value. Dividing both made the
-											-- two paths disagree by Div squared, so a local shape
-											-- with Div = 10 and Default = 1.2 was seeded 0.12,
-											-- displayed as 1.2, clamped up to Min and written back
-											-- as 0.1.
-											default_val = ctrl.Min or 0
-											if ctrl.Div then
-												default_val = default_val / ctrl.Div
-											end
-										end
-										block[ctrl.Key] = default_val
-									end
-								end
-							end
+							local block = plugin_controls.defaults(shape_mod.Controls)
 							x2[name] = block
 						else
 							warn("Project Gravity: local shape '" .. name .. "' failed to load; skipping it.")
@@ -373,6 +354,7 @@ local function save_settings()
 	save_pending = true
 	task.delay(0.5, function()
 		save_pending = false
+		if getgenv()._GRAVITY_SESSION_ID ~= SESSION_ID then return end
 		local data = { x1 = sanitize(x1), x2 = sanitize(x2) }
 		-- x1.S is x2 under another name (line 150) and sanitize recurses into
 		-- tables, so without this every autosave carried a second complete copy of
@@ -452,6 +434,7 @@ end
 
 local loaded_shapes = {}
 local function get_shape(name)
+	if getgenv()._GRAVITY_SESSION_ID ~= SESSION_ID then return nil end
 	if not loaded_shapes[name] then
 		local success, result = false, nil
 
@@ -491,6 +474,7 @@ local function get_shape(name)
 			end
 		end
 
+		if getgenv()._GRAVITY_SESSION_ID ~= SESSION_ID then return nil end
 		if success and result then
 			loaded_shapes[name] = result
 		else
@@ -616,6 +600,7 @@ context = {
 	save_favs = save_favs,
 	save_settings = save_settings,
 	get_shape = get_shape,
+	plugin_controls = plugin_controls,
 	local_shapes = local_shapes,
 	loaded_shapes = loaded_shapes,
 	load_module = load_module,
@@ -626,11 +611,19 @@ context = {
 }
 
 local function destroy()
+	if x6.destroying then return end
+	x6.destroying = true
+	x6.o, x6.d = false, false
+	x1.IsLaunching = false
 	-- Read by the preload coroutine below, which task.waits its way through every
 	-- shape and cannot otherwise be stopped: without this it keeps fetching and
 	-- writing into loaded_shapes after teardown, and anything it adds after the
 	-- cleanup sweep further down is never cleaned up at all.
 	x6.torn_down = true
+	if context.x8 and context.x8.unbind_all then pcall(context.x8.unbind_all) end
+	if context.x4 and context.x4.restore_environment then pcall(context.x4.restore_environment) end
+	if context.x5 and context.x5.restore_perf then pcall(context.x5.restore_perf) end
+	if x6.mobile_cleanup then pcall(x6.mobile_cleanup) end
 	if spin_conn then
 		pcall(function() spin_conn:Disconnect() end)
 		spin_conn = nil
@@ -718,39 +711,32 @@ local function destroy()
 	end
 	for p, d in pairs(x6.a) do
 		if d then
-			pcall(function()
-				if p and p.Parent then
-					p.CanCollide = d.original_can_collide
-					p.Anchored = d.original_anchored
-					p.CustomPhysicalProperties = d.original_properties
-				end
-				if d.at then d.at:Destroy() end
-				if d.lv then d.lv:Destroy() end
-				if d.av then d.av:Destroy() end
-			end)
+			-- Restore pooled, temporarily unparented parts too. One failed property
+			-- write must not leave its velocity actuator alive.
+			pcall(function() p.CanCollide = d.original_can_collide end)
+			pcall(function() p.Anchored = d.original_anchored end)
+			pcall(function() p.CustomPhysicalProperties = d.original_properties end)
+			for _, instance in pairs({ d.at, d.lv, d.av }) do
+				pcall(function() instance:Destroy() end)
+			end
 		end
 	end
 	x6.a = setmetatable({}, {__mode = "k"})
-	if x6.b then
-		-- The core lives inside a Folder System.lua creates for it (line 944).
-		-- x4.f5 destroys the folder; this path only ever destroyed the part, so
-		-- every re-execution left an empty Workspace.AS behind -- and the next
-		-- session's seed walk picked it straight back up.
-		local holder = x6.b.Parent
-		pcall(function() x6.b:Destroy() end)
-		x6.b = nil
-		if holder and holder ~= v4 and holder.Name == "AS" then
-			pcall(function()
-				if holder:IsA("Folder") then
-					holder:Destroy()
-				end
-			end)
-		end
-	end
+	table.clear(x6.active_array)
+	table.clear(x6.claim_queue)
+	table.clear(x6.pre)
+	x6.n = 0
+	if context.x4 and context.x4.clear_target_markers then pcall(context.x4.clear_target_markers) end
+	-- Keep the exact owned folder even if a game reparents or renames the core.
+	local core, holder = x6.b, x6.core_folder
+	x6.b, x6.core_folder = nil, nil
+	if core then pcall(function() core:Destroy() end) end
+	if holder then pcall(function() holder:Destroy() end) end
 	if x6.sg then
 		pcall(function() x6.sg:Destroy() end)
 		x6.sg = nil
 	end
+	if context.x5 then context.x5.g, context.x5.up = nil, nil end
 	-- Only clear the handles if they are still ours. A superseded session tears
 	-- itself down after a newer one has already registered, so clearing
 	-- unconditionally would deregister the session that is actually running and
@@ -761,17 +747,22 @@ local function destroy()
 	end
 end
 
+context.destroy = destroy
 getgenv()._GRAVITY_DESTROY = destroy
 
 local success, err = pcall(function()
 	local UI_builder = load_module(SUB_DIR .. "UI.lua")
 	if not UI_builder then error("Failed to load UI") end
+	if x6.torn_down then return end
 	local x5 = UI_builder(context)
+	if x6.torn_down then return end
 	context.x5 = x5
 
 	local system_builder = load_module(SUB_DIR .. "System.lua")
 	if not system_builder then error("Failed to load System") end
+	if x6.torn_down then return end
 	local sys = system_builder(context)
+	if x6.torn_down then return end
 	local x4 = sys.x4
 	local x8 = sys.x8
 	context.x4 = x4
@@ -781,6 +772,7 @@ local success, err = pcall(function()
 
 	x4.f3()
 	x8.i()
+	if x6.torn_down then return end
 	x5.st()
 
 	-- A saved k6 can already name a testing shape, in which case it is active

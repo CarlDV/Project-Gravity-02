@@ -62,7 +62,7 @@ for _, name in ipairs(names) do
 				problems = problems + 1
 			else
 				for _, ctl in ipairs(M.Controls) do
-					if ctl.Key then
+					if ctl.Key and ctl.Type ~= "Button" then
 						checked = checked + 1
 						local want = (ctl.Type == "Toggle") and "boolean"
 							or (ctl.Type == "TextBox") and "string"

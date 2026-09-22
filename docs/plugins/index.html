@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Build Project Gravity shape plugins. Module reference, real action buttons, mobile steering, cleanup, and a ready-to-copy AI prompt.">
+  <title>Shape plugins · Project Gravity</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="guide.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+  <header class="topbar">
+    <a class="brand" href="https://github.com/Project-Ptolemy/Project-Gravity-02">PROJECT GRAVITY <span class="divider">/</span> <span class="muted">DEVELOPERS</span></a>
+    <a class="top-link" href="#prompt">Get the AI prompt <span aria-hidden="true">↗</span></a>
+  </header>
+  <main id="content">
+    <section class="hero" aria-labelledby="page-title">
+      <p class="eyebrow">SHAPE PLUGIN GUIDE <span class="badge">Buttons + mobile input</span></p>
+      <h1 id="page-title">Build the next<br><span>formation.</span></h1>
+      <p class="lead">Turn an idea into moving debris. Write a Luau module, add controls, and make it work on a phone.</p>
+      <div class="actions"><a class="button primary" href="#prompt">Create with your AI <span aria-hidden="true">↗</span></a><a class="button secondary" href="starter.lua" download="Orbit Bloom.lua">Download a starter</a></div>
+      <p class="caption">Already using the in-game assistant? Look for <strong>PROJECT UAI</strong>.</p>
+    </section>
+    <div class="guide-layout">
+      <aside aria-label="On this page">
+        <p class="eyebrow">ON THIS PAGE</p>
+        <nav><a href="#start">01 &nbsp; Install a plugin</a><a href="#contract">02 &nbsp; Module contract</a><a href="#controls">03 &nbsp; Controls &amp; buttons</a><a href="#physics">04 &nbsp; Release &amp; impulses</a><a href="#mobile">05 &nbsp; Mobile steering</a><a href="#cleanup">06 &nbsp; Stop &amp; unload</a><a href="#prompt">07 &nbsp; Copy an AI prompt</a></nav>
+        <a class="reference" href="https://github.com/Project-Ptolemy/Project-Gravity-02/blob/main/docs/PLUGINS.md">Full reference (.md) ↗</a>
+      </aside>
+      <div class="chapters">
+        <section id="start">
+          <p class="eyebrow">01 / GET STARTED</p><h2>One file. Your own shape.</h2>
+          <ol class="steps"><li>Save a module in your executor's <code>GravityShapes</code> folder as <code>Shape Name.lua</code>.</li><li>Run Project Gravity again and select the shape by its filename.</li><li>Use the shape's controls to adjust its motion. The starter includes a working action button.</li></ol>
+          <div class="note"><strong>Try Black Hole v2.</strong> Spiral debris into a rapidly spinning core, then use Regrab, Stop Grabbing or Explode. Customize the pull speed and all three spin axes, with optional rings and jets. The archived Drop module now gathers and releases a falling wave.</div>
+        </section>
+        <section id="contract">
+          <p class="eyebrow">02 / THE CONTRACT</p><h2>Describe where each part goes.</h2>
+          <p>The runtime handles the physics loop. Return a velocity correction and the exact target position so it can track moving targets smoothly.</p>
+          <pre><code>local M = {}
+local NAME = "My Shape"
+
+function M.px(t, c, x6, x9, x1)
+    x6.pre = x6.pre or {}
+    x6.pre[NAME] = x6.pre[NAME] or {}
+end
+
+function M.f2(p, cen, d, t, c, x1, x6, x9)
+    local target = cen + Vector3.new(0, 20, 0)
+    return (target - p.Position) * (x1.k10 * x9.c1), target
+end
+
+function M.cleanup(x6, x1)
+    if x6.pre then x6.pre[NAME] = nil end
+end
+
+M.Controls = {}
+return M</code></pre>
+          <div class="table-scroll"><table><thead><tr><th>Input</th><th>What it means</th></tr></thead><tbody><tr><td><code>p / cen / d</code></td><td>The part, current center and persistent per-part record.</td></tr><tr><td><code>t / c</code></td><td>Formation time and this shape's control values.</td></tr><tr><td><code>x1 / x6 / x9</code></td><td>Global settings, runtime state and engine constants.</td></tr></tbody></table></div>
+          <p><code>px</code> runs once per formation frame. Parts may run less often, so timed per-part actions should subtract a captured shared timestamp. Use <code>d.slot or d.id or 1</code> for stable placement, and keep private state under your own name.</p>
+          <p>Formation time can freeze or reverse. Cache common paths and frames, keep zero-size and vertical cases finite, and design for mixed debris. Phoenix and Megalodon use a leading head with the body and tail following older headings.</p>
+        </section>
+        <section id="controls">
+          <p class="eyebrow">03 / CONTROLS</p><h2>Give actions real buttons.</h2>
+          <p>Sliders, toggles and text boxes store settings. A button runs a callback once each time it is clicked or tapped.</p>
+          <pre><code>M.Controls = {
+    { Type = "Slider", Name = "Radius", Key = "radius",
+      Min = 0, Max = 150, Default = 40 },
+    { Type = "Toggle", Name = "Pulse", Key = "pulse",
+      Default = true },
+    { Type = "TextBox", Name = "Message", Key = "message",
+      Default = "HELLO", MaxChars = 80 },
+    { Type = "Button", Name = "Restart", Key = "restart",
+      Callback = function(c, x6, x1)
+          local st = x6.pre and x6.pre[NAME]
+          if st then st.restart = true end
+      end },
+}</code></pre>
+          <p>Buttons have no saved value and never fire while the panel is being built. Their Key is optional. Keep callbacks short; errors are caught and a second click cannot duplicate an action that is still running.</p>
+          <div class="note"><strong>Slider units:</strong> Min and Max are display values. Default is already a stored value. With <code>Div = 10, Default = 1.6</code>, the panel displays 16 and your shape reads 1.6. Use <code>ExactMax = true</code> to keep a speed slider at its declared maximum.</div>
+        </section>
+        <section id="physics">
+          <p class="eyebrow">04 / PHYSICS ACTIONS</p><h2>Release means gravity takes over.</h2>
+          <p>Set these fields on a part's record inside <code>f2</code>. The engine applies them after the call.</p>
+          <div class="table-scroll"><table><thead><tr><th>Request</th><th>Behavior</th></tr></thead><tbody><tr><td><code>d.free_physics = true</code></td><td>Disable both actuators and keep the record for Regrab.</td></tr><tr><td><code>d.free_physics = nil</code></td><td>Resume control with fresh tracking terms.</td></tr><tr><td><code>d.launch_velocity = v</code></td><td>Apply one impulse while free; the field is consumed.</td></tr><tr><td><code>d.collisions</code></td><td>False: noclip. True: original collisions. Nil: engine policy.</td></tr><tr><td><code>d.unclaim = true</code></td><td>Remove actuators and forget the record entirely.</td></tr></tbody></table></div>
+          <p>Unclaim defaults to zero velocity. Use <code>d.keep_velocity = true</code> to preserve momentum, or <code>d.release_velocity</code> and optional <code>d.release_spin</code> to specify it. Free parts naturally fall; don't manually subtract gravity while driving them with an actuator.</p>
+          <p>For an immediate button action, set the fields and call <code>x6.apply_shape_physics(p, d)</code> on a real tracked part. Avoid Part Control overrides. Use <code>M.NoBlend = true</code> for modules that release or impulse parts.</p>
+        </section>
+        <section id="mobile">
+          <p class="eyebrow">05 / MOBILE</p><h2>A thumbstick for your shape.</h2>
+          <p>One finger steers the circular control. Another holds the action button. Register the control, then read the shared state in your shape.</p>
+          <pre><code>M.MobileControls = { Action = "FIRE", Range = 600 }
+
+-- Inside px or f2:
+local input = x6.mobile_input
+if input and input.active and input.shape == NAME then
+    local direction = input.direction -- unit world vector
+    local target = input.aim          -- world point
+    local held = input.held           -- held action
+    local presses = input.presses     -- edge-triggered action
+    local generation = input.generation -- changes on reset
+end</code></pre>
+          <p>Normalized axes are <code>input.x / input.y</code>. Accumulated angles are <code>input.yaw / input.pitch</code>; <code>input.base_aim</code> follows the camera. Keep your desktop fallback and ignore raw touch input while the shared control is active.</p>
+          <div class="note"><strong>Already supported:</strong> Broom's EXTEND, Twin Core Beam and Goro's FIRE, and Raigo's LAUNCH. Automatic formations hide the stick. Goro's Hold To Fire setting still applies.</div>
+          <p>Stop, pause, disable and shape changes reset input. Edge-detect actions using both <code>generation</code> and <code>presses</code>, so a reset cannot swallow the next press while shape processing is paused. Focus loss cancels both gestures, and unload removes the controls.</p>
+        </section>
+        <section id="cleanup">
+          <p class="eyebrow">06 / LIFECYCLE</p><h2>Stop a formation. Unload a session.</h2>
+          <div class="lifecycle"><div><span class="key">Q</span><h3>Stop / reset</h3><p>Release parts and remove the core. Keep the UI and bindings available to restart.</p></div><div><span class="key">×</span><h3>Full unload</h3><p>Remove core and UI, disconnect listeners, unbind actions and restore captured properties.</p></div></div>
+          <p>Your cleanup must disconnect owned listeners, destroy owned instances and clear your own state. Make it safe to repeat. Never remove unrelated objects by name.</p>
+        </section>
+        <section id="updated-shapes">
+          <p class="eyebrow">IN THE SHAPE SELECTOR</p><h2>Black Hole v2.</h2>
+          <p>Parts spiral inward into a core that spins rapidly on all three axes. Adjust <strong>Pull In Speed</strong> for the inward rate, <strong>Spiral Speed</strong> for the orbit, and <strong>Core Spin X / Y / Z</strong> independently up to 7,200 degrees per second. Ring and jet percentages start at zero so every part joins the center by default.</p>
+          <p>Regrab captures the tracked parts where they are now. Stop Grabbing releases them with momentum; Explode applies one outward impulse, then gravity takes over.</p>
+          <p>Plugin authors can drive a part's rotation with <code>d.angular_velocity = Vector3.new(x, y, z)</code> in radians per second. Clear it to nil to restore normal angular behavior. Pause stops the motor, and release disables it.</p>
+          <p><a href="release-motion.gif">Watch Black Hole v2 and the improved Drop</a> · <a href="creatures-motion.gif">Watch the articulated Phoenix and Megalodon paths</a></p>
+          <p class="caption">Offline trajectories with 512 mixed pieces; illustrative orientations. Physics and touch layout still need an in-game check.</p>
+        </section>
+        <section id="prompt" class="prompt-section">
+          <p class="eyebrow">07 / BRING YOUR OWN AI</p><h2>Your idea, with the full spec.</h2>
+          <p>Copy a complete prompt with the module contract, button API, mobile input and cleanup rules. Paste it into Project UAI or the AI you use.</p>
+          <label for="shape-brief">Describe your shape <span class="muted">(optional)</span></label>
+          <textarea id="shape-brief" rows="4" maxlength="8000" placeholder="A manta ray that circles the core, banks into turns, and has a mobile dash button…"></textarea>
+          <div class="actions"><button class="button primary" id="copy-prompt" type="button">Copy full LLM prompt</button><a class="button secondary" id="download-prompt" href="plugin-prompt.txt" download>Download .txt</a></div>
+          <p id="copy-status" class="status" role="status" aria-live="polite">Your description is added locally. Copying does not send it to an AI.</p>
+          <details><summary>Read or select the full prompt</summary><label class="sr-only" for="prompt-text">Complete LLM prompt</label><textarea id="prompt-text" rows="18" readonly spellcheck="false"></textarea></details>
+          <noscript><p>JavaScript is off. <a href="plugin-prompt.txt">Open the full prompt</a> and copy it manually.</p></noscript>
+        </section>
+      </div>
+    </div>
+    <footer>PROJECT GRAVITY <span>Shape plugins · Desktop &amp; mobile</span><a href="https://github.com/Project-Ptolemy/Project-Gravity-02/blob/main/docs/PLUGINS.md">Full reference ↗</a></footer>
+  </main>
+  <script id="prompt-source" type="application/json">"Create a custom Project Gravity shape plugin in Roblox Luau from the brief at the end. Return one complete .lua module, its filename, and a short controls note. It must work on desktop and mobile with the current runtime. Do not invent APIs or install dependencies.\n\nINSTALLATION\nSave as GravityShapes/\u003cShape Name>.lua in the executor workspace, then run/re-run Project Gravity. Return a module table, not a standalone loop or another UI.\n\nMODULE CONTRACT\nlocal M = {}\nlocal NAME = \"Your Shape Name\"\nfunction M.px(t, c, x6, x9, x1) -- optional, once per formation frame\n    x6.pre = x6.pre or {}\n    -- Own shared state only at x6.pre[NAME].\nend\nfunction M.f2(p, cen, d, t, c, x1, x6, x9) -- required, per held part\n    local target = cen + Vector3.new(0, 20, 0)\n    return (target - p.Position) * (x1.k10 * x9.c1), target\nend\nfunction M.cleanup(x6, x1) -- optional, safe to repeat\n    if x6.pre then x6.pre[NAME] = nil end\nend\nM.Controls = {}\nreturn M\n\np is a BasePart; cen is the current center (which can move or follow a target); d is its persistent record; c contains this shape's control values by Key. x1 is global settings, x6 is runtime state, and x9 contains runtime constants. The first f2 result is a velocity correction, not a force. Return the exact target position as the second result for moving-target tracking. Do not use arbitrary huge feedback gains.\n\nUse d.slot or d.id or 1 for deterministic placement. d.slot_n is the optional formation slot count; x6.n is the held count. Parts arrive late and are processed in buckets: f2 is not necessarily called every frame. Advance shared clocks in px. For timed per-part actions, capture the shared clock and subtract it later instead of adding one frame's dt per f2 call. Account for mixed part dimensions.\n\nt is formation time and can pause, slow down or reverse. d.claim_t is wall time: do not subtract it from t. Initialize timestamps on first px without a huge startup delta. Keep per-part data in d.my_shape and give it an owner reference to x6.pre[NAME], so cleanup/re-entry invalidates stale records. Cache shared trig, paths and frames in px. Do not reroll assignments every frame. Keep results finite at zero size/speed, vertical directions, path turnarounds and all control limits.\n\nCONTROLS\nM.Controls supports Slider, Toggle, TextBox and Button. Name is the visible label; Key identifies a setting or action. Desc is optional explanatory text for settings.\n{ Type = \"Slider\", Name = \"Radius\", Key = \"radius\", Min = 0, Max = 150, Default = 40 }\n{ Type = \"Slider\", Name = \"Speed\", Key = \"speed\", Min = 0, Max = 40, Default = 8, ExactMax = true }\n{ Type = \"Slider\", Name = \"Duration\", Key = \"duration\", Min = 1, Max = 100, Div = 10, Default = 1.6 }\n{ Type = \"Toggle\", Name = \"Enabled\", Key = \"enabled\", Default = true }\n{ Type = \"TextBox\", Name = \"Message\", Key = \"message\", Default = \"HELLO\", MaxChars = 80 }\n{ Type = \"Button\", Name = \"Restart\", Key = \"restart\", Callback = function(c, x6, x1)\n    local st = x6.pre and x6.pre[NAME]\n    if st then st.restart = true end\nend }\n\nButtons run once per click/tap, never during UI construction. Their Key is optional; there is no button value in c or saved settings. Use real Buttons for actions rather than flipping Toggles. Callbacks should finish quickly without yielding or spawning permanent loops. Errors are caught and reported. A second click is ignored while a callback is still running.\n\nSlider Min/Max are display units; Default is already in stored units. Div=10 and Default=1.6 display 16, and the shape reads 1.6. IntOnly rounds the display. Labels containing \"speed\" get an extended maximum unless ExactMax=true. Clamp your math to supported ranges. Missing Toggle/TextBox defaults become false/empty string. Built-in shapes need matching non-button defaults in config.lua; local imports get defaults from Controls.\n\nOPTIONAL FLAGS AND PHYSICS ACTIONS\nM.ContinuousMotion=true opts into the shared real-time drift. Add x6.motion_offset to the final target when present; the drift continues when formation time is frozen.\nM.AlwaysProcess=true bypasses the distance cull, but not processing buckets.\nM.NoBlend=true opts interactive/physics-mutating modules out of blending. Use it for release or impulse actions.\n\nSet d.free_physics=true in f2 to disable both actuators and restore physical properties while keeping the record available for regrab. Roblox gravity and momentum take over. Set it to nil/false to resume control and clear stale tracking. Do not fake gravity by subtracting it every frame while a LinearVelocity is still driving the part.\nSet d.launch_velocity=Vector3.new(...) with free_physics=true for a one-time impulse. The engine consumes and clears it. Set d.collisions=false for local noclip, true for the original collision setting, or nil for normal engine policy (original collisions while free).\nSet d.angular_velocity=Vector3.new(x,y,z) to drive the held part's angular motor in world-space radians/second. Clear it to nil to restore normal angular behavior. Pause stops this motor; release disables it. Convert user-facing degree rates with math.rad.\nFor an immediate button action on a tracked real part, set these fields and call x6.apply_shape_physics(p,d) if available. Normal f2 calls do not need the helper. Do not use it on preview markers or alter Part Control overrides (d.pc_mode).\nSet d.unclaim=true to restore properties, remove actuators AND forget the record. Velocity becomes zero by default. Set d.keep_velocity=true to preserve momentum, OR provide d.release_velocity and optional d.release_spin for explicit velocities. Unclaimed parts are no longer available for a Regrab action.\n\nMOBILE INPUT\nOpt in with M.MobileControls = { Action = \"FIRE\", Range = 600 }.\nThe runtime shows a circular stick and separate held action while this shape runs. The module must read their state; it needs no custom UI or global touch listener.\nRead local input = x6.mobile_input, only when input and input.active and input.shape == NAME.\ninput.direction: unit world direction. input.aim: world point. input.base_aim: camera-forward world point.\ninput.x/input.y: normalized stick axes. input.yaw/input.pitch: accumulated steering angles in radians.\ninput.held: action finger is held. input.presses: counter for one-shot actions. input.generation: advances on every reset, including UI replacement.\nFor one-shot actions, check input.presses > 0 and (st.input_generation ~= input.generation or st.input_presses ~= input.presses), then record both fields. Counters reset on shape changes, stop, pause and disable; generation distinguishes the first press after reset even if shape processing never saw zero.\nKeep a desktop mouse/keyboard fallback. Ignore raw touch listeners while this interface is active, so movement/camera touches do not trigger the shape. Disconnect owned listeners in cleanup. Focus loss cancels gestures; unload removes the controls.\n\nLIFECYCLE AND GEOMETRY\nQ is Stop/Reset: release parts and remove the core, retaining UI and bindings for restart. The main UI X fully unloads: disconnect listeners, unbind actions, remove core/UI and restore captured properties. Implement cleanup for every connection or instance the plugin creates. Clean up owned objects only; never delete unrelated objects by a name search. Record and restore any appearance/property changes.\nMake a readable silhouette with mixed debris and low part counts. For creatures, use smooth path tangents and spatially delayed frames: head leads, torso bends, tail follows. Phase wing motion across the span rather than turning every feather at once.\n\nSHAPE BRIEF\n[Describe the shape, motion, scale, controls, and what a mobile player should be able to do.]\n"</script>
+</body>
+</html>

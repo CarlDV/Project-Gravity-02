@@ -16,13 +16,13 @@ return function(env)
 	local MOBILE = {
 		-- Chat window and its header row.
 		chatW = 300, chatH = 240,
-		chatMinW = 240, chatMinH = 180, chatMaxW = 340, chatMaxH = 270,
+		chatMinW = 300, chatMinH = 180, chatMaxW = 340, chatMaxH = 270,
 		headerH = 30, headerPad = 6, headerGap = 6,
-		titlePad = 6, titleW = 52, titleSize = 11,
+		titlePad = 6, titleW = 80, titleSize = 11,
 		statusSize = 8, statusGap = 4,
 		ctrlH = 18, ctrlSize = 8, clearW = 34, logoutW = 42, iconW = 14,
 		-- Model picker button and its dropdown.
-		modelX = 58, modelW = 68,
+		modelX = 92, modelW = 62,
 		dropW = 108, dropRowH = 20, dropRowStep = 22, dropPad = 3,
 		-- Transcript and bubbles. The Frac pair is the share of the feed width a
 		-- bubble may reach before it wraps; the rest is the gutter that makes the
@@ -58,10 +58,10 @@ return function(env)
 		chatW = 560, chatH = 430,
 		chatMinW = 420, chatMinH = 320, chatMaxW = 780, chatMaxH = 640,
 		headerH = 38, headerPad = 8, headerGap = 6,
-		titlePad = 10, titleW = 64, titleSize = 13,
+		titlePad = 10, titleW = 100, titleSize = 13,
 		statusSize = 10, statusGap = 8,
 		ctrlH = 22, ctrlSize = 10, clearW = 46, logoutW = 54, iconW = 20,
-		modelX = 74, modelW = 92,
+		modelX = 116, modelW = 92,
 		dropW = 150, dropRowH = 24, dropRowStep = 27, dropPad = 5,
 		feedPad = 12, feedTopGap = 6, feedBotGap = 4, itemGap = 10,
 		bubblePadX = 13, bubblePadY = 9, bubbleGap = 4,

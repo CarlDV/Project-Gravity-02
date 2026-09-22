@@ -4,7 +4,7 @@ Project Gravity is a Roblox script that grabs unanchored parts and moves them ar
 
 ## Features
 - Grabs unanchored parts automatically
-- Has 74 active shapes, including 15 new formations designed around uneven disaster debris
+- Has 75 active shapes, including Black Hole v2 and 15 formations designed around uneven disaster debris
 - Works on both Desktop and Mobile
 - Let's you tweak speed, damping, and other physics live
 - Formation controls in the Advanced panel: slow down or reverse the shape's clock, mix two
@@ -12,12 +12,41 @@ Project Gravity is a Roblox script that grabs unanchored parts and moves them ar
   gets which slot, cap how many parts are held, and filter what may be claimed by size, name,
   tag or distance
 - Saves your settings automatically
+- Shape plugins support real action buttons and circular mobile steering
+- The UI's **X** fully unloads the session, including the core, constraints and keybinds
+
+### Shape and plugin update
+
+**Black Hole v2** spirals parts inward into a core that spins rapidly on all three axes.
+**Pull In Speed** controls how quickly they reach the center; **Spiral Speed**
+controls their orbit. **Core Spin X/Y/Z (deg/s)** independently tune the core up to
+7,200 degrees per second per axis. Ring and jet percentages start at zero so every
+part joins the center by default; raise them for an accretion ring or polar jets.
+Use its **Regrab All Parts**, **Stop Grabbing** and **Explode** buttons to recapture,
+release or launch debris. Released parts follow normal gravity and keep their momentum.
+
+**Phoenix Ascendant** now bends through turns from head to tail, with wingbeats
+traveling through the feathers. **Megalodon** follows a banked 3D patrol with swoops
+and a trailing body. Archived **Drop** smoothly gathers a canopy before releasing
+a staggered wave, with controls for timing, scatter and momentum.
+
+On touch devices, **Broom**, **Twin Core Beam**, **Goro** and **Raigo** have a circular
+steering stick and a separate action button. One finger aims while another acts.
+
+The **[plugin guide](docs/PLUGINS.md)** covers the module API, Buttons, mobile input,
+release physics and cleanup. The **[documentation website](https://projectgravity.pages.dev/)**
+includes **Copy full LLM prompt**; the [plain text prompt](docs/plugins/plugin-prompt.txt)
+can also be pasted into Project UAI or another AI.
+
+**[Updated creature paths](docs/plugins/creatures-motion.gif)** ·
+**[Black Hole v2 and Drop preview](docs/plugins/release-motion.gif)**
 
 ### New formations
 
 **[Watch every shape move: 13 GIFs, six shapes per GIF](docs/motion/index.md).**
-The gallery covers all 74 active shapes plus the four review modules, with scripted
-inputs labeled for interactive tools.
+This gallery is a snapshot of the earlier 74 active shapes plus four review modules,
+with scripted inputs labeled for interactive tools. It predates Black Hole v2 and the
+latest Phoenix, Megalodon and Drop changes.
 
 ![Six creatures in motion](docs/motion/shapes-01.gif)
 
@@ -42,11 +71,12 @@ Roblox physics and network ownership still depend on the game session.
 ## Usage
 Just run `main.lua` in your executor. It pulls the rest of the files directly from GitHub
 
-The **PROJECT GRAVITY AI** button launches [Project UAI](https://github.com/CarlDV/ProjectUAI) on demand.
+The **PROJECT UAI** button launches [Project UAI](https://github.com/CarlDV/ProjectUAI) on demand.
 
 ### Controls
 - **E**: Start script (grabs parts)
-- **Q**: Stop script (drops parts)
+- **Q**: Stop/reset (drops parts and removes the core; press E to restart)
+- **UI X**: Fully unload (removes the UI, core, constraints and keybinds)
 - **P**: Pause parts
 - **L**: Disable constraints entirely
 - **Left Click**: Hold the anchor to move the center around with your mouse
@@ -58,32 +88,37 @@ The **PROJECT GRAVITY AI** button launches [Project UAI](https://github.com/Carl
 - `UI.lua` / `UI_elements.lua`: The UI stuff
 - `shapes/`: The math for how each shape is positioned
 - `shapes-onreview/`: Four experimental modules, labeled separately in the motion gallery
-- `docs/`: Formation guide, debris images, and the complete motion gallery
-- `tools/`: Reproducible previews and a Lune adapter for the test suites
+- `docs/`: Formation guide, plugin website, copyable LLM prompt and motion galleries
+- `tools/`: Reproducible previews and the standalone Luau test runner
 - `/mobilever`: The UI and stuff for mobile users ,ex UI
 
 ## Shape validation
 
-Use [Lune](https://github.com/lune-org/lune) to run the suites in Luau, including
-modules using `continue` and Unicode filenames:
+Use Python and the standalone [Luau CLI](https://github.com/luau-lang/luau/releases)
+to run the suites, including modules using `continue` and Unicode filenames:
 
 ```powershell
-lune run tools/test_luau.luau tests/insane_shapes_smoke.lua
-lune run tools/test_luau.luau tests/math_curves_smoke.lua
-lune run tools/test_luau.luau tests/formation_smoke.lua
+python tools/test_luau.py --luau PATH_TO_LUAU tests/plugin_actions.lua
+python tools/test_luau.py --luau PATH_TO_LUAU tests/mobile_controls.lua
+python tools/test_luau.py --luau PATH_TO_LUAU tests/session_lifecycle.lua
+python tools/test_luau.py --luau PATH_TO_LUAU tests/insane_shapes_smoke.lua
+python tools/test_luau.py --luau PATH_TO_LUAU tests/math_curves_smoke.lua
+python tools/test_luau.py --luau PATH_TO_LUAU tests/formation_smoke.lua
+node tests/plugin_docs.test.js
+python tools/sync_plugin_docs.py --check
 ```
 
 These cover geometry, control limits, mixed part sizes, timing, continuously moving
 frozen poses, late claims, cleanup, topology and desktop/mobile runtime behavior.
 
-Rebuild the motion gallery with Python, Pillow and Lune:
+The [gallery index](docs/motion/index.md) records the historical demonstration
+settings and explains the scripted inputs.
+
+Rebuild the updated clips with the standalone Luau CLI and Pillow:
 
 ```powershell
-python tools/preview_shapes.py --all --parts 384 --frames 72 --duration 6 --output docs/motion
+python tools/preview_updates.py --luau PATH_TO_LUAU
 ```
-
-Pass `--lune PATH` if Lune is not on PATH. [The gallery index](docs/motion/index.md)
-records the demonstration settings and explains the scripted inputs.
 
 ---
 JUN 25 : 12:12AM GMT+8 (PHT)

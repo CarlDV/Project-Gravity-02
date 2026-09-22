@@ -1,4 +1,4 @@
-local M = {}
+local M = { MobileControls = { Action = "EXTEND", Range = 600 } }
 
 local uis = game:GetService("UserInputService")
 local plrs = game:GetService("Players")
@@ -61,7 +61,7 @@ local function get_state(x6)
 	x6.pre["Big Bad Broom"] = st
 
 	st.conns[#st.conns + 1] = uis.InputBegan:Connect(function(inp, gpe)
-		if gpe then
+		if gpe or (x6.mobile_input and x6.mobile_input.active) then
 			return
 		end
 		if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
@@ -80,7 +80,7 @@ local function get_state(x6)
 	-- Swipe drives the sweep angle directly rather than through a velocity, so
 	-- the head tracks the hand instead of coasting past where it was let go.
 	st.conns[#st.conns + 1] = uis.InputChanged:Connect(function(inp, gpe)
-		if gpe or not st.held then
+		if gpe or not st.held or (x6.mobile_input and x6.mobile_input.active) then
 			return
 		end
 		if inp.UserInputType ~= Enum.UserInputType.MouseMovement and inp.UserInputType ~= Enum.UserInputType.Touch then
@@ -103,6 +103,9 @@ end
 
 function M.px(t, c, x6, x9, x1)
 	local st = get_state(x6)
+	local mobile = x6.mobile_input
+	if not (mobile and mobile.active and mobile.shape == "Big Bad Broom") then mobile = nil end
+	if mobile then st.held = mobile.held end
 
 	-- Extension eases rather than snapping, so click-to-pop-out has some weight
 	-- to it and does not teleport the head through whatever it is aimed at.
@@ -114,7 +117,7 @@ function M.px(t, c, x6, x9, x1)
 		dt = 0.25
 	end
 	local want = st.held and 1 or 0
-	local ease = math.clamp(dt * 6, 0, 1)
+	local ease = 1 - math.exp(-dt * 8)
 	st.ext = (st.ext or 0) + (want - (st.ext or 0)) * ease
 
 	local et = x1 and x1.k7
@@ -141,9 +144,10 @@ function M.px(t, c, x6, x9, x1)
 	-- The grip is not stamped here: px never receives cen, and anchoring to the
 	-- character root ignores the anchor entirely, so the broom would not follow a
 	-- moved centre or a selected target. f2 derives the grip from cen instead.
-	st.aim = aim_point()
+	st.aim = mobile and mobile.base_aim or aim_point()
 	st.pub_ext = st.ext
-	st.pub_sweep = st.sweep
+	st.pub_sweep = mobile and mobile.yaw or st.sweep
+	st.pub_pitch = mobile and mobile.pitch or 0
 end
 
 function M.f2(p, cen, d, t, c, x1, x6, x9)
@@ -166,6 +170,12 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		dir = WORLD_FWD
 	else
 		dir = dir.Unit
+	end
+
+	if st.pub_pitch and st.pub_pitch ~= 0 then
+		local across = dir:Cross(UP)
+		if across.Magnitude < 0.001 then across = Vector3.new(1, 0, 0) end
+		dir = CFrame.fromAxisAngle(across.Unit, st.pub_pitch) * dir
 	end
 
 	local axis = math.floor(c.k15 or 1)

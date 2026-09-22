@@ -4,9 +4,13 @@ return function(context)
 	local x5 = context.x5
 	local get_shape = context.get_shape
 	local load_module = context.load_module
+	local ShapePhysics = context.shape_physics or load_module("ShapePhysics.lua")
 	local SUB_DIR = context.SUB_DIR or ""
 
 	local x4, x8 = {}, {}
+	x6.apply_shape_physics = function(p, d)
+		if not x6.torn_down then return ShapePhysics.apply(p, d, x1) end
+	end
 	local x7 = {}
 	local ANTI_SLEEP = Vector3.new(0, 0.01, 0)
 	local ZERO_VECTOR = Vector3.zero
@@ -209,6 +213,10 @@ return function(context)
 		d.f, d.u, d.v = nil, nil, nil
 		d.rot_axis, d.red_direction = nil, nil
 		d.bd = nil
+		d.black_hole_v2, d.drop = nil, nil
+		d.free_physics, d.collisions, d.launch_velocity = nil, nil, nil
+		d.angular_velocity = nil
+		d.unclaim, d.keep_velocity, d.release_velocity, d.release_spin = nil, nil, nil, nil
 		d.integral = Vector3.zero
 	end
 	x7.reset_scratch = reset_scratch
@@ -489,6 +497,7 @@ return function(context)
 			end
 			local shape_name = x1.k6
 			local cur_shape_mod = get_shape(shape_name)
+			if x6.torn_down or not x6.b then return end
 			local cur_shape_cfg = x1.S[shape_name] or {}
 			if cur_shape_mod and cur_shape_mod.px then
 				cur_shape_mod.px(sclock, cur_shape_cfg, x6, x9, x1)
@@ -504,6 +513,7 @@ return function(context)
 			if x1.k6 ~= shape_name then
 				shape_name = x1.k6
 				cur_shape_mod = get_shape(shape_name)
+				if x6.torn_down or not x6.b then return end
 				cur_shape_cfg = x1.S[shape_name] or {}
 			end
 			local cur_no_damp = no_damp[shape_name]
@@ -520,7 +530,7 @@ return function(context)
 			-- Whether this frame has already made its one guarded call into the blend
 			-- shape; see the sweep for why that is once a frame and not once a part.
 			local blend_checked = false
-			if x1.BlendEnabled then
+			if x1.BlendEnabled and not (cur_shape_mod and cur_shape_mod.NoBlend) then
 				local bn = x1.BlendShape
 				if type(bn) == "string" and bn ~= "" and bn ~= shape_name and x2[bn] then
 					local bw = (x1.BlendWeight or 0) / 100
@@ -532,10 +542,11 @@ return function(context)
 					-- blend shape is changed, so retrying is a deliberate act.
 					if bw > 0 and bn ~= x6.bl_failed then
 						local bmod = get_shape(bn)
+						if x6.torn_down or not x6.b then return end
 						if not (bmod and bmod.f2) then
 							x6.bl_failed = bn
 						end
-						if bmod and bmod.f2 then
+						if bmod and bmod.f2 and not bmod.NoBlend then
 							blend_name, blend_f2 = bn, bmod.f2
 							blend_cfg = x1.S[bn] or {}
 							blend_base = bw > 1 and 1 or bw
@@ -707,7 +718,7 @@ return function(context)
 			local is_point_impact = shape_name == "Point Impact"
 			local is_light_shape = shape_name == "Light Light no Mi"
 			local is_cursed_red = shape_name == "Cursed Technique Red"
-			local always_process = (is_drop_shape or is_self_bounded_shape or max_fid) and true or false
+			local always_process = (is_drop_shape or is_self_bounded_shape or max_fid or (cur_shape_mod and cur_shape_mod.AlwaysProcess)) and true or false
 			local base_limit = is_light_shape and 1000 or ((max_speed and not cur_no_damp) and max_speed or 3300)
 			local check_no3 = (not is_drop_shape) and (not aggressive_claim) and ghp ~= nil
 			local do_damping = damping > 0 and not cur_no_damp and not force_smooth
@@ -787,7 +798,7 @@ return function(context)
 				local p_pos = p.Position
 				local tc = active_c - p_pos
 				local distance_sq = tc:Dot(tc)
-				if distance_sq > k1_sq and not (always_process or d.pc_mode) then
+				if distance_sq > k1_sq and not (always_process or d.pc_mode or d.free_active or d.collision_active or d.angular_active) then
 					-- Skipping the part leaves its LinearVelocity alone, and with MaxForce
 					-- at k4 the constraint keeps applying it: anything that overshoots the
 					-- radius coasts outward for good, and it can never come back because
@@ -806,7 +817,7 @@ return function(context)
 				if d.parked then
 					d.parked = nil
 				end
-				if distance_sq > c7_sq or always_process or d.pc_mode or is_cursed_red then
+				if distance_sq > c7_sq or always_process or d.pc_mode or is_cursed_red or d.free_active or d.collision_active or d.angular_active then
 					local target_pos_delta = ANTI_SLEEP
 					local pure_target_pos = nil
 					local pc = d.pc_mode
@@ -912,8 +923,11 @@ return function(context)
 					end
 					
 					if d.unclaim then
-						x4.f2(p, true, k)
+						x4.f2(p, not d.keep_velocity, k)
 						continue
+					end
+					if d.free_physics or d.free_active or d.collisions ~= nil or d.collision_active or d.angular_velocity ~= nil or d.angular_active then
+						if ShapePhysics.apply(p, d, x1) then continue end
 					end
 					if vert_mult then
 						target_pos_delta = target_pos_delta * vert_mult
@@ -1040,7 +1054,7 @@ return function(context)
 					d.vl = vl
 					d.lv.VectorVelocity = vl
 
-					if ang_damp_mult ~= 1 then
+					if ang_damp_mult ~= 1 and not d.angular_velocity then
 						p.AssemblyAngularVelocity = p.AssemblyAngularVelocity * ang_damp_mult
 					end
 
@@ -1072,7 +1086,7 @@ return function(context)
 
 	local function f3(real_dt)
 		real_dt = real_dt or (1 / 60)
-		if not x6.b or x1.Disabled then
+		if x6.torn_down or not x6.b or x1.Disabled then
 			return
 		end
 		if x1.Paused then
@@ -1098,6 +1112,7 @@ return function(context)
 				if d and d.lv then
 					d.lv.VectorVelocity = ANTI_SLEEP
 				end
+				if d and d.av and d.angular_active then d.av.AngularVelocity = ZERO_VECTOR end
 			end
 			return
 		end
@@ -1105,6 +1120,7 @@ return function(context)
 	end
 
 	function x4.ProcessQueue()
+		if x6.torn_down then return  end
 		local queue = x6.claim_queue
 		-- Luau's # is a binary search, not a stored field, and the old loop paid
 		-- for it four times per item (the while test, the read, the clear, and
@@ -1157,7 +1173,7 @@ return function(context)
 
 	local function f4(real_dt)
 		real_dt = real_dt or (1/60)
-		if not x6.b or x1.Disabled then
+		if x6.torn_down or not x6.b or x1.Disabled then
 			return
 		end
 		-- One root lookup, one copy of the "move the core onto it" code. The
@@ -1199,6 +1215,7 @@ return function(context)
 	end
 
 	function x4.f1(p)
+		if x6.torn_down then return false end
 		if not p:IsA("BasePart") or x7.e(p) or x6.a[p] then
 			return false
 		end
@@ -1274,8 +1291,8 @@ return function(context)
 			p.CustomPhysicalProperties = d.original_properties
 		end
 		if drop_release then
-			p.AssemblyLinearVelocity = ZERO_VECTOR
-			p.AssemblyAngularVelocity = ZERO_VECTOR
+			p.AssemblyLinearVelocity = (d and d.release_velocity) or ZERO_VECTOR
+			p.AssemblyAngularVelocity = (d and d.release_spin) or ZERO_VECTOR
 		end
 	end
 
@@ -1316,50 +1333,54 @@ return function(context)
 	end
 
 	function x4.f3()
-		pcall(function()
-			settings().Physics.AllowSleep = false
-		end)
-
-		-- These used to be six fresh anonymous closures allocated every half
-		-- second, plus one more per remote player, purely so pcall had something
-		-- to call. Naming them once turns that per-tick allocation into upvalue
-		-- reads and lets pcall take its arguments directly.
+		if x6.torn_down then return end
+		local originals = setmetatable({}, { __mode = "k" })
+		local anti_fling_cache = setmetatable({}, { __mode = "k" })
+		local anti_fling_conns = setmetatable({}, { __mode = "k" })
+		local function read_property(obj, key, hidden)
+			if hidden and gethiddenproperty then return gethiddenproperty(obj, key) end
+			return obj[key]
+		end
+		local function write_property(obj, key, value, hidden)
+			if hidden and sethiddenproperty then sethiddenproperty(obj, key, value)
+			else obj[key] = value end
+		end
+		local function remember_set(obj, key, value, hidden)
+			local saved = originals[obj]
+			if not saved then saved = {}; originals[obj] = saved end
+			if not saved[key] then
+				local ok, original = pcall(read_property, obj, key, hidden)
+				if not ok then return end
+				saved[key] = { value = original, hidden = hidden }
+			end
+			write_property(obj, key, value, hidden)
+		end
+		function x4.restore_environment()
+			for _, conn in pairs(anti_fling_conns) do pcall(function() conn:Disconnect() end) end
+			table.clear(anti_fling_conns)
+			table.clear(anti_fling_cache)
+			for obj, saved in pairs(originals) do
+				for key, original in pairs(saved) do
+					pcall(write_property, obj, key, original.value, original.hidden)
+				end
+			end
+			table.clear(originals)
+		end
 		local function suppress_player(p)
-			p.MaximumSimulationRadius = 0
-			if sethiddenproperty then
-				sethiddenproperty(p, "SimulationRadius", 0)
-			end
+			remember_set(p, "MaximumSimulationRadius", 0)
+			remember_set(p, "SimulationRadius", 0, true)
 		end
-		local function wake_self()
-			if sethiddenproperty then
-				sethiddenproperty(v8, "NetworkIsSleeping", false)
-			end
-		end
-		local function make_scriptable()
-			if setscriptable then
-				setscriptable(v8, "SimulationRadius", true)
-				setscriptable(v8, "MaximumSimulationRadius", true)
-			end
-		end
-		local function raise_max_radius()
-			v8.MaximumSimulationRadius = 9e9
-		end
-		local function raise_sim_radius()
-			if sethiddenproperty then
-				sethiddenproperty(v8, "SimulationRadius", 9e9)
-				sethiddenproperty(v8, "MaximumSimulationRadius", 9e9)
-			elseif setsimulationradius then
-				setsimulationradius(9e9)
-			end
-		end
-		local function focus_replication()
-			v8.ReplicationFocus = x6.b or nil
-		end
+		local function wake_self() remember_set(v8, "NetworkIsSleeping", false, true) end
+		local function raise_max_radius() remember_set(v8, "MaximumSimulationRadius", 9e9) end
+		local function raise_sim_radius() remember_set(v8, "SimulationRadius", 9e9, true) end
+		local function focus_replication() remember_set(v8, "ReplicationFocus", x6.b) end
+		local function keep_awake() remember_set(settings().Physics, "AllowSleep", false) end
 
 		local last_upd = 0
 		table.insert(
 			x6.c,
 			v3.Heartbeat:Connect(function()
+				if x6.torn_down or not x6.o then return end
 				local now = time()
 				if now - last_upd > 0.5 then
 					last_upd = now
@@ -1376,7 +1397,7 @@ return function(context)
 						end
 					end
 					pcall(wake_self)
-					pcall(make_scriptable)
+					pcall(keep_awake)
 					pcall(raise_max_radius)
 					pcall(raise_sim_radius)
 					pcall(focus_replication)
@@ -1410,7 +1431,6 @@ return function(context)
 				end
 			end)
 		)
-		local anti_fling_cache = setmetatable({}, {__mode = "k"})
 		-- The DescendantAdded hook lives here, keyed weakly by character, instead
 		-- of in x6.c. x6.c is a strong list only emptied on full teardown, so
 		-- every respawn added an entry whose closure pinned that character's part
@@ -1418,7 +1438,6 @@ return function(context)
 		-- collect anything. A long session leaked one connection and one array
 		-- per respawn. Held weakly, both go away with the character (Destroy
 		-- severs the signal on its own).
-		local anti_fling_conns = setmetatable({}, {__mode = "k"})
 		local function connect_parts(char, parts)
 			return char.DescendantAdded:Connect(function(desc)
 				if desc:IsA("BasePart") then
@@ -1465,7 +1484,7 @@ return function(context)
 							local part = parts[i]
 							if part and part.Parent then
 								if part.CanCollide then
-									part.CanCollide = false
+									remember_set(part, "CanCollide", false)
 								end
 							else
 								table.remove(parts, i)
@@ -1497,12 +1516,14 @@ return function(context)
 	x4.refresh_core_visual = refresh_core_visual
 
 	function x4.f4(pos)
+		if x6.torn_down then return  end
 		if x6.b then
 			v6:Create(x6.b, TweenInfo.new(x9.c7), { Position = pos }):Play()
 			return
 		end
 		local f = Instance.new("Folder", v4)
 		f.Name = "AS"
+		x6.core_folder = f
 		x6.b = Instance.new("Part", f)
 		x6.b.Size = x1.k2
 		x6.b.Shape = "Ball"
@@ -2044,6 +2065,7 @@ return function(context)
 	-- meantime. Enabling reverses both halves. Hoisted out of the loop below so a
 	-- 5000 part toggle does not allocate a closure per part for pcall.
 	local function apply_disabled_part(p, d, disabled)
+		if d.free_physics then ShapePhysics.apply(p, d, x1); return end
 		if d.lv then
 			d.lv.MaxForce = disabled and 0 or x1.k4
 		end
@@ -2130,7 +2152,23 @@ return function(context)
 		end
 	end
 
+	function x4.clear_target_markers()
+		for _, pl in ipairs(v2:GetPlayers()) do
+			local ch = pl.Character
+			local head = ch and ch:FindFirstChild("Head")
+			local marker = head and head:FindFirstChild("GravityTargetMarker")
+			if marker then
+				pcall(function()
+					marker:Destroy()
+				end)
+			end
+		end
+	end
+
 	function x4.f5()
+		x6.o, x6.d = false, false
+		if x4.restore_environment then x4.restore_environment() end
+		if x6.mobile_reset then x6.mobile_reset() end
 		-- Before the core folder goes, so a shape-owned instance living inside it is
 		-- released deliberately rather than only incidentally.
 		cleanup_shape(x1.k6)
@@ -2143,10 +2181,10 @@ return function(context)
 		end
 		x6.last_blend = nil
 		x4.preview_clear()
-		if x6.b then
-			x6.b.Parent:Destroy()
-			x6.b = nil
-		end
+		local core, holder = x6.b, x6.core_folder
+		x6.b, x6.core_folder = nil, nil
+		if core then pcall(function() core:Destroy() end) end
+		if holder then pcall(function() holder:Destroy() end) end
 		-- same descending walk as clean_physics: three length probes per part
 		-- became none, which is what made stopping with a large claim hitch.
 		local arr = x6.active_array
@@ -2163,16 +2201,7 @@ return function(context)
 		-- only code that removed one lived inside f3_body's once-a-second block --
 		-- which stops running the moment the engine stops. So stopping, pausing or
 		-- disabling left the red marker floating over whoever was targeted.
-		for _, pl in ipairs(v2:GetPlayers()) do
-			local ch = pl.Character
-			local head = ch and ch:FindFirstChild("Head")
-			local marker = head and head:FindFirstChild("GravityTargetMarker")
-			if marker then
-				pcall(function()
-					marker:Destroy()
-				end)
-			end
-		end
+		x4.clear_target_markers()
 		-- Sculptor selections are per-run: the SelectionBoxes are parented to world
 		-- parts, so leaving them adorned after "Stop" leaves cyan boxes in the map.
 		if x6.sculptor_clear then
@@ -2201,10 +2230,12 @@ return function(context)
 	-- through the two optional UI hooks, which is also why a hotkey press updates
 	-- the dropdown label even though the dropdown was never opened.
 	function x4.switch_shape(name)
+		if x6.torn_down then return false end
 		if not name or not x2[name] then
 			return false
 		end
 		local mod = get_shape(name)
+		if x6.torn_down then return false end
 		if not mod then
 			x7.n("Sys", "Could not load " .. tostring(name), 3)
 			return false
@@ -2246,7 +2277,7 @@ return function(context)
 	-- the order the window lists them in.
 	local CORE_ACTIONS = {
 		{ id = "Recenter", label = "Recenter Core", desc = "Move the gravity core to your cursor." },
-		{ id = "Reset", label = "Reset System", desc = "Release every part and remove the core." },
+		{ id = "Reset", label = "Stop / Reset", desc = "Release parts and remove the core. The X button fully unloads." },
 		{ id = "Pause", label = "Pause Physics", desc = "Freeze held parts where they are." },
 		{ id = "Disable", label = "Disable Gravity", desc = "Let parts fall without giving up the claim." },
 	}
@@ -2305,7 +2336,7 @@ return function(context)
 
 	-- Kept so the old two-action dispatch still works if anything reaches for it.
 	function x8.h(n, s, o)
-		if s ~= Enum.UserInputState.Begin then
+		if x6.torn_down or s ~= Enum.UserInputState.Begin then
 			return Enum.ContextActionResult.Pass
 		end
 		if n == "C" then
@@ -2332,7 +2363,7 @@ return function(context)
 	local function bind(action_name, key_code, fn)
 		local ok = pcall(function()
 			v7:BindAction(action_name, function(_, state)
-				if state ~= Enum.UserInputState.Begin then
+				if x6.torn_down or state ~= Enum.UserInputState.Begin then
 					return Enum.ContextActionResult.Pass
 				end
 				fn()
@@ -2349,6 +2380,7 @@ return function(context)
 	-- about: everything the script owns comes off, then goes back on.
 	function x8.rebind_all()
 		x8.unbind_all()
+		if x6.torn_down then return end
 		local kb = x1.Keybinds
 		if type(kb) ~= "table" then
 			return
@@ -2426,6 +2458,7 @@ return function(context)
 	end
 
 	function x8.i()
+		if x6.torn_down then return  end
 		x8.rebind_all()
 		table.insert(
 			x6.c,
@@ -2448,10 +2481,13 @@ return function(context)
 			end)
 		)
 
-		local sculptor_binder = load_module(SUB_DIR .. "System_sculptor.lua")(context, x7)
-		sculptor_binder()
+		local sculptor_builder = load_module(SUB_DIR .. "System_sculptor.lua")
+		if x6.torn_down then return end
+		if sculptor_builder then sculptor_builder(context, x7)() end
 
-		local partctl_binder = load_module(SUB_DIR .. "System_partctl.lua")(context, x7)
+		local partctl_builder = load_module(SUB_DIR .. "System_partctl.lua")
+		if x6.torn_down then return end
+		local partctl_binder = partctl_builder and partctl_builder(context, x7)
 		if partctl_binder then
 			partctl_binder()
 		end

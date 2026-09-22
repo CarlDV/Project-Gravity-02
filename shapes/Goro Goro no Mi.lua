@@ -1,4 +1,4 @@
-local M = {}
+local M = { MobileControls = { Action = "FIRE", Range = 800 } }
 
 local PHI1 = 0.6180339887498949
 local PHI2 = 0.7548776662466927
@@ -44,8 +44,12 @@ local function on_path(origin, dir, len, n, amp, seed, chan, taper, f)
 	return node(j) + (node(j + 1) - node(j)) * (q - j), u, v
 end
 
-local function resolve_aim(cen, c)
+local function resolve_aim(cen, c, x6)
 	local length = c.k11 or 200
+	local mobile = x6 and x6.mobile_input
+	if mobile and mobile.active and mobile.shape == "Goro Goro no Mi" and mobile.direction then
+		return cen + mobile.direction * length
+	end
 
 	if c.k19 then
 		local ok, hit = pcall(function()
@@ -115,7 +119,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			local uis = game:GetService("UserInputService")
 			st.touch_mode = uis.TouchEnabled and not uis.KeyboardEnabled
 			st.conns[#st.conns + 1] = uis.InputBegan:Connect(function(inp, gpe)
-				if gpe or not st.hold_enabled then return end
+				if gpe or not st.hold_enabled or (x6.mobile_input and x6.mobile_input.active) then return end
 				if inp.UserInputType == Enum.UserInputType.MouseButton1 then
 					st.holding = true
 				elseif inp.UserInputType == Enum.UserInputType.Touch then
@@ -149,10 +153,10 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 			st.seed = st.seed + 1
 			st.next_roll = t + 1 / flicker
 		end
-		st.aim = resolve_aim(cen, c)
+		st.aim = resolve_aim(cen, c, x6)
 	end
 	if not st.aim then
-		st.aim = resolve_aim(cen, c)
+		st.aim = resolve_aim(cen, c, x6)
 	end
 
 	local seed = st.seed
@@ -161,6 +165,10 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	local firing = true
 	if hold_mode then
 		firing = st.holding or st.tap_locked or x1.IsLaunching or false
+		local mobile = x6.mobile_input
+		if mobile and mobile.active and mobile.shape == "Goro Goro no Mi" then
+			firing = mobile.held or x1.IsLaunching or false
+		end
 	end
 
 	if not firing then

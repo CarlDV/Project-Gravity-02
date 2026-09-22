@@ -40,7 +40,7 @@ return function(env)
 		kit.draggable(window, header)
 
 		kit.label(header, {
-			text = "PROJECT GRAVITY AI",
+			text = "PROJECT UAI",
 			font = Enum.Font.GothamBlack,
 			size = SZ.authTitleSize,
 			pos = UDim2.new(0, SZ.authPad + 2, 0, 0),

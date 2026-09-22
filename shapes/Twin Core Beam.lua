@@ -1,4 +1,4 @@
-local M = {}
+local M = { MobileControls = { Action = "FIRE", Range = 900 } }
 
 local uis = game:GetService("UserInputService")
 local plrs = game:GetService("Players")
@@ -26,7 +26,7 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 		state.conns = {}
 
 		state.conns[#state.conns + 1] = uis.InputBegan:Connect(function(inp, gpe)
-			if gpe then return end
+			if gpe or (x6.mobile_input and x6.mobile_input.active) then return end
 			if inp.UserInputType == Enum.UserInputType.MouseButton1 then
 				state.holding = true
 			elseif inp.UserInputType == Enum.UserInputType.Touch then
@@ -50,13 +50,16 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
 	if state.last_frame ~= x6.f then
 		state.last_frame = x6.f
 		local fire_override = x1.IsLaunching or (c.k18 == true)
+		local mobile = x6.mobile_input
+		if not (mobile and mobile.active and mobile.shape == "Twin Core Beam") then mobile = nil end
 		local should_fire = state.holding or state.tap_locked or fire_override
+		if mobile then should_fire = mobile.held or fire_override end
 
 		if should_fire then
-			local hit_pos = nil
+			local hit_pos = mobile and mobile.aim
 			local local_plr = plrs.LocalPlayer
 			local mouse = local_plr and local_plr:GetMouse()
-			if mouse and mouse.Hit then
+			if not hit_pos and mouse and mouse.Hit then
 				hit_pos = mouse.Hit.Position
 			end
 			if not hit_pos or hit_pos.Magnitude > 10000 then
