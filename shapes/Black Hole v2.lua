@@ -1,4 +1,5 @@
--- Capture, spiral, coast and recover; released parts have no active actuators.
+-- Capture, spiral inward, and pack the parts into a single spinning ball.
+-- Released parts have no active actuators.
 local M = { AlwaysProcess = true, NoBlend = true }
 local NAME = "Black Hole v2"
 local TAU = math.pi * 2
@@ -8,7 +9,7 @@ local function state(x6)
     x6.pre = x6.pre or {}
     local st = x6.pre[NAME]
     if not st then
-        st = { clock = 0, pull_distance = 0, core_angles = Vector3.zero, core_rotation = CFrame.new(),
+        st = { clock = 0, pull_distance = 0, ball_angle = 0, ball_spin = 0,
             state = "grab", gen = 0, explosion = 0 }
         x6.pre[NAME] = st
     end
@@ -81,11 +82,10 @@ function M.px(t, c, x6, x9, x1)
     st.last_t = t
     st.clock = st.clock + dt
     st.pull_distance = st.pull_distance + dt * math.clamp(c.rwPull or 40, 0, 400)
-    st.spin = Vector3.new(math.rad(math.clamp(c.rwCoreX or 1440, 0, 7200)),
-        math.rad(math.clamp(c.rwCoreY or 2160, 0, 7200)), math.rad(math.clamp(c.rwCoreZ or 1080, 0, 7200)))
-    local angles = st.core_angles + st.spin * dt
-    st.core_angles = Vector3.new(angles.X % TAU, angles.Y % TAU, angles.Z % TAU)
-    st.core_rotation = CFrame.Angles(st.core_angles.X, st.core_angles.Y, st.core_angles.Z)
+    -- One control drives the ball. Store the angular speed (for each part's own
+    -- tumble) and the shared accumulated angle (so the whole ball spins together).
+    st.ball_spin = math.rad(math.clamp(c.rwBallSpin or 180, 0, 1440))
+    st.ball_angle = (st.ball_angle + st.ball_spin * dt) % TAU
     if st.state == "explode" and st.clock - st.explode_at >= math.clamp(c.rwExplodeTime or 1.6, 0, 5) then
         -- Restore collisions even for a bucketed part whose ownership changed.
         command("release")(c, x6, x1)
@@ -107,10 +107,9 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
         return d.launch_velocity or p.AssemblyLinearVelocity, p.Position
     end
     d.free_physics, d.launch_velocity = nil, nil
-    d.angular_velocity = nil
     d.collisions = c.rwNoclip == false
     if r.gen ~= st.gen then
-        r.gen, r.start, r.last = st.gen, st.clock, st.clock
+        r.gen, r.last = st.gen, st.clock
         r.pull_start = st.pull_distance
         local off = p.Position - cen
         r.distance = math.max(off.Magnitude, 1)
@@ -123,17 +122,15 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
     local pull = smooth(s)
     local bw = smooth(math.clamp((s - 0.35) / 0.65, 0, 1))
     local ball = math.clamp(c.rwBall or 12, 0, 70)
-    local jets = math.clamp((c.rwJets or 0) / 100, 0, 0.4)
-    local ring = math.clamp((c.rwRing or 0) / 100, 0, 1 - jets)
-    local role = r.roll < jets and 2 or (r.roll < jets + ring and 1 or 0)
+    local ring = math.clamp((c.rwRing or 0) / 100, 0, 1)
+    local role = r.roll < ring and 1 or 0
     local floor = role == 1 and (ball * 2.5 + 4) or 0
     local radius = floor + (r.r0 - floor) * (1 - pull)
     local height = r.h0 * (1 - pull)
+    -- Orbital speed rises as a part spirals inward (angular momentum feel).
     local mid_s = ((r.progress or 0) + s) * 0.5
     local mid_radius = floor + (r.r0 - floor) * (1 - smooth(mid_s))
     local omega = math.min(math.clamp(c.rwSpin or 10, 0, 30) * 4 / math.max(mid_radius, ball * 0.5, 1), 8)
-    -- The tumble uses a fractional multiple of this angle, so wrapping it at
-    -- one orbit would jump that rotation even though sin/cos(radius) agree.
     r.angle = r.angle + (st.clock - r.last) * omega
     r.last, r.progress = st.clock, s
     if role == 1 then
@@ -143,26 +140,17 @@ function M.f2(p, cen, d, t, c, x1, x6, x9)
     end
     local total = Vector3.new(math.cos(r.angle) * radius, height, math.sin(r.angle) * radius)
     if role == 0 then
-        local pulse = 1 + math.clamp(c.rwPulse or 12, 0, 40) / 100 * math.sin(st.clock * 2.2 + r.phase)
-        -- Independent X/Y/Z spin: the tight core rotates much faster than the
-        -- outer spiral, and the actual pieces tumble with it through the motor.
-        local churn = st.core_rotation * (r.dir * r.rad)
-        d.angular_velocity = (st.spin or Vector3.zero) * bw
-        total = total + churn * (ball * pulse * bw)
-    elseif role == 2 then
-        local phase = (st.clock * 0.4 + r.roll * 37.13) % 1
-        local side = r.phase > math.pi and 1 or -1
-        -- A closed outward-and-return cycle avoids a teleport at the jet tip.
-        local flow = 0.5 - 0.5 * math.cos(TAU * phase)
-        local width = (0.2 + flow) * (0.5 + ball * 0.2)
-        local helix = phase * TAU * 2 + r.phase
-        local length = math.clamp(c.rwJetLength or 80, 10, 300)
-        total = total + Vector3.new(math.cos(helix) * width,
-            side * (ball * 0.6 + flow * length), math.sin(helix) * width) * bw
+        -- A real spinning ball: parts fill a sphere (cube-root radius gives an
+        -- even volume) and rotate together about one axis, so the poles hold
+        -- still while the equator moves fastest, just like a spinning globe.
+        local sphere = CFrame.Angles(0, st.ball_angle, 0) * (r.dir * (r.rad * ball))
+        total = total + sphere * bw
+        d.angular_velocity = Vector3.new(0, st.ball_spin, 0) * bw
+    else
+        d.angular_velocity = nil
     end
     local tilt = math.rad(math.clamp(c.rwTilt or 25, 0, 80)) * pull
-    local precession = (st.clock - r.start) * 0.22 * pull
-    local target = cen + CFrame.Angles(0, precession, 0) * CFrame.Angles(tilt, 0, 0) * total
+    local target = cen + CFrame.Angles(tilt, 0, 0) * total
     return (target - p.Position) * (x1.k10 * x9.c1), target
 end
 
@@ -174,16 +162,14 @@ M.Controls = {
         Desc = "During gathering and the explosion interval. Original collisions return on release." },
     { Type = "Slider", Name = "Pull In Speed", Min = 0, Max = 400, Key = "rwPull", Default = 40, ExactMax = true,
         Desc = "Nominal studs per second toward the core, with a smooth arrival. Zero holds the current spiral radius." },
-    { Type = "Slider", Name = "Spiral Speed", Min = 0, Max = 30, Key = "rwSpin", Default = 10, ExactMax = true },
-    { Type = "Slider", Name = "Core Spin X (deg/s)", Min = 0, Max = 7200, Key = "rwCoreX", Default = 1440, IntOnly = true, ExactMax = true },
-    { Type = "Slider", Name = "Core Spin Y (deg/s)", Min = 0, Max = 7200, Key = "rwCoreY", Default = 2160, IntOnly = true, ExactMax = true },
-    { Type = "Slider", Name = "Core Spin Z (deg/s)", Min = 0, Max = 7200, Key = "rwCoreZ", Default = 1080, IntOnly = true, ExactMax = true },
+    { Type = "Slider", Name = "Spiral Speed", Min = 0, Max = 30, Key = "rwSpin", Default = 10, ExactMax = true,
+        Desc = "How fast parts orbit while they are being drawn inward." },
+    { Type = "Slider", Name = "Ball Spin Speed (deg/s)", Min = 0, Max = 1440, Key = "rwBallSpin", Default = 180, IntOnly = true, ExactMax = true,
+        Desc = "How fast the finished ball spins about its axis." },
     { Type = "Slider", Name = "Ball Radius", Min = 0, Max = 70, Key = "rwBall", Default = 12 },
-    { Type = "Slider", Name = "Accretion Ring %", Min = 0, Max = 60, Key = "rwRing", Default = 0, IntOnly = true },
+    { Type = "Slider", Name = "Accretion Ring %", Min = 0, Max = 60, Key = "rwRing", Default = 0, IntOnly = true,
+        Desc = "Fraction of parts that form a flat orbiting ring instead of joining the ball." },
     { Type = "Slider", Name = "Ring Width", Min = 0, Max = 20, Key = "rwRingWidth", Default = 3 },
-    { Type = "Slider", Name = "Jet %", Min = 0, Max = 40, Key = "rwJets", Default = 0, IntOnly = true },
-    { Type = "Slider", Name = "Jet Length", Min = 10, Max = 300, Key = "rwJetLength", Default = 80 },
-    { Type = "Slider", Name = "Core Pulse %", Min = 0, Max = 40, Key = "rwPulse", Default = 12, IntOnly = true },
     { Type = "Slider", Name = "Disc Tilt", Min = 0, Max = 80, Key = "rwTilt", Default = 25 },
     { Type = "Slider", Name = "Explosion Force", Min = 50, Max = 1500, Key = "rwForce", Default = 400, IntOnly = true },
     { Type = "Slider", Name = "Explosion Noclip Time", Min = 0, Max = 50, Div = 10, Key = "rwExplodeTime", Default = 1.6 },
