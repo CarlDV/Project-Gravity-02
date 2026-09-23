@@ -79,11 +79,13 @@ these offline checks do not establish retention in a live NDS server.
   adds vertical travel, **Turn Banking** leans into curves, and **Body Follow
   Through %** carries the turn down the spine to the tail. Path frames are cached
   once per formation frame; late claims join the same pose.
-- **Black Hole v2:** a spiral draws every part into a rapidly rotating core by
-  default. **Pull In Speed** sets the inward rate; **Spiral Speed** sets the orbit.
-  **Core Spin X/Y/Z (deg/s)** independently control rotation on all three axes.
-  Ring and jet percentages are optional. Real buttons regrab, release or explode
-  the tracked parts; gravity acts with the actuators disabled after an explosion.
+- **Black Hole v2:** a tightening spiral draws every part into a filled sphere.
+  Parts keep their direction of rotation as they enter, then hold a constant
+  radius and height. **Pull In Speed** sets the inward rate; **Spiral Speed** sets
+  the swirl. **Ball Spin Speed (deg/s)** defaults to 720 about one stable upright
+  axis. Radius changes ease smoothly, and an accretion ring is optional.
+  Real buttons regrab, release or explode the tracked parts; gravity acts with
+  the actuators disabled after an explosion.
 - **Drop (review/archive):** gathers a distributed canopy smoothly, holds it, then
   releases a configurable staggered wave. **Drop Now** starts the wave early;
   downward speed, scatter and incoming momentum control the release.

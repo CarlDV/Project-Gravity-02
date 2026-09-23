@@ -46,6 +46,7 @@ OPTIONAL FLAGS AND PHYSICS ACTIONS
 M.ContinuousMotion=true opts into the shared real-time drift. Add x6.motion_offset to the final target when present; the drift continues when formation time is frozen.
 M.AlwaysProcess=true bypasses the distance cull, but not processing buckets.
 M.NoBlend=true opts interactive/physics-mutating modules out of blending. Use it for release or impulse actions.
+M.FrameTracking=true evaluates every part every physics frame and follows the exact target through its velocity constraint, honoring global/per-part speed limits but bypassing ordinary damping, smoothing and integral feedback. Use it with NoBlend, continuous targets and capture from the live part position for fast rigid orbits. It costs a full part sweep each frame; cache shared geometry in px. Release, collisions and pause still apply normally.
 
 Set d.free_physics=true in f2 to disable both actuators and restore physical properties while keeping the record available for regrab. Roblox gravity and momentum take over. Set it to nil/false to resume control and clear stale tracking. Do not fake gravity by subtracting it every frame while a LinearVelocity is still driving the part.
 Set d.launch_velocity=Vector3.new(...) with free_physics=true for a one-time impulse. The engine consumes and clears it. Set d.collisions=false for local noclip, true for the original collision setting, or nil for normal engine policy (original collisions while free).

@@ -86,7 +86,7 @@ for _, name in ipairs(names) do
             sampled[#sampled + 1] = "[" .. table.concat(cloud, ",") .. "]"
             local label = kind == "creatures" and "Articulated flight path"
                 or (name == "Drop" and (t < 2.5 and "Gather canopy" or (t < 3.3 and "Hold" or "Release wave")))
-                or (regrabbed and "Regrab" or (exploded and "Impulse + gravity" or (t < 2 and "Spiral capture" or "Fast 3-axis core spin")))
+                or (regrabbed and "Regrab" or (exploded and "Impulse + gravity" or (t < 2 and "Tightening spiral" or "Stable sphere / 720 deg/s")))
             labels[#labels + 1] = '"' .. label .. '"'
             next_frame = next_frame + 1
         end

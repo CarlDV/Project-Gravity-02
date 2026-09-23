@@ -84,6 +84,8 @@ Let Roblox simulate gravity after release. Do not keep LinearVelocity active and
 
 `M.NoBlend = true` opts interactive or physics-mutating modules out of blending. `M.AlwaysProcess = true` bypasses distance culling but retains processing buckets. `M.ContinuousMotion = true` supplies a shared real-time `x6.motion_offset`; add it to the target to keep a frozen pose drifting.
 
+`M.FrameTracking = true` evaluates every held part each physics frame and follows its exact target through the velocity constraint, with global/per-part speed limits. It bypasses the ordinary damping, smoothing and integral feedback that distort rapid rigid orbits. Use it with `M.NoBlend = true`, continuous targets and capture from each part's live position; it costs a full part sweep each frame. Black Hole v2 uses a shared rotation for its settled sphere to keep that sweep inexpensive. Release, collision policy and pause still apply normally.
+
 ## Circular mobile controls
 
 ```lua
@@ -120,7 +122,7 @@ Plugins must disconnect owned connections and destroy owned instances in cleanup
 
 ## Updated shapes
 
-- **Black Hole v2:** every part spirals into the center by default. **Pull In Speed** controls the inward rate in nominal studs/second, **Spiral Speed** controls the orbit, and **Core Spin X/Y/Z (deg/s)** control rapid rotation independently on all axes (defaults 1,440 / 2,160 / 1,080; up to 7,200 each). The held pieces rotate through their angular motors as well as orbiting the core. Pull speed changes preserve progress; zero holds the current spiral radius. Ring and jet percentages are optional and start at zero. Real Regrab/Stop/Explode buttons recapture, release, or apply one outward impulse followed by gravity.
+- **Black Hole v2:** every part follows a tightening spiral into a filled sphere by default. The inlet and core turn in the same direction, with a smooth arrival and a fixed upright core axis. **Pull In Speed** controls the inward rate in nominal studs/second (default 60); **Spiral Speed** controls the incoming swirl (default 14). **Ball Spin Speed (deg/s)** defaults to 720, with a maximum of 1,440, and also drives the held pieces' angular motors. Large spheres limit their shared spin to fit the global Max Speed. **Ball Radius** eases size changes without a jump. Pull speed changes preserve progress; zero holds the current spiral radius. The optional accretion ring starts at zero. Real Regrab/Stop/Explode buttons recapture, release, or apply one outward impulse followed by gravity.
 - **Phoenix Ascendant:** a smooth 3D flight path with a leading head, bending body, trailing tail and wingbeats that travel through the feathers. Body Follow Through and Wing Flex tune the response.
 - **Megalodon:** a 3D patrol with swoops, tangent-aligned heading, banking and a body that bends into turns. Patrol Swoop Height, Turn Banking and Body Follow Through tune the route.
 - **Drop (archive):** gathers a canopy of debris, holds it, then releases a staggered wave. Height, spread, scatter and momentum are configurable. Import shapes-onreview/Drop.lua as a local plugin; it remains in the archive/review folder.
@@ -135,12 +137,13 @@ Use the standalone [Luau CLI](https://github.com/luau-lang/luau/releases) with P
 
 ```powershell
 python tools/test_luau.py --luau PATH_TO_LUAU tests/plugin_actions.lua
+python tools/test_luau.py --luau PATH_TO_LUAU tests/black_hole_motion.lua
 python tools/test_luau.py --luau PATH_TO_LUAU tests/mobile_controls.lua
 python tools/test_luau.py --luau PATH_TO_LUAU tests/session_lifecycle.lua
 python tools/test_luau.py --luau PATH_TO_LUAU tests/insane_shapes_smoke.lua
 ```
 
-These are offline fixtures. Live Roblox physics, touch layout and network ownership still need an in-game check.
+The black hole motion suite checks a 512-part sphere and integrates the real desktop/mobile velocity loops at 30, 60 and 144 Hz with a moving center. These are offline fixtures; live Roblox contacts and network ownership still need an in-game check.
 
 ## Publish the website
 

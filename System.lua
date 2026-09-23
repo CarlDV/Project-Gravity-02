@@ -707,6 +707,7 @@ return function(context)
 			local ghp = gethiddenproperty
 			local workspace_gravity = v4.Gravity or 196.2
 			local shape_f2 = cur_shape_mod and cur_shape_mod.f2
+			local shape_frame_tracking = cur_shape_mod and cur_shape_mod.FrameTracking and not blend_f2
 			local is_drop_shape = cur_shape_mod and cur_shape_mod.Drop
 			local is_self_bounded_shape = shape_name == "ROOM Ope Ope no Mi" or shape_name == "Light Light no Mi"
 			local aggressive_root = nil
@@ -782,7 +783,9 @@ return function(context)
 					continue
 				end
 				i = i + 1
-				if d.pc_mode == nil and i % et ~= update_bucket then
+				local frame_tracking = (d.pc_mode == nil and shape_frame_tracking)
+					or (d.pc_mode == "shape" and d.pc_mod and d.pc_mod.FrameTracking)
+				if d.pc_mode == nil and i % et ~= update_bucket and not frame_tracking then
 					continue
 				end
 				if check_no3 then
@@ -936,7 +939,7 @@ return function(context)
 					if vert_mult then
 						target_pos_delta = target_pos_delta * vert_mult
 					end
-					if integral_on and d.integral then
+					if integral_on and d.integral and not frame_tracking then
 						local ig = d.integral + (target_pos_delta * dt_mult)
 						local ig_sq = ig:Dot(ig)
 						if ig_sq > 10000 then
@@ -969,7 +972,7 @@ return function(context)
 						end
 					end
 
-					if pure_target_pos then
+					if pure_target_pos and not frame_tracking then
 						if d.last_target_pos and d.sys_last_t then
 							local actual_dt = ft - d.sys_last_t
 							if actual_dt > 0.001 then
@@ -999,7 +1002,7 @@ return function(context)
 						d.sys_last_t = nil
 					end
 					
-					if do_damping or (d.pc_phys and d.pc_phys.Damping) then
+					if not frame_tracking and (do_damping or (d.pc_phys and d.pc_phys.Damping)) then
 						local cur_damp = (d.pc_phys and d.pc_phys.Damping) or damping
 						tv = tv - (p.AssemblyLinearVelocity * cur_damp)
 					end
@@ -1018,7 +1021,14 @@ return function(context)
 						end
 					end
 					local vl = d.vl and d.vl:Lerp(tv, cur_sm) or tv
-					if in_transition and d.trans_vl then
+					if frame_tracking and pure_target_pos then
+						-- A rapid orbit needs the same response on every axis. Solve
+						-- the current target over one physics step; damping, delayed
+						-- target differences and bucket holds otherwise flatten it.
+						-- This still uses the velocity constraint and speed limits.
+						vl = (pure_target_pos - p_pos) / math.max(real_dt, 1 / 240)
+						d.integral, d.trans_vl = ZERO_VECTOR, nil
+					elseif in_transition and d.trans_vl then
 						if trans_ease < 1 then
 							vl = d.trans_vl:Lerp(vl, trans_ease)
 						else
@@ -1039,7 +1049,7 @@ return function(context)
 						-- do nothing in the two modes it is most useful in.
 						local pc_limit = d.pc_phys and d.pc_phys.MaxSpeed
 						local limit = pc_limit or base_limit
-						if pure_target_pos and not pc_limit then limit = math.max(limit, 15300) end
+						if pure_target_pos and not pc_limit and not frame_tracking then limit = math.max(limit, 15300) end
 						if liftoff_limit then limit = math.min(limit, liftoff_limit) end
 						local vl_sq = vl:Dot(vl)
 						if vl_sq > limit * limit then

@@ -105,34 +105,40 @@ local spinning, spin_d, spin_ctx = fixture()
 spin_d.id = 1 -- core role
 BlackHoleV2.px(0, c, spin_ctx)
 BlackHoleV2.f2(spinning, Vector3.zero, spin_d, 0, c, x1, spin_ctx, x9)
+local ball_points = {}
 for frame = 1, 240 do
 	BlackHoleV2.px(frame / 60, c, spin_ctx)
-	BlackHoleV2.f2(spinning, Vector3.zero, spin_d, frame / 60, c, x1, spin_ctx, x9)
+	local _, point = BlackHoleV2.f2(spinning, Vector3.zero, spin_d, frame / 60, c, x1, spin_ctx, x9)
+	if frame > 180 then ball_points[#ball_points + 1] = point end
 end
 Physics.apply(spinning, spin_d, x1)
-check(spin_d.av.AngularVelocity.X > math.pi * 2 and spin_d.av.AngularVelocity.Y > math.pi * 2
-	and spin_d.av.AngularVelocity.Z > math.pi * 2, "the gathered core actually spins fast on all three axes")
-local spinning_state = spin_ctx.pre["Black Hole v2"]
-spinning_state.core_angles = Vector3.new(math.pi * 2 - 0.001, 0, 0)
-spinning_state.core_rotation = CFrame.Angles(spinning_state.core_angles.X, 0, 0)
-local _, before_wrap = BlackHoleV2.f2(spinning, Vector3.zero, spin_d, 4, c, x1, spin_ctx, x9)
-BlackHoleV2.px(4.001, c, spin_ctx)
-local _, after_wrap = BlackHoleV2.f2(spinning, Vector3.zero, spin_d, 4.001, c, x1, spin_ctx, x9)
-check(near(before_wrap, after_wrap, 2), "core tumble stays continuous across a full revolution")
-local axis_control = table.clone(c)
-axis_control.rwCoreX, axis_control.rwCoreY, axis_control.rwCoreZ = 0, 720, 0
-BlackHoleV2.px(4.001, axis_control, spin_ctx)
-BlackHoleV2.f2(spinning, Vector3.zero, spin_d, 4.001, axis_control, x1, spin_ctx, x9)
+-- The finished ball spins about a single upright axis at the configured speed;
+-- nothing leaks onto X or Z, so it reads as a stable spinning globe.
+check(c.rwBallSpin >= 360, "the default core completes at least one revolution per second")
+check(near(spin_d.av.AngularVelocity, Vector3.new(0, math.rad(c.rwBallSpin), 0), 1e-3),
+	"the gathered ball spins about one upright axis at the slider speed")
+local radius0, height0 = ball_points[1].Magnitude, ball_points[1].Y
+local steady = true
+for _, point in ipairs(ball_points) do
+	if math.abs(point.Magnitude - radius0) > 1e-3 or math.abs(point.Y - height0) > 1e-3 then steady = false end
+end
+check(steady, "a settled ball part holds a constant radius and height while it spins")
+-- One slider controls the spin speed.
+local speed_control = table.clone(c)
+speed_control.rwBallSpin = 360
+BlackHoleV2.px(4.001, speed_control, spin_ctx)
+BlackHoleV2.f2(spinning, Vector3.zero, spin_d, 4.001, speed_control, x1, spin_ctx, x9)
 Physics.apply(spinning, spin_d, x1)
-check(near(spin_d.av.AngularVelocity, Vector3.new(0, math.pi * 4, 0)), "each core axis is independently customizable")
+check(near(spin_d.av.AngularVelocity, Vector3.new(0, math.rad(360), 0), 1e-3),
+	"a single slider sets the ball spin speed")
 spin_d.angular_velocity = nil
 Physics.apply(spinning, spin_d, x1)
 check(near(spin_d.av.AngularVelocity, Vector3.zero) and not spin_d.angular_active,
 	"clearing shape spin restores the normal angular motor")
 
--- Isolate the approach from the optional core radius, tilt, ring and jets.
+-- Isolate the approach from the optional ball radius, tilt and ring.
 local approach = table.clone(c)
-approach.rwBall, approach.rwTilt, approach.rwRing, approach.rwJets = 0, 0, 0, 0
+approach.rwBall, approach.rwTilt, approach.rwRing = 0, 0, 0
 local spiral, spiral_d, spiral_ctx = fixture()
 BlackHoleV2.px(0, approach, spiral_ctx)
 BlackHoleV2.f2(spiral, Vector3.zero, spiral_d, 0, approach, x1, spiral_ctx, x9)

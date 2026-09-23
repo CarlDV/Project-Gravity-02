@@ -65,8 +65,9 @@ for _, mobile in ipairs({ false, true }) do
 		clock = clock + 1 / 60
 		fixture.run.Heartbeat:Fire(1 / 60)
 	end
-	check(record.av.AngularVelocity.X > 0 and record.av.AngularVelocity.Y > 0 and record.av.AngularVelocity.Z > 0,
-		"the real loop applies core spin on all axes")
+	check(record.av.AngularVelocity.X == 0 and record.av.AngularVelocity.Z == 0
+		and math.abs(record.av.AngularVelocity.Y - math.rad(ctx.x2["Black Hole v2"].rwBallSpin)) < 1e-6,
+		"the real loop applies fast core spin about a stable upright axis")
 	ctx.x1.Paused = true
 	for _ = 1, 3 do fixture.run.Heartbeat:Fire(1 / 60) end
 	check(record.av.AngularVelocity.Magnitude == 0, "pause stops the core's angular motor")

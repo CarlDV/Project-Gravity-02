@@ -137,9 +137,8 @@ return {
 	},
 	x2 = {
 		["Black Hole v2"] = {
-			rwNoclip = true, rwPull = 40, rwSpin = 10, rwBall = 12, rwRing = 0,
-			rwCoreX = 1440, rwCoreY = 2160, rwCoreZ = 1080,
-			rwRingWidth = 3, rwJets = 0, rwJetLength = 80, rwPulse = 12, rwTilt = 25,
+			rwNoclip = true, rwPull = 60, rwSpin = 14, rwBallSpin = 720,
+			rwBall = 12, rwRing = 0, rwRingWidth = 3, rwTilt = 25,
 			rwForce = 400, rwExplodeTime = 1.6,
 		},
 		["Ghost Galleon"] = { k11 = 155, k12 = 52, k13 = 5, k14 = 170, k15 = 80, k16 = 115, k17 = 3, k24 = 55 },
