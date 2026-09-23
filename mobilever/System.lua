@@ -11,6 +11,10 @@ return function(context)
 	x6.apply_shape_physics = function(p, d)
 		if not x6.torn_down then return ShapePhysics.apply(p, d, x1) end
 	end
+	x6.refresh_collisions = function()
+		if x6.torn_down then return end
+		for p, d in pairs(x6.a) do ShapePhysics.apply_collisions(p, d, x1) end
+	end
 	local x7 = {}
 	local ANTI_SLEEP = Vector3.new(0, 0.01, 0)
 	local ZERO_VECTOR = Vector3.zero
@@ -2234,24 +2238,100 @@ return function(context)
 		x7.n("Sys", "Stopped", 2)
 	end
 
-	function x8.h(n, s, o)
-		if x6.torn_down or s ~= Enum.UserInputState.Begin then
-			return Enum.ContextActionResult.Pass
+	-- Desktop/mobile share the same shape and hotkey behavior.
+	function x4.switch_shape(name, persist)
+		if x6.torn_down then return false end
+		if not name or not x2[name] then
+			return false
 		end
-		if n == "C" then
-			x4.f4(v9.Hit.p)
-			return Enum.ContextActionResult.Sink
-		elseif n == "R" then
-			x4.f5()
-			return Enum.ContextActionResult.Sink
+		local mod = get_shape(name)
+		if x6.torn_down then return false end
+		if not mod then
+			x7.n("Sys", "Could not load " .. tostring(name), 3)
+			return false
 		end
-		return Enum.ContextActionResult.Pass
+		-- Shapes still being tuned announce themselves. A module flag rather than
+		-- a name list here, following M.Drop (System.lua:376), so a shape carries
+		-- its own status and nothing central has to be edited to promote one.
+		if mod.Testing then
+			x7.n("Testing", name .. " is still in testing.", 4)
+		end
+		x1.k6 = name
+		x6.transition_time = time()
+		x6.transition_dur = 1.5
+		-- f3_body clears the rest of the per-part scratch when it notices k6
+		-- moved; trans_vl is the one it cannot derive, because it needs the
+		-- velocity from before the switch to ease out of.
+		for _, d in pairs(x6.a) do
+			d.trans_vl = d.vl or Vector3.zero
+			d.v1, d.v2, d.v3, d.v4, d.v5, d.v6, d.v7, d.v8, d.v9 = nil, nil, nil, nil, nil, nil, nil, nil, nil
+			d.integral = Vector3.zero
+		end
+		if persist ~= false and context.save_settings then
+			context.save_settings()
+		end
+		local ui = context.x5
+		if ui then
+			if ui.sync_shape then
+				pcall(ui.sync_shape, name)
+			end
+			if ui.up then
+				pcall(ui.up)
+			end
+		end
+		return true
 	end
 
-	-- Same helper the desktop tree uses. x1.Keybinds is shared through
-	-- GravitySettings_Auto.json, so this tree hardcoding E/Q/P/L meant a rebind made
-	-- on desktop silently did not apply here -- and the ready toast below announced a
-	-- key that was no longer bound.
+	-- Every hotkey the script owns. One list so binding, unbinding, the conflict
+	-- check and the Keybinds window all read the same source; the order here is
+	-- the order the window lists them in.
+	local CORE_ACTIONS = {
+		{ id = "Recenter", label = "Recenter Core", desc = "Move the gravity core to your cursor." },
+		{ id = "Reset", label = "Stop / Reset", desc = "Release parts and remove the core. The X button fully unloads." },
+		{ id = "Pause", label = "Pause Physics", desc = "Freeze held parts where they are." },
+		{ id = "Disable", label = "Disable Gravity", desc = "Let parts fall without giving up the claim." },
+	}
+	x8.core_actions = CORE_ACTIONS
+	-- Keep the mobile action IDs used by existing input consumers.
+	local core_ids = { Recenter = "C", Reset = "R", Pause = "P", Disable = "Disable" }
+
+	local core_handlers = {
+		Recenter = function()
+			x4.f4(v9.Hit.p)
+		end,
+		Reset = function()
+			x4.f5()
+		end,
+		Pause = function()
+			x1.Paused = not x1.Paused
+			-- Hide Core While Paused is toggled here as well as in the panel, and
+			-- the hotkey is the only way to pause at all, so this is the call site
+			-- that actually matters.
+			refresh_core_visual()
+			x7.n("Sys", x1.Paused and "Paused" or "Resumed", 2)
+		end,
+		Disable = function()
+			-- this used to be gated on the UI toggle existing, which meant the
+			-- hotkey silently did nothing whenever the panel was closed
+			x4.apply_disabled(not x1.Disabled)
+			x7.n("Sys", "Script " .. (x1.Disabled and "Disabled" or "Enabled"), 2)
+			-- Repaint, or the panel's "Disable Gravity" toggle keeps the state it was
+			-- built with: UI_elements M.t holds its value in a private local and
+			-- nothing refreshes it, so after a hotkey press the toggle read the
+			-- opposite of the truth and the next click on it was a no-op that only
+			-- changed its own colour. Deliberately here and not inside
+			-- apply_disabled -- the panel toggle calls that itself, and rebuilding the
+			-- panel from inside a toggle's own handler would destroy it mid-callback.
+			local ui = context.x5
+			if ui and ui.up then
+				pcall(ui.up)
+			end
+		end,
+	}
+
+	-- Keybinds are stored as key *names* so they survive the JSON round trip.
+	-- Enum.KeyCode[name] throws on anything that is not a member, so a settings
+	-- file edited by hand cannot take the script down with it.
 	local function key_from_name(name)
 		if type(name) ~= "string" or name == "" then
 			return nil
@@ -2264,29 +2344,129 @@ return function(context)
 		end
 		return nil
 	end
+	x8.key_from_name = key_from_name
+
+	-- Kept so the old two-action dispatch still works if anything reaches for it.
+	function x8.h(n, s, o)
+		if x6.torn_down or s ~= Enum.UserInputState.Begin then
+			return Enum.ContextActionResult.Pass
+		end
+		if n == "C" then
+			core_handlers.Recenter()
+			return Enum.ContextActionResult.Sink
+		elseif n == "R" then
+			core_handlers.Reset()
+			return Enum.ContextActionResult.Sink
+		end
+		return Enum.ContextActionResult.Pass
+	end
 
 	local bound_actions = {}
+
 	function x8.unbind_all()
 		for i = #bound_actions, 1, -1 do
-			pcall(function() v7:UnbindAction(bound_actions[i]) end)
+			pcall(function()
+				v7:UnbindAction(bound_actions[i])
+			end)
 			bound_actions[i] = nil
 		end
 	end
-	local function bind(action, fn, key_name, fallback)
+
+	local function bind(action_name, key_code, fn)
+		local ok = pcall(function()
+			v7:BindAction(action_name, function(_, state)
+				if x6.torn_down or state ~= Enum.UserInputState.Begin then
+					return Enum.ContextActionResult.Pass
+				end
+				fn()
+				return Enum.ContextActionResult.Sink
+			end, false, key_code)
+		end)
+		if ok then
+			bound_actions[#bound_actions + 1] = action_name
+		end
+	end
+
+	-- Rebuilds every binding from x1.Keybinds. Called on startup and after any
+	-- change in the Keybinds window, so there is never a partial state to reason
+	-- about: everything the script owns comes off, then goes back on.
+	function x8.rebind_all()
+		x8.unbind_all()
 		if x6.torn_down then return end
-		local code = key_name == nil and fallback or key_from_name(key_name)
-		if not code then
+		local kb = x1.Keybinds
+		if type(kb) ~= "table" then
 			return
 		end
-		-- pcall like the desktop tree: x8.i runs inside main.lua's init pcall, so a
-		-- throw out of BindAction took the whole script down.
-		pcall(function()
-			v7:BindAction(action, function(...)
-				if x6.torn_down then return Enum.ContextActionResult.Pass end
-				return fn(...)
-			end, false, code)
-			bound_actions[#bound_actions + 1] = action
-		end)
+		-- ContextActionService resolves a duplicate key to whichever action bound
+		-- it last, which would make a hand-edited collision depend on pairs()
+		-- order. Claiming keys in a fixed order instead -- core actions first,
+		-- then shapes alphabetically -- makes the outcome the same every launch.
+		local claimed = {}
+		for _, entry in ipairs(CORE_ACTIONS) do
+			local key_name = kb[entry.id]
+			local code = key_from_name(key_name)
+			if code and not claimed[key_name] then
+				claimed[key_name] = true
+				bind(core_ids[entry.id], code, core_handlers[entry.id])
+			end
+		end
+		local shapes = kb.Shapes
+		if type(shapes) == "table" then
+			local names = {}
+			for shape_name in pairs(shapes) do
+				names[#names + 1] = shape_name
+			end
+			table.sort(names)
+			for _, shape_name in ipairs(names) do
+				local key_name = shapes[shape_name]
+				local code = key_from_name(key_name)
+				-- A binding for a shape that is no longer installed would sink a
+				-- key into a permanent failure notice, so skip it rather than
+				-- bind it. The entry stays in the file in case the shape returns.
+				if code and not claimed[key_name] and x2[shape_name] then
+					claimed[key_name] = true
+					bind("Gravity_Shape_" .. shape_name, code, function()
+						if x1.k6 == shape_name then
+							return
+						end
+						x4.switch_shape(shape_name)
+					end)
+				end
+			end
+		end
+	end
+
+	-- What already owns a key, as a label for the rejection notice. exclude_id is
+	-- the row asking, so re-picking the key it already holds is not a conflict:
+	-- a core action passes its id, a shape row passes "shape:<name>".
+	function x8.find_conflict(key_name, exclude_id)
+		if type(key_name) ~= "string" or key_name == "" then
+			return nil
+		end
+		local kb = x1.Keybinds
+		if type(kb) ~= "table" then
+			return nil
+		end
+		for _, entry in ipairs(CORE_ACTIONS) do
+			if entry.id ~= exclude_id and kb[entry.id] == key_name then
+				return entry.label
+			end
+		end
+		local shapes = kb.Shapes
+		if type(shapes) == "table" then
+			for shape_name, bound in pairs(shapes) do
+				-- Only shapes that are actually installed, matching rebind_all. A
+				-- saved binding can name a shape that has since been folded away
+				-- (main.lua:322 names Deflect), and x1.Keybinds is restored wholesale,
+				-- so reporting the phantom as a conflict made its key impossible to
+				-- reassign -- rebind_all refuses to bind it, and the Keybinds window
+				-- lists rows from pairs(x2), so the row is not there to clear either.
+				if x2[shape_name] and ("shape:" .. shape_name) ~= exclude_id and bound == key_name then
+					return shape_name
+				end
+			end
+		end
+		return nil
 	end
 
 	-- Touch does not drive Mouse.Target, so acquiring the core by finger needs a real
@@ -2309,29 +2489,7 @@ return function(context)
 	function x8.i()
 		if x6.torn_down then return  end
 		local kb = x1.Keybinds or {}
-		bind("C", x8.h, kb.Recenter, Enum.KeyCode.E)
-		bind("R", x8.h, kb.Reset, Enum.KeyCode.Q)
-		bind("P", function(_, s)
-			if s == Enum.UserInputState.Begin then
-				x1.Paused = not x1.Paused
-				-- Hide Core While Paused is toggled here as well as in the panel,
-				-- so this is the call site that actually matters.
-				refresh_core_visual()
-				x7.n("Sys", x1.Paused and "Paused" or "Resumed", 2)
-			end
-		end, kb.Pause, Enum.KeyCode.P)
-		bind("Disable", function(_, st)
-			if st == Enum.UserInputState.Begin then
-				x4.apply_disabled(not x1.Disabled)
-				x7.n("Sys", "Script " .. (x1.Disabled and "Disabled" or "Enabled"), 2)
-				-- Repaint, or the panel's Disable toggle keeps the state it was built
-				-- with and its next click is a no-op.
-				local ui = context.x5
-				if ui and ui.up then
-					pcall(ui.up)
-				end
-			end
-		end, kb.Disable, Enum.KeyCode.L)
+		x8.rebind_all()
 		table.insert(
 			x6.c,
 			v1.InputBegan:Connect(function(i, p)

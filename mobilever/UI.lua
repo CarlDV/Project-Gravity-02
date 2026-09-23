@@ -4,7 +4,6 @@ return function(context)
 	local favorites, save_favs, save_settings = context.favorites, context.save_favs, context.save_settings
 	local get_shape = context.get_shape
 	local load_module = context.load_module
-	local reset_config = context.reset_config
 	local PluginControls = context.plugin_controls or load_module("PluginControls.lua")
 	local MobileControls
 	if context.is_mobile or v1.TouchEnabled then MobileControls = load_module("MobileControls.lua") end
@@ -157,6 +156,10 @@ return function(context)
 	local x5 = {}
 	x5.g = nil
 	x5.restore_perf = RestoreAllPerf
+	x5.performance_effects = {
+		Perf_DisableShadows = ApplyPerfShadows, Perf_DisablePostFX = ApplyPerfPostFX,
+		Perf_PotatoMaterials = ApplyPerfMaterials, Perf_HideParticles = ApplyPerfParticles,
+	}
 	x5.s = es
 	x5.t = et
 	x5.b = eb
@@ -650,12 +653,6 @@ return function(context)
 		ac.ScrollBarThickness = 0
 		ac.AutomaticCanvasSize = Enum.AutomaticSize.Y
 		ac.CanvasSize = UDim2.new(0, 0, 0, 0)
-		local acl = Instance.new("UIListLayout", ac)
-		acl.Padding = UDim.new(0, 8)
-		acl.HorizontalAlignment = Enum.HorizontalAlignment.Center
-		local ap = Instance.new("UIPadding", ac)
-		ap.PaddingLeft = UDim.new(0, 15)
-		ap.PaddingRight = UDim.new(0, 15)
 
 		-- Notifications from this panel go straight through System's x8 rather than the
 		-- local notify() further down the file, which is declared after this block: a
@@ -788,272 +785,284 @@ return function(context)
 		-- Grouped, in the order the controls were already in -- nothing moves. Fifteen
 		-- controls in one flat list was the only panel in the tree without headers, and
 		-- it is the longest one, on the smallest screen.
-		eh(ac, "Tracking")
-		et(ac, "Predictive Tracking", x1.PredictiveTracking ~= false, function(v)
-			x1.PredictiveTracking = v
-			save_settings()
-		end, "Predicts player movement to smooth out parts when targeting them.")
-		es(ac, "Prediction Factor", 0, 500, x1.PredictionFactor or 150, function(v)
-			x1.PredictionFactor = v
-			save_settings()
-		end, false, "How far ahead the script predicts the target's movement.")
-		eh(ac, "Physics")
-		es(ac, "Damping", 0, 5, x1.Damping, function(v)
-			x1.Damping = v
-			save_settings()
-		end, false, "Slows down parts to reduce jittering. Higher values = smoother but slower.")
-		es(ac, "Integral Gain", 0, 10, x1.Ki, function(v)
-			x1.Ki = v
-			save_settings()
-		end, false, "Helps parts reach their exact target position faster (fixes sagging).")
-		es(ac, "Max Speed", 50, 2000, x1.MaxSpeed or 500, function(v)
-			x1.MaxSpeed = v
-			save_settings()
-		end, false, "Caps the maximum velocity of all parts to prevent them from flinging.")
-		es(ac, "Angular Damp", 0, 1, x1.AngularDamping or 0.5, function(v)
-			x1.AngularDamping = v
-			save_settings()
-		end, false, "Stops parts from spinning uncontrollably on their own axis.")
-		es(ac, "Vert Stiffness", 0.1, 5, x1.VerticalStiffness or 1.0, function(v)
-			x1.VerticalStiffness = v
-			save_settings()
-		end, false, "Multiplies vertical pull to fight Roblox's gravity. Use 1.0 for normal.")
-
-		eh(ac, "Formation")
-		es(ac, "Time Scale", -3, 3, x1.TimeScale or 1.0, function(v)
-			x1.TimeScale = v
-			save_settings()
-		end, false, "Speed of the shape's own motion. 1 is normal, 0 freezes the pattern where it is, below 0 runs it backwards.")
-		cycle_btn(ac, "Slot Order", SLOT_MODES, function()
-			return x1.SlotMode or "Claim"
-		end, function(v)
-			x1.SlotMode = v
-		end, "Which part goes where. Claim is the order they were grabbed in; the rest sort the formation so the biggest, nearest or a shuffled part lands in slot 1. Re-sorted when the population changes or you press Re-roll Layout, not continuously.")
-		eb(ac, "Re-roll Layout", function()
-			local x4 = context.x4
-			if not (x4 and x4.reroll_seeds) then
-				return
-			end
-			local n = x4.reroll_seeds()
-			save_settings()
-			adv_notify("Formation", n .. " parts re-seeded", 2)
-		end)
-		sub_label(ac, "Scatters the current shape again without dropping the parts, and re-orders Shuffle.")
-		et(ac, "Shape Blend", x1.BlendEnabled, function(v)
-			x1.BlendEnabled = v
-			save_settings()
-		end, "Runs a second shape alongside the selected one and mixes the two.")
-		local blend_box
-		blend_box = etb(ac, "Blend Shape", x1.BlendShape or "", function(v)
-			local resolved = resolve_shape_name(v)
-			if resolved then
-				x1.BlendShape = resolved
-				blend_box.Text = resolved
-				-- Lets the runtime try again: it stops re-fetching a module that failed to
-				-- download, and a name change is the deliberate retry.
-				x6.bl_failed = nil
-			else
-				-- Keeping an unknown name would leave the blend permanently inert with
-				-- nothing in the panel to say why.
-				adv_notify("Blend", "No shape matches \"" .. tostring(v) .. "\"", 3)
-				blend_box.Text = x1.BlendShape or ""
-			end
-			save_settings()
-		end, "The second shape. Type any part of its name.")
-		es(ac, "Blend Weight", 0, 100, x1.BlendWeight or 0, function(v)
-			x1.BlendWeight = v
-			save_settings()
-		end, true, "0 is all the selected shape, 100 is all the blend shape.")
-		es(ac, "Blend Stagger", 0, 100, x1.BlendStagger or 0, function(v)
-			x1.BlendStagger = v
-			save_settings()
-		end, true, "Spreads the mix across the formation so it converts part by part. Needs Slot Order set to something other than Claim.")
-
-		eh(ac, "Preview")
-		et(ac, "Formation Preview", x1.PreviewEnabled, function(v)
-			x1.PreviewEnabled = v
-			-- The loop clears the markers itself, but only while it is running: with the
-			-- script stopped or disabled nothing would ever come and collect them.
-			if not v then
-				local x4 = context.x4
-				if x4 and x4.preview_clear then
-					x4.preview_clear()
-				end
-			end
-			save_settings()
-		end, "Shows where the shape would put parts, using markers instead of parts. Works with nothing claimed.")
-		es(ac, "Ghost Count", 4, 200, x1.PreviewCount or 40, function(v)
-			x1.PreviewCount = v
-			save_settings()
-		end, true, "How many preview markers to draw.")
-		et(ac, "Deviation Readout", x1.PreviewDeviation, function(v)
-			x1.PreviewDeviation = v
-			save_settings()
-		end, "Adds the average and worst distance between a part and the target it was given to the status HUD.")
-
-		eh(ac, "Interface")
-		es(ac, "UI Scale", 0.5, 2.0, x1.UIScale or 1.0, function(v)
-			x1.UIScale = v
-			-- Every registered window, not just Main and Advanced: the shape
-			-- selector, target list, tutorial and dialogs are siblings here and
-			-- would otherwise be left at the old scale.
-			apply_ui_scale()
-			save_settings()
-		end, false, "Scales the entire interface. 1.0 is default.")
-
-		eh(ac, "Claiming")
-		et(ac, "Aggressive Claiming", x1.AggressiveClaim, function(v)
-			x1.AggressiveClaim = v
-			save_settings()
-		end, "WARNING: Spams CFrames into your character to forcefully steal Network Ownership from other scripts.")
-
-		et(ac, "Void Protection", x1.VoidProtection, function(v)
-			x1.VoidProtection = v
-			save_settings()
-		end, "Automatically ignores targets that fall into the void to prevent your parts from being destroyed.")
-
-		-- A rule change has to act on the formation in front of you, not only on the next
-		-- claim, or editing one looks like it did nothing at all.
-		local function rules_changed()
-			save_settings()
-			local x4 = context.x4
-			if x4 and x4.recheck_rules then
-				local n = x4.recheck_rules()
-				if n > 0 then
-					adv_notify("Claim Rules", n .. " parts released", 2)
-				end
-			end
-		end
-
-		es(ac, "Target Parts", 0, 5000, x1.TargetParts or 0, function(v)
-			x1.TargetParts = v
-			save_settings()
-		end, true, "Holds the formation at this many parts, releasing the surplus. 0 is no limit.")
-		cycle_btn(ac, "Surplus Rule", SURPLUS_RULES, function()
-			return x1.SurplusRule or "Farthest"
-		end, function(v)
-			x1.SurplusRule = v
-		end, "Which parts go when there are more than Target Parts. Parts held by Part Control are never released this way.")
-		es(ac, "Min Part Size", 0, 200, x1.RuleMinSize or 0, function(v)
-			x1.RuleMinSize = v
-			rules_changed()
-		end, false, "Ignores parts whose longest side is under this many studs. 0 is off.")
-		es(ac, "Max Part Size", 0, 500, x1.RuleMaxSize or 0, function(v)
-			x1.RuleMaxSize = v
-			rules_changed()
-		end, false, "Ignores parts whose longest side is over this many studs. 0 is off.")
-		es(ac, "Claim Radius", 0, 2000, x1.RuleClaimRadius or 0, function(v)
-			x1.RuleClaimRadius = v
-			save_settings()
-		end, false, "Only claims parts within this many studs of the core, measured when they are picked up. 0 is off.")
-		etb(ac, "Name Filter", x1.RuleName or "", function(v)
-			x1.RuleName = tostring(v or "")
-			rules_changed()
-		end, "Comma-separated. A plain word claims only parts whose name contains it; a word starting with - never claims a match. Empty is off.", 120)
-
-		-- x1.k5 has been the one extensible hook in the claim filter since the start and
-		-- has never had a way to reach it.
-		local function tags_text()
-			local t = x1.k5
-			if type(t) ~= "table" then
-				return ""
-			end
-			-- Filtered rather than handed straight to table.concat: k5 comes back from the
-			-- settings file as whatever was in it, and concat throws on a non-string entry
-			-- -- which would take the whole panel build down with it.
-			local out = {}
-			for _, tag in ipairs(t) do
-				if type(tag) == "string" then
-					out[#out + 1] = tag
-				end
-			end
-			return table.concat(out, ", ")
-		end
-
-		etb(ac, "Ignore Tags", tags_text(), function(v)
-			local list = {}
-			for entry in tostring(v or ""):gmatch("[^,]+") do
-				local tag = entry:gsub("^%s*(.-)%s*$", "%1")
-				if tag ~= "" then
-					list[#list + 1] = tag
-				end
-			end
-			x1.k5 = list
-			rules_changed()
-		end, "Never claims a part that has a child with one of these names, or whose parent does. Emptying this drops the two defaults; Reset All Settings puts them back.", 120)
-
-		eh(ac, "Performance")
-		if setfpscap then
-			-- 240, matching the desktop tree's slider. The two panels write the same
-			-- x1.FPSCap into the same settings file, and a 144 ceiling here silently
-			-- clamped a value set on desktop the first time this panel was opened.
-			es(ac, "FPS Cap (0=Unc)", 0, 240, x1.FPSCap or 60, function(v)
-				x1.FPSCap = v
-				setfpscap(v)
+		-- Rebuild cached sliders after an AI settings change or a reset.
+		local function populate_advanced()
+			ac:ClearAllChildren()
+			local acl = Instance.new("UIListLayout", ac)
+			acl.Padding = UDim.new(0, 8)
+			acl.HorizontalAlignment = Enum.HorizontalAlignment.Center
+			local ap = Instance.new("UIPadding", ac)
+			ap.PaddingLeft = UDim.new(0, 15)
+			ap.PaddingRight = UDim.new(0, 15)
+			eh(ac, "Tracking")
+			et(ac, "Predictive Tracking", x1.PredictiveTracking ~= false, function(v)
+				x1.PredictiveTracking = v
 				save_settings()
-			end, true, "Caps your max FPS. 0 means uncapped.")
-		end
+			end, "Predicts player movement to smooth out parts when targeting them.")
+			es(ac, "Prediction Factor", 0, 500, x1.PredictionFactor or 150, function(v)
+				x1.PredictionFactor = v
+				save_settings()
+			end, false, "How far ahead the script predicts the target's movement.")
+			eh(ac, "Physics")
+			es(ac, "Damping", 0, 5, x1.Damping, function(v)
+				x1.Damping = v
+				save_settings()
+			end, false, "Slows down parts to reduce jittering. Higher values = smoother but slower.")
+			es(ac, "Integral Gain", 0, 10, x1.Ki, function(v)
+				x1.Ki = v
+				save_settings()
+			end, false, "Helps parts reach their exact target position faster (fixes sagging).")
+			es(ac, "Max Speed", 50, 2000, x1.MaxSpeed or 500, function(v)
+				x1.MaxSpeed = v
+				save_settings()
+			end, false, "Caps the maximum velocity of all parts to prevent them from flinging.")
+			es(ac, "Angular Damp", 0, 1, x1.AngularDamping or 0.5, function(v)
+				x1.AngularDamping = v
+				save_settings()
+			end, false, "Stops parts from spinning uncontrollably on their own axis.")
+			es(ac, "Vert Stiffness", 0.1, 5, x1.VerticalStiffness or 1.0, function(v)
+				x1.VerticalStiffness = v
+				save_settings()
+			end, false, "Multiplies vertical pull to fight Roblox's gravity. Use 1.0 for normal.")
 
-		et(ac, "Disable Shadows", x1.Perf_DisableShadows, function(v)
-			x1.Perf_DisableShadows = v
-			ApplyPerfShadows(v)
-			save_settings()
-		end, "Turns off all game shadows to boost your FPS significantly.")
-		et(ac, "Disable Post-FX", x1.Perf_DisablePostFX, function(v)
-			x1.Perf_DisablePostFX = v
-			ApplyPerfPostFX(v)
-			save_settings()
-		end, "Disables Bloom, Blur, SunRays, and ColorCorrection to save performance.")
-		et(ac, "Potato Materials", x1.Perf_PotatoMaterials, function(v)
-			x1.Perf_PotatoMaterials = v
-			ApplyPerfMaterials(v)
-			save_settings()
-		end, "Forces all parts in the game to use SmoothPlastic to lower rendering load.")
-		et(ac, "Hide Particles", x1.Perf_HideParticles, function(v)
-			x1.Perf_HideParticles = v
-			ApplyPerfParticles(v)
-			save_settings()
-		end, "Hides fire, smoke, beams, trails, and particle emitters.")
-		
-		ApplyPerfShadows(x1.Perf_DisableShadows)
-		ApplyPerfPostFX(x1.Perf_DisablePostFX)
-		ApplyPerfMaterials(x1.Perf_PotatoMaterials)
-		ApplyPerfParticles(x1.Perf_HideParticles)
-		
-		local function update_color()
-			if x6.b then
-				x6.b.Color = x1.k3
-				if x6.b:FindFirstChild("Visual") and x6.b.Visual:FindFirstChildOfClass("ImageLabel") then
-					x6.b.Visual:FindFirstChildOfClass("ImageLabel").ImageColor3 = x1.k3
+			eh(ac, "Formation")
+			es(ac, "Time Scale", -3, 3, x1.TimeScale or 1.0, function(v)
+				x1.TimeScale = v
+				save_settings()
+			end, false, "Speed of the shape's own motion. 1 is normal, 0 freezes the pattern where it is, below 0 runs it backwards.")
+			cycle_btn(ac, "Slot Order", SLOT_MODES, function()
+				return x1.SlotMode or "Claim"
+			end, function(v)
+				x1.SlotMode = v
+			end, "Which part goes where. Claim is the order they were grabbed in; the rest sort the formation so the biggest, nearest or a shuffled part lands in slot 1. Re-sorted when the population changes or you press Re-roll Layout, not continuously.")
+			eb(ac, "Re-roll Layout", function()
+				local x4 = context.x4
+				if not (x4 and x4.reroll_seeds) then
+					return
+				end
+				local n = x4.reroll_seeds()
+				save_settings()
+				adv_notify("Formation", n .. " parts re-seeded", 2)
+			end)
+			sub_label(ac, "Scatters the current shape again without dropping the parts, and re-orders Shuffle.")
+			et(ac, "Shape Blend", x1.BlendEnabled, function(v)
+				x1.BlendEnabled = v
+				save_settings()
+			end, "Runs a second shape alongside the selected one and mixes the two.")
+			local blend_box
+			blend_box = etb(ac, "Blend Shape", x1.BlendShape or "", function(v)
+				local resolved = resolve_shape_name(v)
+				if resolved then
+					x1.BlendShape = resolved
+					blend_box.Text = resolved
+					-- Lets the runtime try again: it stops re-fetching a module that failed to
+					-- download, and a name change is the deliberate retry.
+					x6.bl_failed = nil
+				else
+					-- Keeping an unknown name would leave the blend permanently inert with
+					-- nothing in the panel to say why.
+					adv_notify("Blend", "No shape matches \"" .. tostring(v) .. "\"", 3)
+					blend_box.Text = x1.BlendShape or ""
+				end
+				save_settings()
+			end, "The second shape. Type any part of its name.")
+			es(ac, "Blend Weight", 0, 100, x1.BlendWeight or 0, function(v)
+				x1.BlendWeight = v
+				save_settings()
+			end, true, "0 is all the selected shape, 100 is all the blend shape.")
+			es(ac, "Blend Stagger", 0, 100, x1.BlendStagger or 0, function(v)
+				x1.BlendStagger = v
+				save_settings()
+			end, true, "Spreads the mix across the formation so it converts part by part. Needs Slot Order set to something other than Claim.")
+
+			eh(ac, "Preview")
+			et(ac, "Formation Preview", x1.PreviewEnabled, function(v)
+				x1.PreviewEnabled = v
+				-- The loop clears the markers itself, but only while it is running: with the
+				-- script stopped or disabled nothing would ever come and collect them.
+				if not v then
+					local x4 = context.x4
+					if x4 and x4.preview_clear then
+						x4.preview_clear()
+					end
+				end
+				save_settings()
+			end, "Shows where the shape would put parts, using markers instead of parts. Works with nothing claimed.")
+			es(ac, "Ghost Count", 4, 200, x1.PreviewCount or 40, function(v)
+				x1.PreviewCount = v
+				save_settings()
+			end, true, "How many preview markers to draw.")
+			et(ac, "Deviation Readout", x1.PreviewDeviation, function(v)
+				x1.PreviewDeviation = v
+				save_settings()
+			end, "Adds the average and worst distance between a part and the target it was given to the status HUD.")
+
+			eh(ac, "Interface")
+			es(ac, "UI Scale", 0.5, 2.0, x1.UIScale or 1.0, function(v)
+				x1.UIScale = v
+				-- Every registered window, not just Main and Advanced: the shape
+				-- selector, target list, tutorial and dialogs are siblings here and
+				-- would otherwise be left at the old scale.
+				apply_ui_scale()
+				save_settings()
+			end, false, "Scales the entire interface. 1.0 is default.")
+
+			eh(ac, "Claiming")
+			et(ac, "Aggressive Claiming", x1.AggressiveClaim, function(v)
+				x1.AggressiveClaim = v
+				save_settings()
+			end, "WARNING: Spams CFrames into your character to forcefully steal Network Ownership from other scripts.")
+
+			et(ac, "Void Protection", x1.VoidProtection, function(v)
+				x1.VoidProtection = v
+				save_settings()
+			end, "Automatically ignores targets that fall into the void to prevent your parts from being destroyed.")
+
+			-- A rule change has to act on the formation in front of you, not only on the next
+			-- claim, or editing one looks like it did nothing at all.
+			local function rules_changed()
+				save_settings()
+				local x4 = context.x4
+				if x4 and x4.recheck_rules then
+					local n = x4.recheck_rules()
+					if n > 0 then
+						adv_notify("Claim Rules", n .. " parts released", 2)
+					end
 				end
 			end
-			save_settings()
-		end
 
-		-- Each channel slider rebuilds the whole colour, so it has to hand the
-		-- other two back as the same integers they came in as. Color3 stores 0-1
-		-- floats and v/255 does not round-trip exactly, so the bare product
-		-- re-quantised the untouched channels on every drag.
-		local function ch(x)
-			return math.floor(x * 255 + 0.5)
-		end
-		eh(ac, "Core Marker")
-		es(ac, "Center Color R", 0, 255, ch(x1.k3.R), function(v)
-			x1.k3 = Color3.fromRGB(v, ch(x1.k3.G), ch(x1.k3.B))
-			update_color()
-		end, true)
-		es(ac, "Center Color G", 0, 255, ch(x1.k3.G), function(v)
-			x1.k3 = Color3.fromRGB(ch(x1.k3.R), v, ch(x1.k3.B))
-			update_color()
-		end, true)
-		es(ac, "Center Color B", 0, 255, ch(x1.k3.B), function(v)
-			x1.k3 = Color3.fromRGB(ch(x1.k3.R), ch(x1.k3.G), v)
-			update_color()
-		end, true)
+			es(ac, "Target Parts", 0, 5000, x1.TargetParts or 0, function(v)
+				x1.TargetParts = v
+				save_settings()
+			end, true, "Holds the formation at this many parts, releasing the surplus. 0 is no limit.")
+			cycle_btn(ac, "Surplus Rule", SURPLUS_RULES, function()
+				return x1.SurplusRule or "Farthest"
+			end, function(v)
+				x1.SurplusRule = v
+			end, "Which parts go when there are more than Target Parts. Parts held by Part Control are never released this way.")
+			es(ac, "Min Part Size", 0, 200, x1.RuleMinSize or 0, function(v)
+				x1.RuleMinSize = v
+				rules_changed()
+			end, false, "Ignores parts whose longest side is under this many studs. 0 is off.")
+			es(ac, "Max Part Size", 0, 500, x1.RuleMaxSize or 0, function(v)
+				x1.RuleMaxSize = v
+				rules_changed()
+			end, false, "Ignores parts whose longest side is over this many studs. 0 is off.")
+			es(ac, "Claim Radius", 0, 2000, x1.RuleClaimRadius or 0, function(v)
+				x1.RuleClaimRadius = v
+				save_settings()
+			end, false, "Only claims parts within this many studs of the core, measured when they are picked up. 0 is off.")
+			etb(ac, "Name Filter", x1.RuleName or "", function(v)
+				x1.RuleName = tostring(v or "")
+				rules_changed()
+			end, "Comma-separated. A plain word claims only parts whose name contains it; a word starting with - never claims a match. Empty is off.", 120)
 
-		-- Last, once every row exists: this is what keeps each control under its own
-		-- heading instead of sorted by class name. See order_children.
-		order_children(ac, acl)
+			-- x1.k5 has been the one extensible hook in the claim filter since the start and
+			-- has never had a way to reach it.
+			local function tags_text()
+				local t = x1.k5
+				if type(t) ~= "table" then
+					return ""
+				end
+				-- Filtered rather than handed straight to table.concat: k5 comes back from the
+				-- settings file as whatever was in it, and concat throws on a non-string entry
+				-- -- which would take the whole panel build down with it.
+				local out = {}
+				for _, tag in ipairs(t) do
+					if type(tag) == "string" then
+						out[#out + 1] = tag
+					end
+				end
+				return table.concat(out, ", ")
+			end
+
+			etb(ac, "Ignore Tags", tags_text(), function(v)
+				local list = {}
+				for entry in tostring(v or ""):gmatch("[^,]+") do
+					local tag = entry:gsub("^%s*(.-)%s*$", "%1")
+					if tag ~= "" then
+						list[#list + 1] = tag
+					end
+				end
+				x1.k5 = list
+				rules_changed()
+			end, "Never claims a part that has a child with one of these names, or whose parent does. Emptying this drops the two defaults; Reset All Settings puts them back.", 120)
+
+			eh(ac, "Performance")
+			if setfpscap then
+				-- 240, matching the desktop tree's slider. The two panels write the same
+				-- x1.FPSCap into the same settings file, and a 144 ceiling here silently
+				-- clamped a value set on desktop the first time this panel was opened.
+				es(ac, "FPS Cap (0=Unc)", 0, 240, x1.FPSCap or 60, function(v)
+					x1.FPSCap = v
+					setfpscap(v)
+					save_settings()
+				end, true, "Caps your max FPS. 0 means uncapped.")
+			end
+
+			et(ac, "Disable Shadows", x1.Perf_DisableShadows, function(v)
+				x1.Perf_DisableShadows = v
+				ApplyPerfShadows(v)
+				save_settings()
+			end, "Turns off all game shadows to boost your FPS significantly.")
+			et(ac, "Disable Post-FX", x1.Perf_DisablePostFX, function(v)
+				x1.Perf_DisablePostFX = v
+				ApplyPerfPostFX(v)
+				save_settings()
+			end, "Disables Bloom, Blur, SunRays, and ColorCorrection to save performance.")
+			et(ac, "Potato Materials", x1.Perf_PotatoMaterials, function(v)
+				x1.Perf_PotatoMaterials = v
+				ApplyPerfMaterials(v)
+				save_settings()
+			end, "Forces all parts in the game to use SmoothPlastic to lower rendering load.")
+			et(ac, "Hide Particles", x1.Perf_HideParticles, function(v)
+				x1.Perf_HideParticles = v
+				ApplyPerfParticles(v)
+				save_settings()
+			end, "Hides fire, smoke, beams, trails, and particle emitters.")
+
+			ApplyPerfShadows(x1.Perf_DisableShadows)
+			ApplyPerfPostFX(x1.Perf_DisablePostFX)
+			ApplyPerfMaterials(x1.Perf_PotatoMaterials)
+			ApplyPerfParticles(x1.Perf_HideParticles)
+
+			local function update_color()
+				if x6.b then
+					x6.b.Color = x1.k3
+					if x6.b:FindFirstChild("Visual") and x6.b.Visual:FindFirstChildOfClass("ImageLabel") then
+						x6.b.Visual:FindFirstChildOfClass("ImageLabel").ImageColor3 = x1.k3
+					end
+				end
+				save_settings()
+			end
+
+			-- Each channel slider rebuilds the whole colour, so it has to hand the
+			-- other two back as the same integers they came in as. Color3 stores 0-1
+			-- floats and v/255 does not round-trip exactly, so the bare product
+			-- re-quantised the untouched channels on every drag.
+			local function ch(x)
+				return math.floor(x * 255 + 0.5)
+			end
+			eh(ac, "Core Marker")
+			es(ac, "Center Color R", 0, 255, ch(x1.k3.R), function(v)
+				x1.k3 = Color3.fromRGB(v, ch(x1.k3.G), ch(x1.k3.B))
+				update_color()
+			end, true)
+			es(ac, "Center Color G", 0, 255, ch(x1.k3.G), function(v)
+				x1.k3 = Color3.fromRGB(ch(x1.k3.R), v, ch(x1.k3.B))
+				update_color()
+			end, true)
+			es(ac, "Center Color B", 0, 255, ch(x1.k3.B), function(v)
+				x1.k3 = Color3.fromRGB(ch(x1.k3.R), ch(x1.k3.G), v)
+				update_color()
+			end, true)
+
+			-- Last, once every row exists: this is what keeps each control under its own
+			-- heading instead of sorted by class name. See order_children.
+			order_children(ac, acl)
+		end
+		x5.refresh_advanced = populate_advanced
+		populate_advanced()
 
 		-- A CanvasGroup, unlike Advanced: it is the one side panel that animates, so
 		-- it needs a GroupTransparency to fade rather than a BackgroundTransparency
@@ -1132,6 +1141,18 @@ return function(context)
 			end
 		end
 
+		local pc_sync = {}
+		local function pc_slider(key, ...)
+			local control, sync = es(...)
+			pc_sync[#pc_sync + 1] = function() sync(x1[key]) end
+			return control
+		end
+		local function pc_toggle(key, ...)
+			local control, sync = et(...)
+			pc_sync[#pc_sync + 1] = function() sync(x1[key]) end
+			return control
+		end
+
 		local count_lbl = Instance.new("TextLabel", pcc)
 		count_lbl.BackgroundTransparency = 1
 		count_lbl.Size = UDim2.new(1, 0, 0, 14)
@@ -1199,7 +1220,7 @@ return function(context)
 			if x6.a then
 				for _, d in pairs(x6.a) do
 					local m = d.pc_mode
-					if m then
+					if m or d.pc_ride or d.pc_phys then
 						held = held + 1
 						if m == "pin" then
 							pins = pins + 1
@@ -1592,19 +1613,19 @@ return function(context)
 			end
 		end
 
-		es(phys_body, "Pull Strength", -1, 200, tonumber(x1.PartCtlPull) or -1, function(v)
+		pc_slider("PartCtlPull", phys_body, "Pull Strength", -1, 200, tonumber(x1.PartCtlPull) or -1, function(v)
 			x1.PartCtlPull = v
 			apply_phys_live()
 		end, false, INHERIT_HINT)
-		es(phys_body, "Damping", -1, 5, tonumber(x1.PartCtlDamping) or -1, function(v)
+		pc_slider("PartCtlDamping", phys_body, "Damping", -1, 5, tonumber(x1.PartCtlDamping) or -1, function(v)
 			x1.PartCtlDamping = v
 			apply_phys_live()
 		end, false, INHERIT_HINT)
-		es(phys_body, "Smoothing", -1, 1, tonumber(x1.PartCtlSmoothing) or -1, function(v)
+		pc_slider("PartCtlSmoothing", phys_body, "Smoothing", -1, 1, tonumber(x1.PartCtlSmoothing) or -1, function(v)
 			x1.PartCtlSmoothing = v
 			apply_phys_live()
 		end, false, INHERIT_HINT)
-		es(phys_body, "Max Speed", -1, 2000, tonumber(x1.PartCtlMaxSpeed) or -1, function(v)
+		pc_slider("PartCtlMaxSpeed", phys_body, "Max Speed", -1, 2000, tonumber(x1.PartCtlMaxSpeed) or -1, function(v)
 			x1.PartCtlMaxSpeed = v
 			apply_phys_live()
 		end, false, INHERIT_HINT)
@@ -1629,7 +1650,7 @@ return function(context)
 
 		eh(pcc, "Options")
 
-		et(pcc, "Rideable", x1.PartCtlRide == true, function(v)
+		pc_toggle("PartCtlRide", pcc, "Rideable", x1.PartCtlRide == true, function(v)
 			x1.PartCtlRide = v
 			-- pc_set_ride, not pc_assign. Riding is a property of the part, and routing
 			-- it through the mode meant this did nothing at all while the mode was
@@ -1641,21 +1662,21 @@ return function(context)
 			save_settings()
 		end, "Makes selected parts solid and standable.")
 
-		et(pcc, "Surface Snap", x1.PartCtlSurfaceSnap ~= false, function(v)
+		pc_toggle("PartCtlSurfaceSnap", pcc, "Surface Snap", x1.PartCtlSurfaceSnap ~= false, function(v)
 			x1.PartCtlSurfaceSnap = v
 			save_settings()
 		end, "Drops a dragged part onto whatever you point at. Off slides it along a fixed distance from the camera, which is what a drag used to do.")
 
-		es(pcc, "Grid Snap", 0, 16, tonumber(x1.PartCtlGridSnap) or 0, function(v)
+		pc_slider("PartCtlGridSnap", pcc, "Grid Snap", 0, 16, tonumber(x1.PartCtlGridSnap) or 0, function(v)
 			x1.PartCtlGridSnap = v
 		end, false, "Rounds a drag onto a stud grid. 0 is off.")
 
-		et(pcc, "Multi-Select Mode", x1.PartCtlMultiSelect == true, function(v)
+		pc_toggle("PartCtlMultiSelect", pcc, "Multi-Select Mode", x1.PartCtlMultiSelect == true, function(v)
 			x1.PartCtlMultiSelect = v
 			save_settings()
 		end, "Tapping a part adds it to the selection, or removes it if already in.")
 
-		et(pcc, "Stay Armed When Closed", x1.PartCtlEnabled == true, function(v)
+		pc_toggle("PartCtlEnabled", pcc, "Stay Armed When Closed", x1.PartCtlEnabled == true, function(v)
 			x1.PartCtlEnabled = v
 			save_settings()
 		end, "Keeps tap-to-select and drag working after this panel is closed.")
@@ -1670,6 +1691,7 @@ return function(context)
 				end
 				return
 			end
+			for _, sync in ipairs(pc_sync) do sync() end
 			refresh_counts()
 			refresh_modes()
 			refresh_shape_head()
@@ -1711,7 +1733,7 @@ return function(context)
 			if ai_loading then return end
 			ai_loading = true
 			local ok, err = pcall(function()
-				loadstring(game:HttpGet("https://raw.githubusercontent.com/CarlDV/ProjectUAI/main/dist/uai.lua"))()
+				loadstring(game:HttpGet("https://raw.githubusercontent.com/CarlDV/ProjectUAI/main/dist/uai.lua"))({ gravity = context })
 			end)
 			ai_loading = false
 			if not ok then
@@ -1961,14 +1983,7 @@ return function(context)
 
 			et(gsc, "Preserve Collisions", x1.PreserveCollisions, function(v)
 				x1.PreserveCollisions = v
-				-- while disabled every part already holds its original collision, so
-				-- turning this off there would undo that until the next enable
-				local keep = v or x1.Disabled
-				for part, data in pairs(x6.a) do
-					if part and part.Parent then
-						part.CanCollide = keep and data.original_can_collide or false
-					end
-				end
+				x6.refresh_collisions()
 				save_settings()
 			end)
 
@@ -2199,23 +2214,7 @@ return function(context)
 				cancel_btn.MouseButton1Click:Connect(dismiss_confirm)
 
 				confirm_reset_btn.MouseButton1Click:Connect(function()
-					if reset_config then
-						reset_config()
-						save_settings()
-						-- UIScale is part of the reset and only takes effect when
-						-- every window is rescaled, or the panel keeps the old
-						-- value until the next launch.
-						apply_ui_scale()
-						if x5.up then
-							x5.up()
-						end
-						if x6.b then
-							x6.b.Color = x1.k3
-							if x6.b:FindFirstChild("Visual") and x6.b.Visual:FindFirstChildOfClass("ImageLabel") then
-								x6.b.Visual:FindFirstChildOfClass("ImageLabel").ImageColor3 = x1.k3
-							end
-						end
-					end
+					context.controls.reset()
 					dismiss_confirm()
 				end)
 

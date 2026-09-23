@@ -71,7 +71,20 @@ Roblox physics and network ownership still depend on the game session.
 ## Usage
 Just run `main.lua` in your executor. It pulls the rest of the files directly from GitHub
 
-The **PROJECT UAI** button launches [Project UAI](https://github.com/CarlDV/ProjectUAI) on demand.
+The **PROJECT UAI** button launches [Project UAI](https://github.com/Project-Ptolemy/ProjectUAI) on demand.
+With UAI 1.6.0, the desktop and mobile buttons also connect the live Gravity engine.
+UAI can inspect and switch shapes, change native controls, target players, invoke
+shape buttons, and save or reload custom modules. Long pasted scripts can be used
+by their saved file path. The loader exposes `_GRAVITY_CONTEXT` while the session
+is running and clears it on unload; UAI follows the current session after a reload.
+
+UAI can also inspect and select held parts by session-scoped IDs, pin or move
+groups, assign per-part shapes, change ride/physics overrides, and release them.
+Native keybindings, shape shortcuts, favorites, interface and visual performance
+settings, frame cap, core color, ignore tags, manual Slingshot controls and settings
+reset are available on both desktop and mobile. Key conflicts are rejected; part
+assignments recheck the session and selection after a shape download. Reload both
+projects to use the complete controls.
 
 ### Controls
 - **E**: Start script (grabs parts)
@@ -86,6 +99,7 @@ The **PROJECT UAI** button launches [Project UAI](https://github.com/CarlDV/Proj
 - `System.lua`: Runs the physics math and loops
 - `config.lua`: Default settings and shape variables
 - `UI.lua` / `UI_elements.lua`: The UI stuff
+- `RuntimeControls.lua`: Shared settings effects, control refresh and complete reset hooks
 - `shapes/`: The math for how each shape is positioned
 - `shapes-onreview/`: Four experimental modules, labeled separately in the motion gallery
 - `docs/`: Formation guide, plugin website, copyable LLM prompt and motion galleries
@@ -101,6 +115,7 @@ to run the suites, including modules using `continue` and Unicode filenames:
 python tools/test_luau.py --luau PATH_TO_LUAU tests/plugin_actions.lua
 python tools/test_luau.py --luau PATH_TO_LUAU tests/mobile_controls.lua
 python tools/test_luau.py --luau PATH_TO_LUAU tests/session_lifecycle.lua
+python tools/test_luau.py --luau PATH_TO_LUAU tests/uai_integration.lua
 python tools/test_luau.py --luau PATH_TO_LUAU tests/insane_shapes_smoke.lua
 python tools/test_luau.py --luau PATH_TO_LUAU tests/math_curves_smoke.lua
 python tools/test_luau.py --luau PATH_TO_LUAU tests/formation_smoke.lua

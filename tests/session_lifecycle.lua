@@ -36,6 +36,7 @@ for _, mobile in ipairs({ false, true }) do
 	fixture.input.TouchEnabled, fixture.input.KeyboardEnabled = mobile, not mobile
 	assert(loadfile("main.lua"))()
 	local ctx = assert(active_context)
+	check(getgenv()._GRAVITY_CONTEXT == ctx, "loader exposes the live context for UAI")
 	local sys, x6 = ctx.x4, ctx.x6
 	ctx.x1.k7 = 1 -- deterministic full sweeps for the physics transition checks
 	check(type(ctx.destroy) == "function", "loader exposes full teardown")
@@ -149,6 +150,7 @@ for _, mobile in ipairs({ false, true }) do
 	check(player.MaximumSimulationRadius == 120 and player.SimulationRadius == 90 and player.NetworkIsSleeping,
 		"X restores captured simulation properties")
 	check(getgenv()._GRAVITY_DESTROY == nil and getgenv()._GRAVITY_SESSION_ID == nil, "X unregisters the session")
+	check(getgenv()._GRAVITY_CONTEXT == nil, "X clears the UAI integration handle")
 	old_action(mobile and "C" or "Gravity_Recenter", Enum.UserInputState.Begin)
 	sys.f4(Vector3.zero)
 	check(x6.b == nil, "queued old callbacks cannot recreate the core")

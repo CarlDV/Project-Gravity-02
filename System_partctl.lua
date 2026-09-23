@@ -11,6 +11,7 @@ return function(context, x7)
 	x6.pc_highlights = x6.pc_highlights or setmetatable({}, { __mode = "k" })
 	x6.pc_offsets = x6.pc_offsets or setmetatable({}, { __mode = "k" })
 	x6.pc_mods = x6.pc_mods or {}
+	x6.pc_api_version = 1 -- guarded external assignments and complete release_all
 
 	local RIDE_PHYSICS = PhysicalProperties.new(0.7, 0.5, 0.3, 1, 1)
 	local LIGHT_PHYSICS = PhysicalProperties.new(0.001, 0, 0, 0, 0)
@@ -201,7 +202,7 @@ return function(context, x7)
 			for i = #arr, 1, -1 do
 				local p = arr[i]
 				local d = p and x6.a[p]
-				if d and d.pc_mode then
+				if d and (d.pc_mode or d.pc_ride or d.pc_phys) then
 					pc_release(p)
 					n = n + 1
 				end
@@ -210,7 +211,7 @@ return function(context, x7)
 		-- active_array is the fast path but it is not authoritative: a part can be
 		-- in x6.a without having made it into the dense array yet.
 		for p, d in pairs(x6.a) do
-			if d.pc_mode then
+			if d.pc_mode or d.pc_ride or d.pc_phys then
 				pc_release(p)
 				n = n + 1
 			end
@@ -318,7 +319,7 @@ return function(context, x7)
 	local function pc_select_overridden()
 		local n, added, capped = pc_count(), 0, false
 		pc_each_held(function(p, d)
-			if d.pc_mode then
+			if d.pc_mode or d.pc_ride or d.pc_phys then
 				if n >= MAX_SELECT then
 					capped = true
 					return
@@ -401,8 +402,12 @@ return function(context, x7)
 					end
 				end
 			end
-			mod.pc_cfg_ref = shape_cfg
 		end
+
+		-- A remote controller may have yielded while loading the shape. Do not
+		-- apply its request to a newer session or to a changed selection.
+		if opts.guard and not opts.guard() then return 0 end
+		if mod then mod.pc_cfg_ref = shape_cfg end
 
 		local count = 0
 		for part, _ in pairs(x6.pc_selected) do

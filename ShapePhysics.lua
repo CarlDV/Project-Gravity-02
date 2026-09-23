@@ -5,6 +5,18 @@ local M = {}
 local LIGHT = PhysicalProperties.new(0.001, 0, 0, 0, 0)
 local RIDE = PhysicalProperties.new(0.7, 0.5, 0.3, 1, 1)
 
+-- Also used when a setting changes while physics is paused/stopped. Keep shape,
+-- free-physics and ride priorities identical to the normal per-frame path.
+function M.apply_collisions(p, d, x1)
+	local free = d.free_physics == true
+	local keep = free or x1.Disabled or x1.PreserveCollisions
+	if d.collisions ~= nil and not x1.Disabled then keep = d.collisions end
+	local want = keep and d.original_can_collide or false
+	if d.collisions == nil and not free and not x1.Disabled and d.pc_ride then want = true end
+	if p.CanCollide ~= want then p.CanCollide = want end
+	d.collision_active = d.collisions ~= nil or nil
+end
+
 local function clear_tracking(d)
 	d.vl, d.trans_vl, d.last_target_pos, d.sys_last_t = nil, nil, nil, nil
 	d.parked = nil
@@ -49,12 +61,7 @@ function M.apply(p, d, x1)
 		d.angular_active = d.angular_velocity ~= nil or nil
 	end
 	if free or resumed or d.collisions ~= nil or d.collision_active then
-		local keep = free or x1.Disabled or x1.PreserveCollisions
-		if d.collisions ~= nil and not x1.Disabled then keep = d.collisions end
-		local want = keep and d.original_can_collide or false
-		if d.collisions == nil and not free and not x1.Disabled and d.pc_ride then want = true end
-		if p.CanCollide ~= want then p.CanCollide = want end
-		d.collision_active = d.collisions ~= nil or nil
+		M.apply_collisions(p, d, x1)
 	end
 	return free
 end

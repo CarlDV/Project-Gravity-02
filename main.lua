@@ -228,6 +228,16 @@ local function copy_table(t)
 	return res
 end
 
+local function restore_table(target, source)
+	for key in pairs(target) do if source[key] == nil then target[key] = nil end end
+	for key, value in pairs(source) do
+		if typeof(value) == "table" then
+			if typeof(target[key]) ~= "table" then target[key] = {} end
+			restore_table(target[key], value)
+		else target[key] = value end
+	end
+end
+
 -- Forward-declared so reset_config below can reach x4 at call time. The table
 -- itself is built further down, once every field it carries exists.
 local context
@@ -268,7 +278,8 @@ local function reset_config()
 	for k, v in pairs(default_x1) do
 		if k ~= "S" and k ~= "Targets" then
 			if typeof(v) == "table" then
-				x1[k] = copy_table(v)
+				if typeof(x1[k]) ~= "table" then x1[k] = {} end
+				restore_table(x1[k], v)
 			else
 				x1[k] = v
 			end
@@ -281,13 +292,20 @@ local function reset_config()
 				x2[mk][sk] = sv
 			end
 		else
-			-- A shape registered after startup -- a local or AI-authored one -- was
-			-- never in the default_x2 snapshot, so it kept its tuned values through a
-			-- reset while every shipped shape went back. Seeding the block here means
-			-- the reset covers it too.
+			-- Restore a shipped shape whose settings block was removed at runtime.
 			x2[mk] = {}
 			for sk, sv in pairs(mv) do
 				x2[mk][sk] = sv
+			end
+		end
+	end
+	-- Modules registered after the startup snapshot keep their own control
+	-- defaults. Reset their existing blocks in place, including active pc_cfg refs.
+	for name, block in pairs(x2) do
+		if not default_x2[name] then
+			local mod = context and context.loaded_shapes and context.loaded_shapes[name]
+			if type(mod) == "table" and type(mod.Controls) == "table" then
+				restore_table(block, plugin_controls.defaults(mod.Controls))
 			end
 		end
 	end
@@ -308,7 +326,7 @@ local function reset_config()
 	if x4 and x4.switch_shape and was_shape ~= x1.k6 then
 		local target = x1.k6
 		x1.k6 = was_shape
-		pcall(x4.switch_shape, target)
+		pcall(x4.switch_shape, target, false)
 	end
 end
 
@@ -583,6 +601,7 @@ local ANIM = {
 }
 
 context = {
+	session_id = SESSION_ID,
 	v1 = v1,
 	v2 = v2,
 	v3 = v3,
@@ -745,6 +764,7 @@ local function destroy()
 		getgenv()._GRAVITY_SESSION_ID = nil
 		getgenv()._GRAVITY_DESTROY = nil
 	end
+	if getgenv()._GRAVITY_CONTEXT == context then getgenv()._GRAVITY_CONTEXT = nil end
 end
 
 context.destroy = destroy
@@ -769,6 +789,10 @@ local success, err = pcall(function()
 	-- The UI reaches back into x8 to rebind hotkeys, so it has to be in the
 	-- context before x5.st() builds the panel below.
 	context.x8 = x8
+	local controls_builder = load_module("RuntimeControls.lua")
+	if not controls_builder then error("Failed to load RuntimeControls") end
+	if x6.torn_down then return end
+	context.controls = controls_builder(context)
 
 	x4.f3()
 	x8.i()
@@ -813,4 +837,7 @@ if not success then
 	warn("Project Gravity Initialization Failed: " .. tostring(err))
 else
 	getgenv()._GRAVITY_SESSION_ID = SESSION_ID
+	-- Live integration handle. Consumers resolve it for each action so a reload
+	-- or unload cannot leave them controlling the previous Gravity session.
+	getgenv()._GRAVITY_CONTEXT = context
 end

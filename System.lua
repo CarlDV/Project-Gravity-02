@@ -11,6 +11,10 @@ return function(context)
 	x6.apply_shape_physics = function(p, d)
 		if not x6.torn_down then return ShapePhysics.apply(p, d, x1) end
 	end
+	x6.refresh_collisions = function()
+		if x6.torn_down then return end
+		for p, d in pairs(x6.a) do ShapePhysics.apply_collisions(p, d, x1) end
+	end
 	local x7 = {}
 	local ANTI_SLEEP = Vector3.new(0, 0.01, 0)
 	local ZERO_VECTOR = Vector3.zero
@@ -2229,7 +2233,7 @@ return function(context)
 	-- lives in System because System owns x1 and x6; the panel is told afterwards
 	-- through the two optional UI hooks, which is also why a hotkey press updates
 	-- the dropdown label even though the dropdown was never opened.
-	function x4.switch_shape(name)
+	function x4.switch_shape(name, persist)
 		if x6.torn_down then return false end
 		if not name or not x2[name] then
 			return false
@@ -2257,7 +2261,7 @@ return function(context)
 			d.v1, d.v2, d.v3, d.v4, d.v5, d.v6, d.v7, d.v8, d.v9 = nil, nil, nil, nil, nil, nil, nil, nil, nil
 			d.integral = Vector3.zero
 		end
-		if context.save_settings then
+		if persist ~= false and context.save_settings then
 			context.save_settings()
 		end
 		local ui = context.x5

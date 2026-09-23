@@ -4,7 +4,6 @@ return function(context)
 	local favorites, save_favs, save_settings = context.favorites, context.save_favs, context.save_settings
 	local get_shape = context.get_shape
 	local load_module = context.load_module
-	local reset_config = context.reset_config
 	local PluginControls = context.plugin_controls or load_module("PluginControls.lua")
 	local MobileControls
 	if context.is_mobile or v1.TouchEnabled then MobileControls = load_module("MobileControls.lua") end
@@ -156,6 +155,10 @@ return function(context)
 	local x5 = {}
 	x5.g = nil
 	x5.restore_perf = RestoreAllPerf
+	x5.performance_effects = {
+		Perf_DisableShadows = ApplyPerfShadows, Perf_DisablePostFX = ApplyPerfPostFX,
+		Perf_PotatoMaterials = ApplyPerfMaterials, Perf_HideParticles = ApplyPerfParticles,
+	}
 	x5.s = es
 	x5.t = et
 	x5.b = eb
@@ -1316,6 +1319,7 @@ return function(context)
 		ksearch:GetPropertyChangedSignal("Text"):Connect(function()
 			populate_keybinds(ksearch.Text)
 		end)
+		x5.refresh_keybinds = function() populate_keybinds(ksearch.Text) end
 
 		local pcm = Instance.new("CanvasGroup", sg)
 		pcm.Name = "PartControl"
@@ -1385,6 +1389,18 @@ return function(context)
 		-- flush against the panel edge.
 		pcp.PaddingBottom = UDim.new(0, 20)
 
+		local pc_sync = {}
+		local function pc_slider(key, ...)
+			local control, sync = es(...)
+			pc_sync[#pc_sync + 1] = function() sync(x1[key]) end
+			return control
+		end
+		local function pc_toggle(key, ...)
+			local control, sync = et(...)
+			pc_sync[#pc_sync + 1] = function() sync(x1[key]) end
+			return control
+		end
+
 		local count_lbl = Instance.new("TextLabel", pcc)
 		count_lbl.BackgroundTransparency = 1
 		count_lbl.Size = UDim2.new(1, 0, 0, 20)
@@ -1451,7 +1467,7 @@ return function(context)
 			if x6.a then
 				for _, d in pairs(x6.a) do
 					local m = d.pc_mode
-					if m then
+					if m or d.pc_ride or d.pc_phys then
 						held = held + 1
 						if m == "pin" then
 							pins = pins + 1
@@ -1880,19 +1896,19 @@ return function(context)
 			end
 		end
 
-		es(phys_body, "Pull Strength", -1, 200, tonumber(x1.PartCtlPull) or -1, function(v)
+		pc_slider("PartCtlPull", phys_body, "Pull Strength", -1, 200, tonumber(x1.PartCtlPull) or -1, function(v)
 			x1.PartCtlPull = v
 			apply_phys_live()
 		end, false, INHERIT_HINT)
-		es(phys_body, "Damping", -1, 5, tonumber(x1.PartCtlDamping) or -1, function(v)
+		pc_slider("PartCtlDamping", phys_body, "Damping", -1, 5, tonumber(x1.PartCtlDamping) or -1, function(v)
 			x1.PartCtlDamping = v
 			apply_phys_live()
 		end, false, INHERIT_HINT)
-		es(phys_body, "Smoothing", -1, 1, tonumber(x1.PartCtlSmoothing) or -1, function(v)
+		pc_slider("PartCtlSmoothing", phys_body, "Smoothing", -1, 1, tonumber(x1.PartCtlSmoothing) or -1, function(v)
 			x1.PartCtlSmoothing = v
 			apply_phys_live()
 		end, false, INHERIT_HINT)
-		es(phys_body, "Max Speed", -1, 2000, tonumber(x1.PartCtlMaxSpeed) or -1, function(v)
+		pc_slider("PartCtlMaxSpeed", phys_body, "Max Speed", -1, 2000, tonumber(x1.PartCtlMaxSpeed) or -1, function(v)
 			x1.PartCtlMaxSpeed = v
 			apply_phys_live()
 		end, false, INHERIT_HINT)
@@ -1917,7 +1933,7 @@ return function(context)
 
 		eh(pcc, "Options")
 
-		et(pcc, "Rideable", x1.PartCtlRide == true, function(v)
+		pc_toggle("PartCtlRide", pcc, "Rideable", x1.PartCtlRide == true, function(v)
 			x1.PartCtlRide = v
 			-- pc_set_ride, not pc_assign. Riding is a property of the part, and routing
 			-- it through the mode meant this did nothing at all while the mode was
@@ -1929,21 +1945,21 @@ return function(context)
 			save_settings()
 		end, "Makes selected parts solid and standable.")
 
-		et(pcc, "Surface Snap", x1.PartCtlSurfaceSnap ~= false, function(v)
+		pc_toggle("PartCtlSurfaceSnap", pcc, "Surface Snap", x1.PartCtlSurfaceSnap ~= false, function(v)
 			x1.PartCtlSurfaceSnap = v
 			save_settings()
 		end, "Drops a dragged part onto whatever you point at. Off slides it along a fixed distance from the camera, which is what a drag used to do.")
 
-		es(pcc, "Grid Snap", 0, 16, tonumber(x1.PartCtlGridSnap) or 0, function(v)
+		pc_slider("PartCtlGridSnap", pcc, "Grid Snap", 0, 16, tonumber(x1.PartCtlGridSnap) or 0, function(v)
 			x1.PartCtlGridSnap = v
 		end, false, "Rounds a drag onto a stud grid. 0 is off.")
 
-		et(pcc, "Multi-Select (Click)", x1.PartCtlMultiSelect == true, function(v)
+		pc_toggle("PartCtlMultiSelect", pcc, "Multi-Select (Click)", x1.PartCtlMultiSelect == true, function(v)
 			x1.PartCtlMultiSelect = v
 			save_settings()
 		end, "Adds to the selection on every click, without holding Shift.")
 
-		et(pcc, "Stay Armed When Closed", x1.PartCtlEnabled == true, function(v)
+		pc_toggle("PartCtlEnabled", pcc, "Stay Armed When Closed", x1.PartCtlEnabled == true, function(v)
 			x1.PartCtlEnabled = v
 			save_settings()
 		end, "Keeps click-to-select and drag working after this panel is closed.")
@@ -1958,6 +1974,7 @@ return function(context)
 				end
 				return
 			end
+			for _, sync in ipairs(pc_sync) do sync() end
 			refresh_counts()
 			refresh_modes()
 			refresh_shape_head()
@@ -2008,7 +2025,7 @@ return function(context)
 			if ai_loading then return end
 			ai_loading = true
 			local ok, err = pcall(function()
-				loadstring(game:HttpGet("https://raw.githubusercontent.com/CarlDV/ProjectUAI/main/dist/uai.lua"))()
+				loadstring(game:HttpGet("https://raw.githubusercontent.com/CarlDV/ProjectUAI/main/dist/uai.lua"))({ gravity = context })
 			end)
 			ai_loading = false
 			if not ok then
@@ -2130,14 +2147,7 @@ return function(context)
 
 			et(gsc, "Preserve Collisions", x1.PreserveCollisions, function(v)
 				x1.PreserveCollisions = v
-				-- while disabled every part already holds its original collision, so
-				-- turning this off there would undo that until the next enable
-				local keep = v or x1.Disabled
-				for part, data in pairs(x6.a) do
-					if part and part.Parent then
-						part.CanCollide = keep and data.original_can_collide or false
-					end
-				end
+				x6.refresh_collisions()
 				save_settings()
 			end)
 
@@ -2729,45 +2739,7 @@ return function(context)
 				cancel_btn.MouseButton1Click:Connect(dismiss_confirm)
 
 				confirm_reset_btn.MouseButton1Click:Connect(function()
-					if reset_config then
-						reset_config()
-						save_settings()
-						-- The four Perf_* flags describe changes already made to the
-						-- game -- Lighting.GlobalShadows, every part's Material, every
-						-- emitter -- and reset_config only puts the flags back to
-						-- false. Without this the config and the save file said
-						-- "shadows on" while the game still had them off, and the
-						-- toggle needed a manual extra click before it would actually
-						-- undo anything.
-						RestoreAllPerf()
-						-- Keybinds and UIScale are both part of the reset, and
-						-- neither takes effect on its own: the hotkeys have to be
-						-- rebound from the restored table and every window
-						-- rescaled, or the panel keeps the old values until the
-						-- next launch.
-						local x8 = context.x8
-						if x8 and x8.rebind_all then
-							pcall(x8.rebind_all)
-						end
-						apply_ui_scale()
-						-- Repaint the two windows that are built once and never rebuilt
-						-- by f1. Every control in them cached its value at build time,
-						-- so without this they all sat showing pre-reset numbers while
-						-- x1 held the defaults.
-						if x5.refresh_advanced then
-							pcall(x5.refresh_advanced)
-						end
-						pcall(populate_keybinds, ksearch.Text)
-						if x5.up then
-							x5.up()
-						end
-						if x6.b then
-							x6.b.Color = x1.k3
-							if x6.b:FindFirstChild("Visual") and x6.b.Visual:FindFirstChildOfClass("ImageLabel") then
-								x6.b.Visual:FindFirstChildOfClass("ImageLabel").ImageColor3 = x1.k3
-							end
-						end
-					end
+					context.controls.reset()
 					dismiss_confirm()
 				end)
 

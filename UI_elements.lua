@@ -138,13 +138,14 @@ return function(context)
 
 		-- single place a value is committed, so the slider and the number box can
 		-- never disagree: both paths land here
-		local function apply(v)
+		local function apply(v, silent)
 			if is_int or mx - mn > 50 then
 				v = math.floor(v + 0.5)
 			else
 				v = math.floor(v * 10 + 0.5) / 10
 			end
 			v = math.clamp(v, mn, mx)
+			if silent and current == v then return end
 			current = v
 			local snapped_pc = (v - mn) / (mx - mn)
 			-- A drag wants the knob glued to the cursor, but a value typed into the
@@ -154,9 +155,9 @@ return function(context)
 			v6:Create(fl, move, { Size = UDim2.new(snapped_pc, 0, 1, 0) }):Play()
 			v6:Create(k, move, { Position = UDim2.new(snapped_pc, 0, 0.5, 0) }):Play()
 			vl.Text = tostring(v)
-			cb(v)
-			if save_settings then
-				save_settings()
+			if not silent then
+				cb(v)
+				if save_settings then save_settings() end
 			end
 		end
 
@@ -257,6 +258,8 @@ return function(context)
 				c3:Disconnect()
 			end
 		end)
+		-- Silent refresh updates the cached value without firing an action or save.
+		return f, function(value) apply(value, true) end
 	end
 
 	function M.t(p, t, df, cb, desc)
@@ -306,8 +309,8 @@ return function(context)
 		b.Size = UDim2.new(1, 0, 1, 0)
 		b.Text = ""
 
-		b.MouseButton1Click:Connect(function()
-			df = not df
+		local function paint(value)
+			df = value == true
 			-- Colour has no momentum; the knob does. Tinting on TOGGLE's Back
 			-- curve would make the track flash past its target and back.
 			v6:Create(
@@ -320,13 +323,16 @@ return function(context)
 				A.TOGGLE,
 				{ Position = df and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7) }
 			):Play()
+		end
+		b.MouseButton1Click:Connect(function()
+			paint(not df)
 			cb(df)
 			if save_settings then
 				save_settings()
 			end
 		end)
 		add_press_feedback(b, 0.97)
-		return b
+		return b, function(value) if (value == true) ~= df then paint(value) end end
 	end
 
 	function M.b(p, t, cb)
